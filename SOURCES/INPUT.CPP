@@ -13,6 +13,10 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/DIRTYBOX.H>
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern S32 ExtDecorEditorConsumesInput(void);
+#endif
+
 // Input
 U32 WaitNoKey = 0;
 
@@ -304,6 +308,14 @@ void MyGetInput() {
         BoxUpdate();
         return;
     }
+
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    if (ExtDecorEditorConsumesInput()) {
+        Input &= ~(I_UP | I_DOWN | I_LEFT | I_RIGHT | I_INVENTORY);
+        if (MyKey == K_UP OR MyKey == K_DOWN OR MyKey == K_LEFT OR MyKey == K_RIGHT)
+            MyKey = 0;
+    }
+#endif
 
     // Attente d'événement de touche dans la boucle
 

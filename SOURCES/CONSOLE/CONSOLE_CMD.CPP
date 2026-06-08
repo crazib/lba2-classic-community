@@ -55,6 +55,10 @@ extern void ExtDecorOverlaySetMaxDist(S32 maxdist);
 extern S32 ExtDecorOverlayGetIds(void);
 extern S32 ExtDecorOverlayGetBoxes(void);
 extern S32 ExtDecorOverlayGetMaxDist(void);
+extern void ExtDecorEditorSetSelect(S32 select);
+extern S32 ExtDecorEditorGetSelect(void);
+extern S32 ExtDecorEditorHasSelection(void);
+extern void ExtDecorEditorClearSelection(void);
 extern void ZoneOverlaySet(S32 ids, S32 boxes);
 extern void ZoneOverlaySetMaxDist(S32 maxdist);
 extern void ZoneOverlaySetType(S32 type);
@@ -1195,6 +1199,41 @@ static void cmd_extobj(int argc, const char *argv[]) {
     Console_Print("Usage: extobj ids | boxes | off | dist <world-units>");
 }
 
+static void cmd_extedit_status(void) {
+    Console_Print("extedit select=%d selected=%d",
+                  (int)ExtDecorEditorGetSelect(),
+                  (int)ExtDecorEditorHasSelection());
+}
+
+static void cmd_extedit(int argc, const char *argv[]) {
+    if (argc < 2 || strcmp(argv[1], "status") == 0) {
+        cmd_extedit_status();
+        Console_Print("Usage: extedit select | off | clear");
+        return;
+    }
+
+    if (strcmp(argv[1], "select") == 0) {
+        ExtDecorEditorSetSelect(TRUE);
+        cmd_extedit_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "off") == 0) {
+        ExtDecorEditorSetSelect(FALSE);
+        cmd_extedit_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "clear") == 0) {
+        ExtDecorEditorClearSelection();
+        cmd_extedit_status();
+        return;
+    }
+
+    Console_Print("Unknown extedit mode: %s", argv[1]);
+    Console_Print("Usage: extedit select | off | clear");
+}
+
 static void cmd_zones_status(void) {
     S32 type = ZoneOverlayGetType();
     if (type >= 0) {
@@ -1742,6 +1781,11 @@ void Console_RegisterAll(void) {
                               "extobj ids | boxes | off | dist <world-units>",
                               "Exterior scenes only. Draws placed decor object labels as cX,Y #index bbody; "
                               "boxes also draws the decor ZV. Distance 0 disables filtering.");
+    Console_RegisterCommandEx("extedit", cmd_extedit,
+                              "Exterior decor object selection",
+                              "extedit select | off | clear",
+                              "Exterior scenes only. select enables mouse picking and arrow-key nudging. "
+                              "Arrow keys nudge 1m; Shift+arrow nudges 5m. Runtime-only for now.");
     Console_RegisterCommandEx("zones", cmd_zones,
                               "Scene zone overlay",
                               "zones ids | boxes | off | dist <world-units> | type <number|all>",

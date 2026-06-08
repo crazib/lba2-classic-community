@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "description": "Demo exterior edits from the Citadel Island editor experiments.",
+  "operations": [
+    {
+      "type": "set_ile_object",
+      "file": "CITADEL.ILE",
+      "cube": [7, 10],
+      "object": 4,
+      "expect_body": 5,
+      "expect_position": [23296, 500, 16640],
+      "expect_zv": [23008, 500, 16229, 23584, 1374, 17051],
+      "position": [22272, 500, 17664],
+      "zv": [21984, 500, 17253, 22560, 1374, 18075]
+    },
+    {
+      "type": "set_scene_zones",
+      "file": "SCENE.HQR",
+      "scene": 46,
+      "zones": [
+        {
+          "zone": 2,
+          "expect_type": 5,
+          "expect_num": 342,
+          "expect_bounds": [23552, 500, 16256, 24064, 1828, 17072],
+          "bounds": [22528, 500, 17280, 23040, 1828, 18096]
+        },
+        {
+          "zone": 3,
+          "expect_type": 1,
+          "expect_num": 1,
+          "expect_bounds": [23552, 500, 16384, 24064, 756, 16896],
+          "bounds": [22528, 500, 17408, 23040, 756, 17920]
+        },
+        {
+          "zone": 4,
+          "expect_type": 5,
+          "expect_num": 342,
+          "expect_bounds": [22528, 500, 16192, 23040, 1860, 17008],
+          "bounds": [21504, 500, 17216, 22016, 1860, 18032]
+        }
+      ]
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 996,
+      "flag": 1,
+      "text": "\"Look, we moved the sign!\""
+    },
+    {
+      "type": "set_ile_object",
+      "file": "CITADEL.ILE",
+      "cube": [8, 9],
+      "object": 9,
+      "expect_body": 5,
+      "expect_position": [11008, 250, 27904],
+      "expect_zv": [10597, 250, 27616, 11419, 1124, 28192],
+      "position": [9472, 250, 28928],
+      "zv": [9061, 250, 28640, 9883, 1124, 29216]
+    },
+    {
+      "type": "set_scene_zones",
+      "file": "SCENE.HQR",
+      "scene": 42,
+      "zones": [
+        {
+          "zone": 11,
+          "expect_type": 5,
+          "expect_num": 339,
+          "expect_bounds": [10496, 250, 28160, 11376, 1450, 28672],
+          "bounds": [8960, 250, 29184, 9840, 1450, 29696],
+          "num": 996
+        },
+        {
+          "zone": 12,
+          "expect_type": 1,
+          "expect_num": 2,
+          "expect_bounds": [10752, 250, 28160, 11264, 970, 28672],
+          "bounds": [9216, 250, 29184, 9728, 970, 29696]
+        },
+        {
+          "zone": 15,
+          "expect_type": 5,
+          "expect_num": 339,
+          "expect_bounds": [10624, 250, 27136, 11440, 1482, 27648],
+          "bounds": [9088, 250, 28160, 9904, 1482, 28672],
+          "num": 996
+        }
+      ]
+    },
+    {
+      "type": "set_terrain_heights",
+      "file": "CITADEL.ILE",
+      "cube": [8, 9],
+      "heights": [
+        {"x": 16, "z": 57, "expect": 250, "height": 2000},
+        {"x": 16, "z": 58, "expect": 250, "height": 2000},
+        {"x": 14, "z": 59, "expect": 250, "height": 2000},
+        {"x": 15, "z": 59, "expect": 250, "height": 2000},
+        {"x": 16, "z": 59, "expect": 500, "height": 3000},
+        {"x": 17, "z": 59, "expect": 250, "height": 2000},
+        {"x": 18, "z": 59, "expect": 250, "height": 2000},
+        {"x": 16, "z": 60, "expect": 250, "height": 2000},
+        {"x": 16, "z": 61, "expect": 250, "height": 2000}
+      ]
+    }
+  ]
+}

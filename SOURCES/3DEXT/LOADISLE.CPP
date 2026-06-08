@@ -136,6 +136,10 @@ void LoadIsland() {
     char islandFilename[ADELINE_MAX_PATH];
     char islandFilePath[ADELINE_MAX_PATH];
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    ExtDecorEditorClearRuntimeEdits();
+#endif
+
     // reinit ressources HQR
 
     /* Bound %s length so ".obl" / ".ile" + NUL fit in ADELINE_MAX_PATH (GCC -Wformat-truncation). */
@@ -227,6 +231,9 @@ S32 LoadCube(S32 x, S32 y) {
 
     if (NbObjDecors != 0) {
         ListDecors = (T_DECORS *)HQR_Get(HQR_ListDecors, index + HQR_CUBE_DOB);
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+        ExtDecorEditorApplyRuntimeEditsForLoadedCube(x, y);
+#endif
     }
 
     MapPolyGround = (T_HALF_POLY *)HQR_Get(HQR_MapPGround, index + HQR_CUBE_GRD);

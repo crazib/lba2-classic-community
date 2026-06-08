@@ -40,6 +40,7 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
+| `.` | Toggle exterior decor edit selection | `LBA2CC_EDITOR` only. Exterior scenes only; also enables decor labels and boxes. |
 | `F9` | Screenshot | Captures screenshot as PCX (original format) |
 | `F10` | Terrain benchmark | Runs 20-loop terrain rendering benchmark (exterior only) |
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |
@@ -66,12 +67,17 @@ When `DEBUG_TOOLS` and `LBA2CC_EDITOR` are enabled, the console exposes modern c
 | `extobj dist <world-units>` | Limit labels/boxes to objects whose rotated camera depth is at or below the given distance; `0` disables the filter. |
 | `extobj off` | Disable the exterior decor overlay. |
 | `extobj status` | Show the current overlay state. |
+| `extedit select` | Enable exterior decor object mouse selection and turn on decor labels/boxes. Left-click near a projected object origin or box to select it; the selected label is drawn as `[cX,Y #index bbody]`. |
+| `extedit off` | Disable exterior decor object selection and clear the selected object. |
+| `extedit clear` | Clear the selected exterior decor object while leaving selection mode enabled. |
 | `zones ids` | Draw each scene zone's index, type, and number at its projected center. Message zones also show the required facing direction. |
 | `zones boxes` | Draw the same labels plus each scene zone box using the historical zone debug drawing style. |
 | `zones dist <world-units>` | Limit labels/boxes to zones whose center is within the given distance of Twinsen; `0` disables the filter. |
 | `zones type <number\|all>` | Filter by zone type. Use `zones type 5` for message/read triggers. |
 | `zones off` | Disable the scene zone overlay. |
 | `zones status` | Show the current zone overlay state. |
+
+While `extedit select` is active, arrow keys nudge the selected decor object at runtime by one meter (`512` world units): left/right move west/east and up/down move north/south. Hold `Shift` with an arrow key to nudge five meters. These runtime nudges do not yet write back to `.ILE` data or a mod manifest.
 
 ## File locations
 

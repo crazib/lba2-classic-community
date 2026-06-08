@@ -26,6 +26,11 @@
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ExtDecorEditorSetSelect(S32 select);
+extern S32 ExtDecorEditorGetSelect(void);
+#endif
+
 #ifdef DEBUG_TOOLS
 static inline U32 DosAvailableMem(void) { return 0; }
 #endif
@@ -768,6 +773,13 @@ restartloop:
             FirstTime = AFF_ALL_FLIP;
             RestoreTimer();
         }
+
+#if defined(LBA2CC_EDITOR)
+        if (MyKey == K_PERIOD) {
+            ExtDecorEditorSetSelect(!ExtDecorEditorGetSelect());
+            InitWaitNoKey();
+        }
+#endif
 
         if (MyKey == K_K) {
             ExtraBonus(ptrobj->Obj.X,
@@ -1924,6 +1936,11 @@ restartloop:
 
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
+
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+        if (CubeMode == CUBE_EXTERIEUR AND ExtDecorEditorGetSelect())
+            FirstTime = AFF_ALL_FLIP;
+#endif
 
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
         AffScene(FirstTime);

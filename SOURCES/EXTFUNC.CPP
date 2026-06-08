@@ -17,6 +17,11 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ExtDecorEditorBeginFrame(void);
+extern void ExtDecorEditorEndFrame(void);
+#endif
+
 extern S32 Nxw, Nyw, Nzw;
 extern S32 SaveNxw, SaveNzw;
 extern S32 OldX, OldY, OldZ;
@@ -312,6 +317,10 @@ void AffGrilleExt() {
 
     ManageSystem(); // for streaming
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    ExtDecorEditorBeginFrame();
+#endif
+
 #ifdef LBA_EDITOR
     if (FlagInfos & INFO_HORIZON)
 #else
@@ -324,6 +333,10 @@ void AffGrilleExt() {
     ManageSystem(); // for streaming
 
     AffichageTerrainZBuf();
+
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    ExtDecorEditorEndFrame();
+#endif
 
     ManageSystem(); // for streaming
 
