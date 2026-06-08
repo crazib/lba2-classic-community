@@ -94,6 +94,47 @@ extern U8 *SearchPtrAnimAction;
 /*══════════════════════════════════════════════════════════════════════════*/
 #define HashLine(x0, y0, x1, y1, coul, ep) Line(x0, y0, x1, y1, coul)
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+static S32 ZoneOverlayIds = FALSE;
+static S32 ZoneOverlayBoxes = FALSE;
+static S32 ZoneOverlayMaxDist = 0;
+static S32 ZoneOverlayType = -1;
+
+#define ZONE_OVERLAY_TEXT 15
+#define ZONE_OVERLAY_BACK 0
+#define ZONE_OVERLAY_BOX 15
+#define ZONE_OVERLAY_BOX_AXIS 248
+
+void ZoneOverlaySet(S32 ids, S32 boxes) {
+    ZoneOverlayIds = ids ? TRUE : FALSE;
+    ZoneOverlayBoxes = boxes ? TRUE : FALSE;
+}
+
+void ZoneOverlaySetMaxDist(S32 maxdist) {
+    ZoneOverlayMaxDist = maxdist > 0 ? maxdist : 0;
+}
+
+void ZoneOverlaySetType(S32 type) {
+    ZoneOverlayType = type >= 0 ? type : -1;
+}
+
+S32 ZoneOverlayGetIds(void) {
+    return ZoneOverlayIds;
+}
+
+S32 ZoneOverlayGetBoxes(void) {
+    return ZoneOverlayBoxes;
+}
+
+S32 ZoneOverlayGetMaxDist(void) {
+    return ZoneOverlayMaxDist;
+}
+
+S32 ZoneOverlayGetType(void) {
+    return ZoneOverlayType;
+}
+#endif
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 S32 DrawCube(S32 xw0, S32 yw0, S32 zw0,
              S32 xw1, S32 yw1, S32 zw1,
@@ -349,6 +390,143 @@ void DrawZonesDec() {
 
     UnsetClip();
 }
+/*══════════════════════════════════════════════════════════════════════════*/
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+static const char *ZoneOverlayMessageDir(S32 dir) {
+    switch (dir) {
+    case 1:
+        return "N";
+    case 2:
+        return "S";
+    case 4:
+        return "E";
+    case 8:
+        return "W";
+    }
+
+    return "-";
+}
+
+static S32 ZoneOverlayProject(S32 x, S32 y, S32 z, S32 *xs, S32 *ys) {
+    LongWorldRotatePoint(x, y, z);
+    if (!LongProjectPoint(X0, Y0, Z0))
+        return FALSE;
+    if (Xp < 0 OR Xp >= (S32)ModeDesiredX OR Yp < 0 OR Yp >= (S32)ModeDesiredY)
+        return FALSE;
+    *xs = Xp;
+    *ys = Yp;
+    return TRUE;
+}
+
+static void ZoneOverlayDrawBox(T_ZONE *ptrz) {
+    S32 x0, y0, x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, x7, y7;
+    S16 coul = ZONE_OVERLAY_BOX;
+    S16 coul1 = ZONE_OVERLAY_BOX_AXIS;
+
+    if (!ZoneOverlayProject(ptrz->X0, ptrz->Y0, ptrz->Z0, &x0, &y0))
+        return;
+    if (!ZoneOverlayProject(ptrz->X1, ptrz->Y0, ptrz->Z0, &x1, &y1))
+        return;
+    if (!ZoneOverlayProject(ptrz->X1, ptrz->Y0, ptrz->Z1, &x2, &y2))
+        return;
+    if (!ZoneOverlayProject(ptrz->X0, ptrz->Y0, ptrz->Z1, &x3, &y3))
+        return;
+    if (!ZoneOverlayProject(ptrz->X0, ptrz->Y1, ptrz->Z0, &x4, &y4))
+        return;
+    if (!ZoneOverlayProject(ptrz->X1, ptrz->Y1, ptrz->Z0, &x5, &y5))
+        return;
+    if (!ZoneOverlayProject(ptrz->X1, ptrz->Y1, ptrz->Z1, &x6, &y6))
+        return;
+    if (!ZoneOverlayProject(ptrz->X0, ptrz->Y1, ptrz->Z1, &x7, &y7))
+        return;
+
+    Line(x0, y0, x1, y1, coul);
+    Line(x1, y1, x2, y2, coul);
+    Line(x2, y2, x3, y3, coul);
+    Line(x3, y3, x0, y0, coul);
+
+    Line(x0, y0, x4, y4, coul1);
+    Line(x1, y1, x5, y5, coul1);
+    Line(x2, y2, x6, y6, coul1);
+    Line(x3, y3, x7, y7, coul1);
+    Line(x4, y4, x5, y5, coul1);
+    Line(x5, y5, x6, y6, coul1);
+    Line(x6, y6, x7, y7, coul1);
+    Line(x7, y7, x4, y4, coul1);
+}
+
+static S32 ZoneOverlayInDistance(T_ZONE *ptrz) {
+    S64 dx;
+    S64 dy;
+    S64 dz;
+    S64 maxdist;
+
+    if (ZoneOverlayMaxDist <= 0)
+        return TRUE;
+
+    dx = ((S64)ptrz->X0 + (S64)ptrz->X1) / 2 - (S64)ListObjet[NUM_PERSO].Obj.X;
+    dy = ((S64)ptrz->Y0 + (S64)ptrz->Y1) / 2 - (S64)ListObjet[NUM_PERSO].Obj.Y;
+    dz = ((S64)ptrz->Z0 + (S64)ptrz->Z1) / 2 - (S64)ListObjet[NUM_PERSO].Obj.Z;
+    maxdist = (S64)ZoneOverlayMaxDist;
+
+    return (dx * dx + dy * dy + dz * dz) <= (maxdist * maxdist);
+}
+
+void ZoneOverlayDraw(void) {
+    S32 n;
+    T_ZONE *ptrz;
+
+    if (!ZoneOverlayIds AND !ZoneOverlayBoxes)
+        return;
+
+    if (!ListZone OR NbZones <= 0)
+        return;
+
+    UnsetClip();
+
+    ptrz = ListZone;
+    for (n = 0; n < NbZones; n++, ptrz++) {
+        S32 center_x;
+        S32 center_y;
+        S32 center_z;
+        S32 xs, ys;
+
+        if (ZoneOverlayType >= 0 AND ptrz->Type != ZoneOverlayType)
+            continue;
+
+        if (!ZoneOverlayInDistance(ptrz))
+            continue;
+
+        if (ZoneOverlayBoxes) {
+            ZoneOverlayDrawBox(ptrz);
+            UnsetClip();
+        }
+
+        if (!ZoneOverlayIds)
+            continue;
+
+        center_x = (ptrz->X0 + ptrz->X1) / 2;
+        center_y = (ptrz->Y0 + ptrz->Y1) / 2;
+        center_z = (ptrz->Z0 + ptrz->Z1) / 2;
+
+        if (ZoneOverlayProject(center_x, center_y, center_z, &xs, &ys)) {
+            S32 label_y = ys - 12;
+            if (label_y < 0)
+                label_y = ys;
+            CoulText(ZONE_OVERLAY_TEXT, ZONE_OVERLAY_BACK);
+            if (ptrz->Type == 5) {
+                GraphPrintf(FALSE, xs, label_y, "z%d t%d n%d d%s",
+                            n, ptrz->Type, ptrz->Num, ZoneOverlayMessageDir(ptrz->Info2));
+            } else {
+                GraphPrintf(FALSE, xs, label_y, "z%d t%d n%d",
+                            n, ptrz->Type, ptrz->Num);
+            }
+        }
+    }
+
+    UnsetClip();
+}
+#endif
 /*══════════════════════════════════════════════════════════════════════════*/
 void InitSysText(void) {
     S32 n;
@@ -6073,6 +6251,9 @@ startaffscene:
 
     /*------------------------------------------------------------------------*/
     //DrawZonesDec()	;
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    ZoneOverlayDraw();
+#endif
 
     //	if ( FlagNoFlip )	return	;//	Cf DoFoundObj()
 

@@ -12,6 +12,15 @@ extern void AffichageObjetDecorsZV(void);
 /*--------------------------------------------------------------------------*/
 extern void AffichageObjetDecorsZBuf(void);
 /*--------------------------------------------------------------------------*/
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ExtDecorOverlaySet(S32 ids, S32 boxes);
+extern void ExtDecorOverlaySetMaxDist(S32 maxdist);
+extern S32 ExtDecorOverlayGetIds(void);
+extern S32 ExtDecorOverlayGetBoxes(void);
+extern S32 ExtDecorOverlayGetMaxDist(void);
+extern void ExtDecorOverlayDraw(void);
+/*--------------------------------------------------------------------------*/
+#endif
 extern S32 TestZVDecors(S32 xw, S32 yw, S32 zw, T_DECORS *objet);
 
 #endif // DECORS_H

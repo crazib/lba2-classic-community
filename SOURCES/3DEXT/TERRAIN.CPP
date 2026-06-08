@@ -881,6 +881,9 @@ void AffichageTerrainZBuf(void) {
         AffichageObjetDecorsZV();
     }
 #endif
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    ExtDecorOverlayDraw();
+#endif
 
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
 }

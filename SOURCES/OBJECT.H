@@ -108,6 +108,17 @@ extern S32 AffOneObject(T_SORT *pt);
 /*--------------------------------------------------------------------------*/
 extern void AffScene(S32 flagflip);
 /*--------------------------------------------------------------------------*/
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ZoneOverlaySet(S32 ids, S32 boxes);
+extern void ZoneOverlaySetMaxDist(S32 maxdist);
+extern void ZoneOverlaySetType(S32 type);
+extern S32 ZoneOverlayGetIds(void);
+extern S32 ZoneOverlayGetBoxes(void);
+extern S32 ZoneOverlayGetMaxDist(void);
+extern S32 ZoneOverlayGetType(void);
+extern void ZoneOverlayDraw(void);
+#endif
+/*--------------------------------------------------------------------------*/
 extern void SetZoneCamera(T_ZONE *ptrz);
 /*--------------------------------------------------------------------------*/
 extern void CheckZoneSce(T_OBJET *ptrobj, U8 numobj);

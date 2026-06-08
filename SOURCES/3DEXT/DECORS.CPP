@@ -29,6 +29,38 @@ extern S32 FlagMasque;
 #define MAX_SOUS_OBJET 20
 #define SIZE_BRICK_Y 256
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+static S32 ExtDecorOverlayIds = FALSE;
+static S32 ExtDecorOverlayBoxes = FALSE;
+static S32 ExtDecorOverlayMaxDist = 0;
+
+#define EXT_DECOR_OVERLAY_TEXT 15
+#define EXT_DECOR_OVERLAY_BOX 15
+#define EXT_DECOR_OVERLAY_BOX_AXIS 248
+#define EXT_DECOR_OVERLAY_BACK 0
+
+void ExtDecorOverlaySet(S32 ids, S32 boxes) {
+    ExtDecorOverlayIds = ids ? TRUE : FALSE;
+    ExtDecorOverlayBoxes = boxes ? TRUE : FALSE;
+}
+
+void ExtDecorOverlaySetMaxDist(S32 maxdist) {
+    ExtDecorOverlayMaxDist = maxdist > 0 ? maxdist : 0;
+}
+
+S32 ExtDecorOverlayGetIds(void) {
+    return ExtDecorOverlayIds;
+}
+
+S32 ExtDecorOverlayGetBoxes(void) {
+    return ExtDecorOverlayBoxes;
+}
+
+S32 ExtDecorOverlayGetMaxDist(void) {
+    return ExtDecorOverlayMaxDist;
+}
+#endif
+
 /*══════════════════════════════════════════════════════════════════════════*/
 /*══════════════════════════════════════════════════════════════════════════*/
 // affiche les objets de decors
@@ -126,6 +158,97 @@ void AffZVObjet(T_DECORS *ptrobj) {
     DrawCubeNoBox(ptrobj->Xworld, ptrobj->Yworld, ptrobj->Zworld,
                   ptrobj->XMin, ptrobj->YMin, ptrobj->ZMin,
                   ptrobj->XMax, ptrobj->YMax, ptrobj->ZMax);
+}
+#endif
+
+/*══════════════════════════════════════════════════════════════════════════*/
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+static S32 ExtDecorOverlayProject(S32 x, S32 y, S32 z, S32 *xs, S32 *ys) {
+    LongWorldRotatePoint(x, y, z);
+    if (!LongProjectPoint(X0, Y0, Z0))
+        return FALSE;
+    if (Xp < 0 OR Xp >= (S32)ModeDesiredX OR Yp < 0 OR Yp >= (S32)ModeDesiredY)
+        return FALSE;
+    *xs = Xp;
+    *ys = Yp;
+    return TRUE;
+}
+
+static void ExtDecorOverlayDrawBox(T_DECORS *ptrobj) {
+    S32 x0, y0, x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, x7, y7;
+    S16 coul = EXT_DECOR_OVERLAY_BOX;
+    S16 coul1 = EXT_DECOR_OVERLAY_BOX_AXIS;
+
+    if (!ExtDecorOverlayProject(ptrobj->XMin, ptrobj->YMin, ptrobj->ZMin, &x0, &y0))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMax, ptrobj->YMin, ptrobj->ZMin, &x1, &y1))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMax, ptrobj->YMin, ptrobj->ZMax, &x2, &y2))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMin, ptrobj->YMin, ptrobj->ZMax, &x3, &y3))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMin, ptrobj->YMax, ptrobj->ZMin, &x4, &y4))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMax, ptrobj->YMax, ptrobj->ZMin, &x5, &y5))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMax, ptrobj->YMax, ptrobj->ZMax, &x6, &y6))
+        return;
+    if (!ExtDecorOverlayProject(ptrobj->XMin, ptrobj->YMax, ptrobj->ZMax, &x7, &y7))
+        return;
+
+    Line(x0, y0, x1, y1, coul);
+    Line(x1, y1, x2, y2, coul);
+    Line(x2, y2, x3, y3, coul);
+    Line(x3, y3, x0, y0, coul);
+
+    Line(x0, y0, x4, y4, coul1);
+    Line(x1, y1, x5, y5, coul1);
+    Line(x2, y2, x6, y6, coul1);
+    Line(x3, y3, x7, y7, coul1);
+    Line(x4, y4, x5, y5, coul1);
+    Line(x5, y5, x6, y6, coul1);
+    Line(x6, y6, x7, y7, coul1);
+    Line(x7, y7, x4, y4, coul1);
+}
+
+void ExtDecorOverlayDraw(void) {
+    S32 i;
+    T_LIST_TRI *ptrtri;
+    T_DECORS *ptrobj;
+
+    if (!ExtDecorOverlayIds AND !ExtDecorOverlayBoxes)
+        return;
+
+    UnsetClip();
+
+    ptrtri = ListTriExt;
+    for (i = 0; i < NbObjScreen; i++, ptrtri++) {
+        S32 xs, ys;
+
+        if (ExtDecorOverlayMaxDist > 0 AND ptrtri->Zrot > ExtDecorOverlayMaxDist)
+            continue;
+
+        ptrobj = ptrtri->PtrDec;
+        if (!(ptrobj->Body & DEC_DRAWN))
+            continue;
+
+        if (ExtDecorOverlayBoxes) {
+            ExtDecorOverlayDrawBox(ptrobj);
+        }
+
+        if (ExtDecorOverlayIds) {
+            if (ExtDecorOverlayProject(ptrobj->Xworld, ptrobj->Yworld, ptrobj->Zworld, &xs, &ys)) {
+                S32 label_y = ys - 12;
+                if (label_y < 0)
+                    label_y = ys;
+                CoulText(EXT_DECOR_OVERLAY_TEXT, EXT_DECOR_OVERLAY_BACK);
+                GraphPrintf(FALSE, xs, label_y, "c%d,%d #%d b%d",
+                            CurrentCubeX, CurrentCubeY, ptrtri->Num, ptrobj->Body & 0xFFFF);
+            }
+        }
+    }
+
+    UnsetClip();
 }
 #endif
 

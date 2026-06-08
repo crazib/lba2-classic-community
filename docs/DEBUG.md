@@ -55,6 +55,24 @@ ASCII mode controls how the game interprets keyboard input:
 
 Pressing `F12` toggles between these modes. If console toggle also uses `F12` (default), set `ConsoleToggleKey` to a different scancode in `lba2.cfg`.
 
+## Editor/debug authoring commands
+
+When `DEBUG_TOOLS` and `LBA2CC_EDITOR` are enabled, the console exposes modern community editor/debug helpers. These are separate from the preserved historical `LBA_EDITOR`/PERSO code paths.
+
+| Command | Description |
+|---------|-------------|
+| `extobj ids` | In exterior scenes, draw each visible placed decor object's island-map cube, object index, and body id above its projected origin. |
+| `extobj boxes` | Draw the same labels plus each decor object's ZV box. |
+| `extobj dist <world-units>` | Limit labels/boxes to objects whose rotated camera depth is at or below the given distance; `0` disables the filter. |
+| `extobj off` | Disable the exterior decor overlay. |
+| `extobj status` | Show the current overlay state. |
+| `zones ids` | Draw each scene zone's index, type, and number at its projected center. Message zones also show the required facing direction. |
+| `zones boxes` | Draw the same labels plus each scene zone box using the historical zone debug drawing style. |
+| `zones dist <world-units>` | Limit labels/boxes to zones whose center is within the given distance of Twinsen; `0` disables the filter. |
+| `zones type <number\|all>` | Filter by zone type. Use `zones type 5` for message/read triggers. |
+| `zones off` | Disable the scene zone overlay. |
+| `zones status` | Show the current zone overlay state. |
+
 ## File locations
 
 All debug-related files are saved to your user data directory:

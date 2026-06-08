@@ -53,6 +53,13 @@ if(DEBUG_TOOLS)
     add_compile_definitions(DEBUG_TOOLS=1)
 endif()
 
+# Modern LBA2 Classic Community editor/debug authoring tools. This is separate
+# from the historical Adeline LBA_EDITOR/PERSO code paths preserved in source.
+option(LBA2CC_EDITOR "Enable LBA2 Classic Community editor/debug authoring tools" ON)
+if(LBA2CC_EDITOR)
+    add_compile_definitions(LBA2CC_EDITOR=1)
+endif()
+
 # Performance options
 option(LBA2_NATIVE_ARCH "Use -march=native for host-optimized build (not portable)" OFF)
 
@@ -126,7 +133,7 @@ set(LBA2_BUNDLE_IDENTIFIER  "org.lbalab.lba2cc"             CACHE STRING "macOS 
 
 # Build info header (timestamp from compile, flags from configure,
 # version macro from the include of VERSION_GENERATED.h inside BUILD_INFO.h.in).
-set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM}")
+set(BUILD_FLAGS_STR "SOUND_BACKEND=${SOUND_BACKEND} MVIDEO_BACKEND=${MVIDEO_BACKEND} ENABLE_ASM=${ENABLE_ASM} LBA2CC_EDITOR=${LBA2CC_EDITOR}")
 configure_file(${CMAKE_SOURCE_DIR}/SOURCES/BUILD_INFO.h.in ${CMAKE_BINARY_DIR}/BUILD_INFO.h)
 
 # Generate the .desktop entry and AppImage env file from the product metadata

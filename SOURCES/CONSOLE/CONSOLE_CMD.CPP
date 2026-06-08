@@ -49,6 +49,21 @@
    be checked with #if. Catch any drift at compile time instead. */
 typedef char console_give_max_inventory_check[(MAX_INVENTORY == CONSOLE_GIVE_MAX_INVENTORY) ? 1 : -1];
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ExtDecorOverlaySet(S32 ids, S32 boxes);
+extern void ExtDecorOverlaySetMaxDist(S32 maxdist);
+extern S32 ExtDecorOverlayGetIds(void);
+extern S32 ExtDecorOverlayGetBoxes(void);
+extern S32 ExtDecorOverlayGetMaxDist(void);
+extern void ZoneOverlaySet(S32 ids, S32 boxes);
+extern void ZoneOverlaySetMaxDist(S32 maxdist);
+extern void ZoneOverlaySetType(S32 type);
+extern S32 ZoneOverlayGetIds(void);
+extern S32 ZoneOverlayGetBoxes(void);
+extern S32 ZoneOverlayGetMaxDist(void);
+extern S32 ZoneOverlayGetType(void);
+#endif
+
 /* Shared gate for give/savebug: user-facing reason strings (in-scene predicate). */
 static const char *console_avail_in_game_scene(void) {
     return Console_AvailInGameScene_FromState(
@@ -1133,6 +1148,123 @@ static void cmd_loglevel(int argc, const char *argv[]) {
     Console_Print("console log level: %s", loglevel_name(Log_GetConsoleSeverity()));
 }
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+static void cmd_extobj_status(void) {
+    Console_Print("extobj ids=%d boxes=%d dist=%d",
+                  (int)ExtDecorOverlayGetIds(),
+                  (int)ExtDecorOverlayGetBoxes(),
+                  (int)ExtDecorOverlayGetMaxDist());
+}
+
+static void cmd_extobj(int argc, const char *argv[]) {
+    if (argc < 2 || strcmp(argv[1], "status") == 0) {
+        cmd_extobj_status();
+        Console_Print("Usage: extobj ids | boxes | off | dist <world-units>");
+        return;
+    }
+
+    if (strcmp(argv[1], "ids") == 0) {
+        ExtDecorOverlaySet(TRUE, FALSE);
+        cmd_extobj_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "boxes") == 0) {
+        ExtDecorOverlaySet(TRUE, TRUE);
+        cmd_extobj_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "off") == 0) {
+        ExtDecorOverlaySet(FALSE, FALSE);
+        cmd_extobj_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "dist") == 0) {
+        if (argc < 3) {
+            Console_Print("Usage: extobj dist <world-units>  (0 = no filter)");
+            return;
+        }
+        ExtDecorOverlaySetMaxDist((S32)strtol(argv[2], NULL, 0));
+        cmd_extobj_status();
+        return;
+    }
+
+    Console_Print("Unknown extobj mode: %s", argv[1]);
+    Console_Print("Usage: extobj ids | boxes | off | dist <world-units>");
+}
+
+static void cmd_zones_status(void) {
+    S32 type = ZoneOverlayGetType();
+    if (type >= 0) {
+        Console_Print("zones ids=%d boxes=%d dist=%d type=%d",
+                      (int)ZoneOverlayGetIds(),
+                      (int)ZoneOverlayGetBoxes(),
+                      (int)ZoneOverlayGetMaxDist(),
+                      (int)type);
+    } else {
+        Console_Print("zones ids=%d boxes=%d dist=%d type=all",
+                      (int)ZoneOverlayGetIds(),
+                      (int)ZoneOverlayGetBoxes(),
+                      (int)ZoneOverlayGetMaxDist());
+    }
+}
+
+static void cmd_zones(int argc, const char *argv[]) {
+    if (argc < 2 || strcmp(argv[1], "status") == 0) {
+        cmd_zones_status();
+        Console_Print("Usage: zones ids | boxes | off | dist <world-units> | type <number|all>");
+        return;
+    }
+
+    if (strcmp(argv[1], "ids") == 0) {
+        ZoneOverlaySet(TRUE, FALSE);
+        cmd_zones_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "boxes") == 0) {
+        ZoneOverlaySet(TRUE, TRUE);
+        cmd_zones_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "off") == 0) {
+        ZoneOverlaySet(FALSE, FALSE);
+        cmd_zones_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "dist") == 0) {
+        if (argc < 3) {
+            Console_Print("Usage: zones dist <world-units>  (0 = no filter)");
+            return;
+        }
+        ZoneOverlaySetMaxDist((S32)strtol(argv[2], NULL, 0));
+        cmd_zones_status();
+        return;
+    }
+
+    if (strcmp(argv[1], "type") == 0) {
+        if (argc < 3) {
+            Console_Print("Usage: zones type <number|all>  (message zones are type 5)");
+            return;
+        }
+        if (strcmp(argv[2], "all") == 0 || strcmp(argv[2], "off") == 0) {
+            ZoneOverlaySetType(-1);
+        } else {
+            ZoneOverlaySetType((S32)strtol(argv[2], NULL, 0));
+        }
+        cmd_zones_status();
+        return;
+    }
+
+    Console_Print("Unknown zones mode: %s", argv[1]);
+    Console_Print("Usage: zones ids | boxes | off | dist <world-units> | type <number|all>");
+}
+#endif
+
 static void cmd_listsaves(int argc, const char *argv[]) {
     (void)argc;
     (void)argv;
@@ -1604,6 +1736,18 @@ void Console_RegisterAll(void) {
                               "Show or set the console log level", "loglevel [debug|info|warn|error]",
                               "Filters what the boot/runtime log shows in this console; file + "
                               "terminal logs are unaffected. Default info.");
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    Console_RegisterCommandEx("extobj", cmd_extobj,
+                              "Exterior decor object overlay",
+                              "extobj ids | boxes | off | dist <world-units>",
+                              "Exterior scenes only. Draws placed decor object labels as cX,Y #index bbody; "
+                              "boxes also draws the decor ZV. Distance 0 disables filtering.");
+    Console_RegisterCommandEx("zones", cmd_zones,
+                              "Scene zone overlay",
+                              "zones ids | boxes | off | dist <world-units> | type <number|all>",
+                              "Draws scene-zone labels as z#index ttype nnum. For message zones, dN/S/E/W "
+                              "shows the required facing direction. Use type 5 for message triggers.");
+#endif
     Console_RegisterCommandEx("listsaves", cmd_listsaves, "List save games (names)", "(no args)", "Reads save/ directory.");
     Console_RegisterCommandEx("listbugs", cmd_listbugs, "List bug saves in bugs directory", "(no args)", "Reads bugs/ directory.");
     Console_RegisterCommandEx("timer", cmd_timer, "Advance timer by N ms (default 200)", "timer [ms]", "Advances high-res timer.");
