@@ -18,6 +18,15 @@
       "text": "You just found some tomatoes! You can throw them at your enemies, which is rude, but effective."
     },
     {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 54,
+      "source": "find_object_tomatoes.wav",
+      "next": false
+    },
+    {
       "type": "add_text",
       "file": "TEXT.HQR",
       "language": "en",
@@ -34,6 +43,48 @@
       "id": 254,
       "flag": 65,
       "text": "A small stock of ripe tomatoes. Throw them for no noble reason whatsoever."
+    },
+    {
+      "type": "replace_hqr_entry",
+      "file": "LBA_BKG.HQR",
+      "entry": 15,
+      "source": "citadel_island_shop.gr2"
+    },
+    {
+      "type": "replace_hqr_entry",
+      "file": "SCENE.HQR",
+      "entry": 15,
+      "source": "citadel_island_shop.ls2"
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 997,
+      "flag": 1,
+      "text": "A plate of fresh tomatoes costs 3 kashes."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 997,
+      "source": "citadel_island_shop_tomatoes.wav",
+      "next": false
+    },
+    {
+      "type": "replace_hqr_entry",
+      "file": "LBA_BKG.HQR",
+      "entry": 2,
+      "source": "twinsens_basement.gr2"
+    },
+    {
+      "type": "replace_hqr_entry",
+      "file": "SCENE.HQR",
+      "entry": 2,
+      "source": "twinsens_basement.ls2"
     }
   ]
 }
