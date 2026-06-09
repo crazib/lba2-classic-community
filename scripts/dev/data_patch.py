@@ -18,6 +18,7 @@ import ile_objects
 import ile_terrain
 import scene_zones
 import text_hqr
+import vox_hqr
 
 
 def data_path(data_dir, relpath):
@@ -268,6 +269,96 @@ def op_add_text(op, data_dir, write):
     return True
 
 
+def planned_text_index(op, bank):
+    op_index = op.get("_manifest_index")
+    if op_index is None:
+        return None
+
+    language = text_hqr.parse_language(op.get("language", "en"))
+    file_index = text_hqr.parse_file(op.get("text_file", op.get("textFile", "000")))
+    text_path = op.get("text_hqr", op.get("file", "TEXT.HQR"))
+    text_id = int(op["id"])
+    index = len(bank["texts"])
+
+    for prior in op.get("_manifest_ops", [])[:op_index]:
+        if prior.get("type") != "add_text":
+            continue
+        prior_path = prior.get("file", "TEXT.HQR")
+        prior_language = text_hqr.parse_language(prior.get("language", "en"))
+        prior_file = text_hqr.parse_file(prior.get("text_file", prior.get("textFile", "000")))
+        prior_id = int(prior["id"])
+        if prior_path != text_path or prior_language != language or prior_file != file_index:
+            continue
+        if prior_id == text_id:
+            return index
+        if prior_id not in bank["ids"]:
+            index += 1
+
+    return None
+
+
+def op_add_voice(op, data_dir, write):
+    manifest_dir = op.get("_manifest_dir", ".")
+    text_path = data_path(data_dir, op.get("text_hqr", "TEXT.HQR"))
+    language = text_hqr.parse_language(op.get("language", "en"))
+    file_index = text_hqr.parse_file(op.get("text_file", op.get("textFile", "000")))
+    text_id = int(op["id"])
+    bank = text_hqr.load_bank(text_path, language, file_index)
+    rows = [row for row in bank["texts"] if row["id"] == text_id]
+
+    if rows:
+        if len(rows) != 1:
+            raise ValueError("text id %d appears %d times" % (text_id, len(rows)))
+        voice_index = rows[0]["index"]
+    else:
+        voice_index = planned_text_index(op, bank)
+        if voice_index is None:
+            raise ValueError("text id %d is not present in %s" % (text_id, op.get("text_hqr", "TEXT.HQR")))
+
+    vox_file = op.get("file", op.get("vox_file"))
+    if vox_file is None:
+        vox_file = vox_hqr.default_vox_file(language, file_index, text_hqr)
+    vox_path = data_path(data_dir, vox_file)
+    source_path = manifest_path(manifest_dir, op["source"])
+
+    with open(source_path, "rb") as f:
+        source_raw = f.read()
+    payload = vox_hqr.wav_voice_payload(source_raw, bool(op.get("next", False)))
+    voice_bank = vox_hqr.load_bank(vox_path)
+    existing = vox_hqr.slot_payload(voice_bank, voice_index)
+
+    print(
+        "add_voice %s %s_%s id %d slot %d <- %s:"
+        % (
+            vox_file,
+            text_hqr.LANGUAGE_NAMES[language],
+            text_hqr.FILE_NAMES[file_index],
+            text_id,
+            voice_index,
+            op["source"],
+        )
+    )
+    print("  source size=%d next=%s" % (len(source_raw), "true" if op.get("next", False) else "false"))
+
+    if existing is not None:
+        if existing == payload:
+            print("  already applied")
+            return False
+        raise ValueError("voice slot %d in %s is not empty" % (voice_index, vox_file))
+
+    if voice_index >= len(voice_bank["slots"]):
+        print("  appending VOX slot %d" % voice_index)
+    else:
+        print("  target slot is empty")
+
+    if write:
+        old_size, new_size = vox_hqr.rewrite_slot_stored(vox_path, voice_bank, voice_index, payload)
+        print("  wrote VOX slot %d (%d -> %d bytes)" % (voice_index, old_size, new_size))
+    else:
+        print("  dry run only")
+    return True
+
+
 # Copy an HQR entry from one index to another in the same file.
 def op_copy_hqr_entry(op, data_dir, write):
     path = data_path(data_dir, op["file"])
@@ -472,6 +563,7 @@ OPERATIONS = {
     "set_ile_object": op_set_ile_object,
     "set_scene_zones": op_set_scene_zones,
     "add_text": op_add_text,
+    "add_voice": op_add_voice,
     "copy_hqr_entry": op_copy_hqr_entry,
     "replace_hqr_entry": op_replace_hqr_entry,
     "set_terrain_heights": op_set_terrain_heights,
@@ -503,6 +595,8 @@ def main():
         changed = 0
         for index, op in enumerate(manifest["operations"]):
             op["_manifest_dir"] = manifest_dir
+            op["_manifest_index"] = index
+            op["_manifest_ops"] = manifest["operations"]
             op_type = op.get("type")
             if op_type not in OPERATIONS:
                 raise ValueError("operation %d has unknown type %r" % (index, op_type))
