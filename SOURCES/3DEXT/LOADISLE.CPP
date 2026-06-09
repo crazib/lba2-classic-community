@@ -57,7 +57,7 @@ extern U32 MapIntensityMem;
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ExtDecorEditorClearRuntimeEdits(void);
 extern void TerrainEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainEditorClearRuntimeEdits(void);
@@ -147,7 +147,7 @@ void LoadIsland() {
     char islandFilename[ADELINE_MAX_PATH];
     char islandFilePath[ADELINE_MAX_PATH];
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ExtDecorEditorClearRuntimeEdits();
     TerrainEditorClearRuntimeEdits();
     TerrainTextureEditorClearRuntimeEdits();
@@ -199,7 +199,7 @@ void LoadIsland() {
 
 S32 LoadCube(S32 x, S32 y) {
     S32 index;
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     S32 listTexDefSize = 0;
 #endif
 
@@ -248,14 +248,14 @@ S32 LoadCube(S32 x, S32 y) {
 
     if (NbObjDecors != 0) {
         ListDecors = (T_DECORS *)HQR_Get(HQR_ListDecors, index + HQR_CUBE_DOB);
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
         ExtDecorEditorApplyRuntimeEditsForLoadedCube(x, y);
 #endif
     }
 
     MapPolyGround = (T_HALF_POLY *)HQR_Get(HQR_MapPGround, index + HQR_CUBE_GRD);
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ListTexDef = (T_HALF_TEX *)HQR_Get(HQR_ListTexDef, index + HQR_CUBE_TXD, &listTexDefSize);
     TerrainTextureEditorSetTexDefCount(listTexDefSize / (S32)sizeof(T_HALF_TEX));
 #else
@@ -264,7 +264,7 @@ S32 LoadCube(S32 x, S32 y) {
 
     MapSommetY = (S16 *)HQR_Get(HQR_MapSommetY, index + HQR_CUBE_Y);
     MapIntensity = (U8 *)HQR_Get(HQR_MapIntensity, index + HQR_CUBE_LUM);
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     TerrainEditorSetLoadedCube(x, y);
     TerrainTextureEditorApplyRuntimeEditsForLoadedCube(x, y);
     TerrainEditorApplyRuntimeEditsForLoadedCube(x, y);

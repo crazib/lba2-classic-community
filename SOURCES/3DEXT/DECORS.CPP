@@ -35,7 +35,7 @@ extern S32 FlagMasque;
 #define MAX_SOUS_OBJET 20
 #define SIZE_BRICK_Y 256
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ZoneOverlaySet(S32 ids, S32 boxes);
 extern void ZoneOverlaySetType(S32 type);
 extern void ZoneEditorBeginPick(void);
@@ -361,7 +361,7 @@ void AffZVObjet(T_DECORS *ptrobj) {
 #endif
 
 /*══════════════════════════════════════════════════════════════════════════*/
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 static S32 ExtDecorOverlayProject(S32 x, S32 y, S32 z, S32 *xs, S32 *ys) {
     LongWorldRotatePoint(x, y, z);
     if (!LongProjectPoint(X0, Y0, Z0))

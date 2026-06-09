@@ -98,7 +98,7 @@ extern U8 *SearchPtrAnimAction;
 /*══════════════════════════════════════════════════════════════════════════*/
 #define HashLine(x0, y0, x1, y1, coul, ep) Line(x0, y0, x1, y1, coul)
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 static S32 ZoneOverlayIds = FALSE;
 static S32 ZoneOverlayBoxes = FALSE;
 static S32 ZoneOverlayMaxDist = 0;
@@ -640,7 +640,7 @@ void DrawZonesDec() {
     UnsetClip();
 }
 /*══════════════════════════════════════════════════════════════════════════*/
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 static const char *ZoneOverlayMessageDir(S32 dir) {
     switch (dir) {
     case 1:
@@ -6530,7 +6530,7 @@ startaffscene:
 
     /*------------------------------------------------------------------------*/
     //DrawZonesDec()	;
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ZoneOverlayDraw();
 #endif
 

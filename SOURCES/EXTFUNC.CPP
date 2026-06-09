@@ -17,7 +17,7 @@
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ExtDecorEditorBeginFrame(void);
 extern void ExtDecorEditorEndFrame(void);
 extern void TerrainEditorBeginFrame(void);
@@ -321,7 +321,7 @@ void AffGrilleExt() {
 
     ManageSystem(); // for streaming
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ExtDecorEditorBeginFrame();
     TerrainEditorBeginFrame();
     TerrainTextureEditorBeginFrame();
@@ -340,7 +340,7 @@ void AffGrilleExt() {
 
     AffichageTerrainZBuf();
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ExtDecorEditorEndFrame();
     TerrainEditorEndFrame();
     TerrainTextureEditorEndFrame();

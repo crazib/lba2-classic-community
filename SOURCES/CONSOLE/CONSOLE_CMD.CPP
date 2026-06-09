@@ -49,7 +49,7 @@
    be checked with #if. Catch any drift at compile time instead. */
 typedef char console_give_max_inventory_check[(MAX_INVENTORY == CONSOLE_GIVE_MAX_INVENTORY) ? 1 : -1];
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ExtDecorOverlaySet(S32 ids, S32 boxes);
 extern void ExtDecorOverlaySetMaxDist(S32 maxdist);
 extern S32 ExtDecorOverlayGetIds(void);
@@ -1152,7 +1152,7 @@ static void cmd_loglevel(int argc, const char *argv[]) {
     Console_Print("console log level: %s", loglevel_name(Log_GetConsoleSeverity()));
 }
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 static void cmd_extobj_status(void) {
     Console_Print("extobj ids=%d boxes=%d dist=%d",
                   (int)ExtDecorOverlayGetIds(),
@@ -1775,7 +1775,7 @@ void Console_RegisterAll(void) {
                               "Show or set the console log level", "loglevel [debug|info|warn|error]",
                               "Filters what the boot/runtime log shows in this console; file + "
                               "terminal logs are unaffected. Default info.");
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     Console_RegisterCommandEx("extobj", cmd_extobj,
                               "Exterior decor object overlay",
                               "extobj ids | boxes | off | dist <world-units>",

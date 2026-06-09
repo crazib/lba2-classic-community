@@ -108,7 +108,7 @@ extern S32 AffOneObject(T_SORT *pt);
 /*--------------------------------------------------------------------------*/
 extern void AffScene(S32 flagflip);
 /*--------------------------------------------------------------------------*/
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ZoneOverlaySet(S32 ids, S32 boxes);
 extern void ZoneOverlaySetMaxDist(S32 maxdist);
 extern void ZoneOverlaySetType(S32 type);

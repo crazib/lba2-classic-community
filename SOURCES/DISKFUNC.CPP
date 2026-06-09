@@ -5,7 +5,7 @@
 
 #include <errno.h>
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
 #endif
 
@@ -274,7 +274,7 @@ S32 LoadScene(S32 numscene) {
         }
     }
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ZoneEditorApplyRuntimeEditsForLoadedScene(numscene);
 #endif
 

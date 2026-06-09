@@ -30,7 +30,7 @@ extern void DrawAnimatedPolys();
 extern void FiltreAnimatedPolys();
 /*--------------------------------------------------------------------------*/
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void TerrainEditorSetSelect(S32 select);
 extern S32 TerrainEditorGetSelect(void);
 extern void TerrainEditorClearSelection(void);

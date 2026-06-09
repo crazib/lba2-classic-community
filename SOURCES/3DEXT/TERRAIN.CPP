@@ -2,7 +2,7 @@
 #include "../PERSO.H"
 
 #include <SVGA/SCREEN.H>
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include <SYSTEM/LOG.H>
@@ -888,7 +888,7 @@ void AffichageTerrainZBuf(void) {
         AffichageObjetDecorsZV();
     }
 #endif
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
     ExtDecorOverlayDraw();
     TerrainEditorOverlayDraw();
     TerrainTextureEditorOverlayDraw();
@@ -1143,7 +1143,7 @@ void FiltreAnimatedPolys() {
 //****************************************************************************
 
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 static S32 TerrainEditorSelect = FALSE;
 static S32 TerrainEditorLastClick = 0;
 static S32 TerrainEditorLastUp = 0;

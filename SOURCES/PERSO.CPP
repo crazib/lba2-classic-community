@@ -26,7 +26,7 @@
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
 extern void ExtDecorEditorSetSelect(S32 select);
 extern S32 ExtDecorEditorGetSelect(void);
 extern void TerrainEditorSetSelect(S32 select);
@@ -1968,7 +1968,7 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* affiche tout */
 
-#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#ifdef LBA2CC_EDITOR
         if (CubeMode == CUBE_EXTERIEUR AND(ExtDecorEditorGetSelect() OR TerrainEditorGetSelect() OR TerrainTextureEditorGetSelect()))
             FirstTime = AFF_ALL_FLIP;
 #endif
