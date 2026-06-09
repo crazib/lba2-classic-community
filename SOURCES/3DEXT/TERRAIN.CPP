@@ -2,6 +2,13 @@
 #include "../PERSO.H"
 
 #include <SVGA/SCREEN.H>
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+#include <SYSTEM/KEYBOARD.H>
+#include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOG.H>
+#include <SYSTEM/MOUSE.H>
+#endif
+#include <string.h>
 
 #define LIMITE_LOIN (60 * 1024)
 #define COLOR_LIMITE 255
@@ -883,6 +890,8 @@ void AffichageTerrainZBuf(void) {
 #endif
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
     ExtDecorOverlayDraw();
+    TerrainEditorOverlayDraw();
+    TerrainTextureEditorOverlayDraw();
 #endif
 
     BoxStaticAdd(0, 0, ModeDesiredX - 1, ModeDesiredY - 1);
@@ -1129,3 +1138,1619 @@ void FiltreAnimatedPolys() {
         }
     }
 }
+
+//****************************************************************************
+//****************************************************************************
+
+
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+static S32 TerrainEditorSelect = FALSE;
+static S32 TerrainEditorLastClick = 0;
+static S32 TerrainEditorLastUp = 0;
+static S32 TerrainEditorLastDown = 0;
+static S32 TerrainEditorPickPending = FALSE;
+static S32 TerrainEditorPickShift = FALSE;
+static S32 TerrainEditorPickBestDist = 0;
+static S32 TerrainEditorPickBestCubeX = 0;
+static S32 TerrainEditorPickBestCubeY = 0;
+static S32 TerrainEditorPickBestIndex = -1;
+static S32 TerrainEditorLoadedCubeX = -1;
+static S32 TerrainEditorLoadedCubeY = -1;
+static S32 TerrainEditorDragActive = FALSE;
+static S32 TerrainEditorDragSelectPending = FALSE;
+static S32 TerrainEditorDragShift = FALSE;
+static S32 TerrainEditorDragX0 = 0;
+static S32 TerrainEditorDragY0 = 0;
+static S32 TerrainEditorDragX1 = 0;
+static S32 TerrainEditorDragY1 = 0;
+static S32 TerrainTextureEditorSelect = FALSE;
+static S32 TerrainTextureEditorLastClick = 0;
+static S32 TerrainTextureEditorLastUp = 0;
+static S32 TerrainTextureEditorLastDown = 0;
+static S32 TerrainTextureEditorLastLeft = 0;
+static S32 TerrainTextureEditorLastRight = 0;
+static S32 TerrainTextureEditorPickPending = FALSE;
+static S32 TerrainTextureEditorPickShift = FALSE;
+static S32 TerrainTextureEditorPickBestCubeX = 0;
+static S32 TerrainTextureEditorPickBestCubeY = 0;
+static S32 TerrainTextureEditorPickBestIndex = -1;
+static S32 TerrainTextureEditorTexDefCount = 0;
+static S32 TerrainTextureEditorDragActive = FALSE;
+static S32 TerrainTextureEditorDragSelectPending = FALSE;
+static S32 TerrainTextureEditorDragShift = FALSE;
+static S32 TerrainTextureEditorDragX0 = 0;
+static S32 TerrainTextureEditorDragY0 = 0;
+static S32 TerrainTextureEditorDragX1 = 0;
+static S32 TerrainTextureEditorDragY1 = 0;
+static S32 TerrainTextureEditorPalettePressEntry = -2;
+
+#define TERRAIN_EDITOR_MAX_SELECTED 4096
+#define TERRAIN_EDITOR_MAX_EDITS 16384
+#define TERRAIN_EDITOR_PICK_RADIUS 18
+#define TERRAIN_EDITOR_NUDGE 256
+#define TERRAIN_EDITOR_NUDGE_SHIFT (5 * TERRAIN_EDITOR_NUDGE)
+#define TERRAIN_EDITOR_TEXT 0
+#define TERRAIN_EDITOR_BACK 14
+#define TERRAIN_OVERLAY_TEXT 15
+#define TERRAIN_OVERLAY_BACK 0
+#define TERRAIN_EDITOR_DRAG_MARK 15
+#define TERRAIN_EDITOR_DRAG_MIN 4
+#define TERRAIN_TEXTURE_EDITOR_MAX_SELECTED 4096
+#define TERRAIN_TEXTURE_EDITOR_MAX_EDITS 16384
+#define TERRAIN_TEXTURE_INTENSITY_MAX_EDITS 16384
+#define TERRAIN_TEXTURE_EDITOR_MARK 12
+#define TERRAIN_TEXTURE_DRAG_MARK 15
+#define TERRAIN_TEXTURE_DRAG_MIN 4
+#define TERRAIN_TEXTURE_PALETTE_SWATCH 16
+#define TERRAIN_TEXTURE_PALETTE_GAP 3
+#define TERRAIN_TEXTURE_PALETTE_MIN_COLS 4
+#define TERRAIN_TEXTURE_PALETTE_PAD 4
+#define TERRAIN_TEXTURE_PALETTE_MAX_WIDTH_DIV 2
+#define TERRAIN_TEXTURE_PALETTE_BACK 0
+#define TERRAIN_TEXTURE_PALETTE_BORDER 15
+#define TERRAIN_TEXTURE_PALETTE_SELECT 12
+#define TERRAIN_TEXTURE_PALETTE_NONE -2
+#define TERRAIN_TEXTURE_PALETTE_DEAD -3
+
+typedef struct
+{
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 Index;
+} T_TERRAIN_EDITOR_SEL;
+
+typedef struct
+{
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 Index;
+    S16 BaseY;
+    S32 Dy;
+} T_TERRAIN_EDITOR_EDIT;
+
+typedef struct
+{
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 Index;
+} T_TERRAIN_TEXTURE_EDITOR_SEL;
+
+typedef struct
+{
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 Index;
+    T_HALF_POLY BasePoly;
+    T_HALF_POLY Poly;
+} T_TERRAIN_TEXTURE_EDITOR_EDIT;
+
+typedef struct
+{
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 Index;
+    U8 BaseIntensity;
+    U8 Intensity;
+} T_TERRAIN_TEXTURE_INTENSITY_EDIT;
+
+static T_TERRAIN_EDITOR_SEL TerrainEditorSelList[TERRAIN_EDITOR_MAX_SELECTED];
+static T_TERRAIN_EDITOR_EDIT TerrainEditorEdits[TERRAIN_EDITOR_MAX_EDITS];
+static T_TERRAIN_TEXTURE_EDITOR_SEL TerrainTextureEditorSelList[TERRAIN_TEXTURE_EDITOR_MAX_SELECTED];
+static T_TERRAIN_TEXTURE_EDITOR_EDIT TerrainTextureEditorEdits[TERRAIN_TEXTURE_EDITOR_MAX_EDITS];
+static T_TERRAIN_TEXTURE_INTENSITY_EDIT TerrainTextureIntensityEdits[TERRAIN_TEXTURE_INTENSITY_MAX_EDITS];
+
+void TerrainEditorSetLoadedCube(S32 cube_x, S32 cube_y) {
+    TerrainEditorLoadedCubeX = cube_x;
+    TerrainEditorLoadedCubeY = cube_y;
+}
+
+static S32 TerrainEditorLoadedCurrentCube(void) {
+    return TerrainEditorLoadedCubeX == CurrentCubeX AND TerrainEditorLoadedCubeY == CurrentCubeY;
+}
+
+static S32 TerrainEditorSamePoint(T_TERRAIN_EDITOR_SEL *sel, S32 cube_x, S32 cube_y, S32 index) {
+    return sel->Used
+               AND sel->CubeX == cube_x AND sel->CubeY == cube_y AND sel->Index == index;
+}
+
+static S32 TerrainEditorIsSelected(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_SELECTED; i++) {
+        if (TerrainEditorSamePoint(&TerrainEditorSelList[i], cube_x, cube_y, index))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void TerrainEditorClearSelection(void) {
+    memset(TerrainEditorSelList, 0, sizeof(TerrainEditorSelList));
+}
+
+void TerrainEditorSetSelect(S32 select) {
+    TerrainEditorSelect = select ? TRUE : FALSE;
+    if (!TerrainEditorSelect) {
+        TerrainEditorClearSelection();
+        TerrainEditorDragActive = FALSE;
+        TerrainEditorDragSelectPending = FALSE;
+    }
+    TerrainEditorLastClick = Click;
+    TerrainEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
+    TerrainEditorLastDown = CheckKey(K_DOWN) ? TRUE : FALSE;
+    ShowMouse(TerrainEditorSelect ? true : false);
+}
+
+S32 TerrainEditorGetSelect(void) {
+    return TerrainEditorSelect;
+}
+
+S32 TerrainEditorConsumesInput(void) {
+    return TerrainEditorSelect;
+}
+
+void TerrainEditorClearRuntimeEdits(void) {
+    memset(TerrainEditorEdits, 0, sizeof(TerrainEditorEdits));
+    TerrainEditorClearSelection();
+}
+
+static T_TERRAIN_EDITOR_EDIT *TerrainEditorFindEdit(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_EDITS; i++) {
+        T_TERRAIN_EDITOR_EDIT *edit = &TerrainEditorEdits[i];
+
+        if (edit->Used
+                AND edit->CubeX == cube_x AND edit->CubeY == cube_y AND edit->Index == index)
+            return edit;
+    }
+    return NULL;
+}
+
+static T_TERRAIN_EDITOR_EDIT *TerrainEditorGetOrCreateEdit(S32 cube_x, S32 cube_y, S32 index, S16 *height) {
+    S32 i;
+    T_TERRAIN_EDITOR_EDIT *edit;
+
+    edit = TerrainEditorFindEdit(cube_x, cube_y, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_EDITS; i++) {
+        edit = &TerrainEditorEdits[i];
+        if (!edit->Used) {
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->Index = index;
+            edit->BaseY = *height;
+            edit->Dy = 0;
+            return edit;
+        }
+    }
+
+    Log_Warn("teredit runtime edit table is full; cannot track c%d,%d v%d",
+             (int)cube_x,
+             (int)cube_y,
+             (int)index);
+    return NULL;
+}
+
+static void TerrainEditorApplyEditToPoint(T_TERRAIN_EDITOR_EDIT *edit, S16 *height) {
+    S32 y;
+
+    y = (S32)edit->BaseY + edit->Dy;
+    if (y < -32768)
+        y = -32768;
+    if (y > 32767)
+        y = 32767;
+    *height = (S16)y;
+}
+
+void TerrainEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
+    S32 i;
+
+    if (!MapSommetY)
+        return;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_EDITS; i++) {
+        T_TERRAIN_EDITOR_EDIT *edit = &TerrainEditorEdits[i];
+
+        if (!edit->Used
+                 OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= (NB_COTE + 1) * (NB_COTE + 1))
+            continue;
+        TerrainEditorApplyEditToPoint(edit, &MapSommetY[edit->Index]);
+    }
+}
+
+static void TerrainEditorMoveSelected(S32 dy) {
+    S32 i;
+
+    if (!MapSommetY)
+        return;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_EDITOR_SEL *sel = &TerrainEditorSelList[i];
+        T_TERRAIN_EDITOR_EDIT *edit;
+
+        if (!sel->Used)
+            continue;
+
+        edit = TerrainEditorFindEdit(sel->CubeX, sel->CubeY, sel->Index);
+        if (sel->CubeX == CurrentCubeX AND sel->CubeY == CurrentCubeY AND sel->Index >= 0 AND sel->Index < (NB_COTE + 1) * (NB_COTE + 1))
+            edit = TerrainEditorGetOrCreateEdit(sel->CubeX, sel->CubeY, sel->Index, &MapSommetY[sel->Index]);
+        if (!edit)
+            continue;
+
+        edit->Dy += dy;
+
+        if (sel->CubeX == CurrentCubeX AND sel->CubeY == CurrentCubeY AND sel->Index >= 0 AND sel->Index < (NB_COTE + 1) * (NB_COTE + 1))
+            TerrainEditorApplyEditToPoint(edit, &MapSommetY[sel->Index]);
+    }
+}
+
+void TerrainEditorBeginFrame(void) {
+    S32 click;
+    S32 up;
+    S32 down;
+    S32 step;
+
+    if (!TerrainEditorSelect)
+        return;
+
+    click = Click;
+    TerrainEditorPickPending = FALSE;
+    TerrainEditorDragSelectPending = FALSE;
+
+    if ((click & 1) AND !(TerrainEditorLastClick & 1)) {
+        TerrainEditorDragActive = TRUE;
+        TerrainEditorDragShift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+        TerrainEditorDragX0 = (S32)MouseX;
+        TerrainEditorDragY0 = (S32)MouseY;
+        TerrainEditorDragX1 = TerrainEditorDragX0;
+        TerrainEditorDragY1 = TerrainEditorDragY0;
+    }
+
+    if (TerrainEditorDragActive AND(click & 1)) {
+        TerrainEditorDragX1 = (S32)MouseX;
+        TerrainEditorDragY1 = (S32)MouseY;
+    }
+
+    if (TerrainEditorDragActive AND !(click & 1) AND(TerrainEditorLastClick & 1)) {
+        S32 dx;
+        S32 dy;
+
+        TerrainEditorDragX1 = (S32)MouseX;
+        TerrainEditorDragY1 = (S32)MouseY;
+        dx = TerrainEditorDragX1 - TerrainEditorDragX0;
+        dy = TerrainEditorDragY1 - TerrainEditorDragY0;
+        if (dx < 0)
+            dx = -dx;
+        if (dy < 0)
+            dy = -dy;
+
+        if (dx > TERRAIN_EDITOR_DRAG_MIN OR dy > TERRAIN_EDITOR_DRAG_MIN) {
+            TerrainEditorDragSelectPending = TRUE;
+            TerrainEditorPickShift = TerrainEditorDragShift;
+            if (!TerrainEditorPickShift)
+                TerrainEditorClearSelection();
+        } else {
+            TerrainEditorPickPending = TRUE;
+            TerrainEditorPickShift = TerrainEditorDragShift;
+            TerrainEditorPickBestDist = TERRAIN_EDITOR_PICK_RADIUS * TERRAIN_EDITOR_PICK_RADIUS;
+            TerrainEditorPickBestIndex = -1;
+        }
+        TerrainEditorDragActive = FALSE;
+    }
+    TerrainEditorLastClick = click;
+
+    up = CheckKey(K_UP) ? TRUE : FALSE;
+    down = CheckKey(K_DOWN) ? TRUE : FALSE;
+    step = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TERRAIN_EDITOR_NUDGE_SHIFT : TERRAIN_EDITOR_NUDGE;
+
+    if (up AND !TerrainEditorLastUp)
+        TerrainEditorMoveSelected(step);
+    if (down AND !TerrainEditorLastDown)
+        TerrainEditorMoveSelected(-step);
+
+    TerrainEditorLastUp = up;
+    TerrainEditorLastDown = down;
+}
+
+static void TerrainEditorSelectOnly(S32 cube_x, S32 cube_y, S32 index) {
+    TerrainEditorClearSelection();
+    TerrainEditorSelList[0].Used = TRUE;
+    TerrainEditorSelList[0].CubeX = cube_x;
+    TerrainEditorSelList[0].CubeY = cube_y;
+    TerrainEditorSelList[0].Index = index;
+}
+
+static void TerrainEditorAddSelected(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_SELECTED; i++) {
+        if (TerrainEditorSamePoint(&TerrainEditorSelList[i], cube_x, cube_y, index))
+            return;
+    }
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_EDITOR_SEL *sel = &TerrainEditorSelList[i];
+
+        if (sel->Used)
+            continue;
+        sel->Used = TRUE;
+        sel->CubeX = cube_x;
+        sel->CubeY = cube_y;
+        sel->Index = index;
+        return;
+    }
+}
+
+static void TerrainEditorToggleSelected(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_EDITOR_SEL *sel = &TerrainEditorSelList[i];
+
+        if (TerrainEditorSamePoint(sel, cube_x, cube_y, index)) {
+            sel->Used = FALSE;
+            return;
+        }
+    }
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_EDITOR_SEL *sel = &TerrainEditorSelList[i];
+
+        if (sel->Used)
+            continue;
+        sel->Used = TRUE;
+        sel->CubeX = cube_x;
+        sel->CubeY = cube_y;
+        sel->Index = index;
+        return;
+    }
+}
+
+void TerrainEditorEndFrame(void) {
+    if (TerrainEditorDragSelectPending) {
+        TerrainEditorDragSelectPending = FALSE;
+        return;
+    }
+
+    if (!TerrainEditorSelect OR !TerrainEditorPickPending)
+        return;
+
+    if (TerrainEditorPickBestIndex < 0) {
+        if (!TerrainEditorPickShift)
+            TerrainEditorClearSelection();
+    } else if (TerrainEditorPickShift) {
+        TerrainEditorToggleSelected(TerrainEditorPickBestCubeX,
+                                    TerrainEditorPickBestCubeY,
+                                    TerrainEditorPickBestIndex);
+    } else {
+        TerrainEditorSelectOnly(TerrainEditorPickBestCubeX,
+                                TerrainEditorPickBestCubeY,
+                                TerrainEditorPickBestIndex);
+    }
+
+    TerrainEditorPickPending = FALSE;
+}
+
+static void TerrainEditorConsiderPick(S32 cube_x, S32 cube_y, S32 index, S32 xs, S32 ys) {
+    S32 dx;
+    S32 dy;
+    S32 dist;
+
+    if (TerrainEditorDragSelectPending) {
+        S32 x0 = TerrainEditorDragX0;
+        S32 y0 = TerrainEditorDragY0;
+        S32 x1 = TerrainEditorDragX1;
+        S32 y1 = TerrainEditorDragY1;
+
+        if (x0 > x1) {
+            S32 t = x0;
+            x0 = x1;
+            x1 = t;
+        }
+        if (y0 > y1) {
+            S32 t = y0;
+            y0 = y1;
+            y1 = t;
+        }
+
+        if (xs >= x0 AND xs <= x1 AND ys >= y0 AND ys <= y1) {
+            if (TerrainEditorPickShift)
+                TerrainEditorToggleSelected(cube_x, cube_y, index);
+            else
+                TerrainEditorAddSelected(cube_x, cube_y, index);
+            if (MapSommetY
+                    AND index >= 0 AND index < (NB_COTE + 1) * (NB_COTE + 1))
+                TerrainEditorGetOrCreateEdit(cube_x, cube_y, index, &MapSommetY[index]);
+        }
+    }
+
+    if (!TerrainEditorPickPending)
+        return;
+
+    dx = xs - (S32)MouseX;
+    dy = ys - (S32)MouseY;
+    dist = dx * dx + dy * dy;
+    if (dist <= TerrainEditorPickBestDist) {
+        TerrainEditorPickBestDist = dist;
+        TerrainEditorPickBestCubeX = cube_x;
+        TerrainEditorPickBestCubeY = cube_y;
+        TerrainEditorPickBestIndex = index;
+        if (MapSommetY
+                AND index >= 0 AND index < (NB_COTE + 1) * (NB_COTE + 1))
+            TerrainEditorGetOrCreateEdit(cube_x, cube_y, index, &MapSommetY[index]);
+    }
+}
+
+static void TerrainEditorDrawDragBox(void) {
+    S32 x0;
+    S32 y0;
+    S32 x1;
+    S32 y1;
+
+    if (!TerrainEditorDragActive)
+        return;
+
+    x0 = TerrainEditorDragX0;
+    y0 = TerrainEditorDragY0;
+    x1 = TerrainEditorDragX1;
+    y1 = TerrainEditorDragY1;
+
+    if (x0 > x1) {
+        S32 t = x0;
+        x0 = x1;
+        x1 = t;
+    }
+    if (y0 > y1) {
+        S32 t = y0;
+        y0 = y1;
+        y1 = t;
+    }
+
+    Rect(x0, y0, x1, y1, TERRAIN_EDITOR_DRAG_MARK);
+}
+
+void TerrainEditorOverlayDraw(void) {
+    S32 xi;
+    S32 zi;
+
+    if (!TerrainEditorSelect)
+        return;
+    if (!TerrainEditorLoadedCurrentCube())
+        return;
+
+    UnsetClip();
+
+    for (zi = 0; zi <= NB_COTE; zi++) {
+        for (xi = 0; xi <= NB_COTE; xi++) {
+            S32 index = zi * (NB_COTE + 1) + xi;
+            T_SOMMET_ROT *ptrs = &SommetRot[zi][xi];
+            U8 visible = SommetAffichable[zi][xi];
+            S32 xs;
+            S32 ys;
+            S32 selected;
+
+            if (visible != 16)
+                continue;
+
+            xs = ptrs->X2D;
+            ys = ptrs->Y2D;
+
+            TerrainEditorConsiderPick(CurrentCubeX, CurrentCubeY, index, xs, ys);
+
+            selected = TerrainEditorIsSelected(CurrentCubeX, CurrentCubeY, index);
+            if (selected) {
+                Rect(xs - 2, ys - 2, xs + 2, ys + 2, TERRAIN_EDITOR_BACK);
+            } else {
+                Plot(xs, ys, TERRAIN_OVERLAY_TEXT);
+            }
+        }
+    }
+
+    TerrainEditorDrawDragBox();
+
+    UnsetClip();
+}
+
+static S32 TerrainTextureEditorSameTri(T_TERRAIN_TEXTURE_EDITOR_SEL *sel, S32 cube_x, S32 cube_y, S32 index) {
+    return sel->Used
+           AND sel->CubeX == cube_x AND sel->CubeY == cube_y AND sel->Index == index;
+}
+
+void TerrainTextureEditorClearSelection(void) {
+    memset(TerrainTextureEditorSelList, 0, sizeof(TerrainTextureEditorSelList));
+}
+
+void TerrainTextureEditorSetSelect(S32 select) {
+    TerrainTextureEditorSelect = select ? TRUE : FALSE;
+    if (!TerrainTextureEditorSelect) {
+        TerrainTextureEditorClearSelection();
+        TerrainTextureEditorDragActive = FALSE;
+        TerrainTextureEditorDragSelectPending = FALSE;
+        TerrainTextureEditorPalettePressEntry = TERRAIN_TEXTURE_PALETTE_NONE;
+    }
+    TerrainTextureEditorLastClick = Click;
+    TerrainTextureEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
+    TerrainTextureEditorLastDown = CheckKey(K_DOWN) ? TRUE : FALSE;
+    TerrainTextureEditorLastLeft = CheckKey(K_LEFT) ? TRUE : FALSE;
+    TerrainTextureEditorLastRight = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    ShowMouse(TerrainTextureEditorSelect ? true : false);
+}
+
+S32 TerrainTextureEditorGetSelect(void) {
+    return TerrainTextureEditorSelect;
+}
+
+S32 TerrainTextureEditorConsumesInput(void) {
+    return TerrainTextureEditorSelect;
+}
+
+void TerrainTextureEditorSetTexDefCount(S32 count) {
+    TerrainTextureEditorTexDefCount = count > 0 ? count : 0;
+}
+
+static T_TERRAIN_TEXTURE_EDITOR_EDIT *TerrainTextureEditorFindEdit(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_EDITS; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_EDIT *edit = &TerrainTextureEditorEdits[i];
+
+        if (edit->Used
+                AND edit->CubeX == cube_x AND edit->CubeY == cube_y AND edit->Index == index)
+            return edit;
+    }
+    return NULL;
+}
+
+static T_TERRAIN_TEXTURE_EDITOR_EDIT *TerrainTextureEditorGetOrCreateEdit(S32 cube_x, S32 cube_y, S32 index, T_HALF_POLY *poly) {
+    S32 i;
+    T_TERRAIN_TEXTURE_EDITOR_EDIT *edit;
+
+    edit = TerrainTextureEditorFindEdit(cube_x, cube_y, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_EDITS; i++) {
+        edit = &TerrainTextureEditorEdits[i];
+        if (!edit->Used) {
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->Index = index;
+            edit->BasePoly = *poly;
+            edit->Poly = *poly;
+            return edit;
+        }
+    }
+
+    Log_Warn("texedit runtime edit table is full; cannot track c%d,%d t%d",
+             (int)cube_x,
+             (int)cube_y,
+             (int)index);
+    return NULL;
+}
+
+static void TerrainTextureEditorApplyEditToPoly(T_TERRAIN_TEXTURE_EDITOR_EDIT *edit, T_HALF_POLY *poly) {
+    *poly = edit->Poly;
+}
+
+void TerrainTextureEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
+    S32 i;
+
+    if (!MapPolyGround)
+        return;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_EDITS; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_EDIT *edit = &TerrainTextureEditorEdits[i];
+
+        if (!edit->Used
+                OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= NB_COTE * NB_COTE * 2)
+            continue;
+        TerrainTextureEditorApplyEditToPoly(edit, &MapPolyGround[edit->Index]);
+    }
+
+    if (!MapIntensity)
+        return;
+
+    for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
+        T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit = &TerrainTextureIntensityEdits[i];
+
+        if (!edit->Used
+                OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= (NB_COTE + 1) * (NB_COTE + 1))
+            continue;
+        MapIntensity[edit->Index] = edit->Intensity;
+    }
+}
+
+void TerrainTextureEditorClearRuntimeEdits(void) {
+    memset(TerrainTextureEditorEdits, 0, sizeof(TerrainTextureEditorEdits));
+    memset(TerrainTextureIntensityEdits, 0, sizeof(TerrainTextureIntensityEdits));
+    TerrainTextureEditorClearSelection();
+}
+
+static void TerrainTextureEditorCycleEdit(T_TERRAIN_TEXTURE_EDITOR_EDIT *edit, S32 dir) {
+    T_HALF_POLY *poly;
+
+    if (TerrainTextureEditorTexDefCount <= 0)
+        return;
+
+    poly = &edit->Poly;
+    if (poly->TexFlag == 0) {
+        poly->TexFlag = 1;
+        poly->PolyFlag = edit->BasePoly.TexFlag ? edit->BasePoly.PolyFlag : 0;
+        poly->IndexTex = dir > 0 ? 0 : (U32)(TerrainTextureEditorTexDefCount - 1);
+        return;
+    }
+
+    if (dir > 0) {
+        if ((S32)poly->IndexTex >= TerrainTextureEditorTexDefCount - 1) {
+            poly->TexFlag = 0;
+            if (!poly->PolyFlag)
+                poly->PolyFlag = 1;
+        } else {
+            poly->IndexTex++;
+        }
+    } else {
+        if (poly->IndexTex == 0) {
+            poly->TexFlag = 0;
+            if (!poly->PolyFlag)
+                poly->PolyFlag = 1;
+        } else {
+            poly->IndexTex--;
+        }
+    }
+}
+
+static void TerrainTextureEditorCycleSelected(S32 dir) {
+    S32 i;
+
+    if (!MapPolyGround)
+        return;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+        T_TERRAIN_TEXTURE_EDITOR_EDIT *edit;
+
+        if (!sel->Used)
+            continue;
+
+        edit = TerrainTextureEditorFindEdit(sel->CubeX, sel->CubeY, sel->Index);
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Index >= 0
+                AND sel->Index < NB_COTE * NB_COTE * 2)
+            edit = TerrainTextureEditorGetOrCreateEdit(sel->CubeX, sel->CubeY, sel->Index, &MapPolyGround[sel->Index]);
+        if (!edit)
+            continue;
+
+        TerrainTextureEditorCycleEdit(edit, dir);
+
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Index >= 0
+                AND sel->Index < NB_COTE * NB_COTE * 2)
+            TerrainTextureEditorApplyEditToPoly(edit, &MapPolyGround[sel->Index]);
+    }
+}
+
+static void TerrainTextureEditorSetEditTexture(T_TERRAIN_TEXTURE_EDITOR_EDIT *edit, S32 texture_index) {
+    T_HALF_POLY *poly;
+
+    poly = &edit->Poly;
+    if (texture_index < 0) {
+        poly->TexFlag = 0;
+        if (!poly->PolyFlag)
+            poly->PolyFlag = 1;
+        return;
+    }
+
+    if (TerrainTextureEditorTexDefCount <= 0)
+        return;
+    if (texture_index >= TerrainTextureEditorTexDefCount)
+        return;
+
+    poly->TexFlag = 1;
+    poly->PolyFlag = edit->BasePoly.TexFlag ? edit->BasePoly.PolyFlag : 0;
+    poly->IndexTex = (U32)texture_index;
+}
+
+static void TerrainTextureEditorApplyTextureSelected(S32 texture_index) {
+    S32 i;
+
+    if (!MapPolyGround)
+        return;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+        T_TERRAIN_TEXTURE_EDITOR_EDIT *edit;
+
+        if (!sel->Used)
+            continue;
+
+        edit = TerrainTextureEditorFindEdit(sel->CubeX, sel->CubeY, sel->Index);
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Index >= 0
+                AND sel->Index < NB_COTE * NB_COTE * 2)
+            edit = TerrainTextureEditorGetOrCreateEdit(sel->CubeX, sel->CubeY, sel->Index, &MapPolyGround[sel->Index]);
+        if (!edit)
+            continue;
+
+        TerrainTextureEditorSetEditTexture(edit, texture_index);
+
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Index >= 0
+                AND sel->Index < NB_COTE * NB_COTE * 2)
+            TerrainTextureEditorApplyEditToPoly(edit, &MapPolyGround[sel->Index]);
+    }
+}
+
+static S32 TerrainTextureEditorSelectedTextureEntry(void) {
+    S32 i;
+    S32 texture_entry = -3;
+
+    if (!MapPolyGround)
+        return -3;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+        T_HALF_POLY *poly;
+        T_TERRAIN_TEXTURE_EDITOR_EDIT *edit;
+        S32 entry;
+
+        if (!sel->Used)
+            continue;
+        if (sel->CubeX != CurrentCubeX OR sel->CubeY != CurrentCubeY)
+            continue;
+        if (sel->Index < 0 OR sel->Index >= NB_COTE * NB_COTE * 2)
+            continue;
+
+        poly = &MapPolyGround[sel->Index];
+        edit = TerrainTextureEditorFindEdit(sel->CubeX, sel->CubeY, sel->Index);
+        if (edit)
+            poly = &edit->Poly;
+
+        entry = poly->TexFlag ? (S32)poly->IndexTex : -1;
+        if (texture_entry == -3) {
+            texture_entry = entry;
+        } else if (texture_entry != entry) {
+            return -3;
+        }
+    }
+
+    return texture_entry;
+}
+
+static S32 TerrainTextureEditorPaletteRows(void) {
+    S32 panel_h;
+    S32 rows;
+
+    panel_h = (S32)ModeDesiredY - TERRAIN_TEXTURE_PALETTE_PAD * 2;
+    rows = (panel_h - TERRAIN_TEXTURE_PALETTE_PAD * 2 + TERRAIN_TEXTURE_PALETTE_GAP)
+           / (TERRAIN_TEXTURE_PALETTE_SWATCH + TERRAIN_TEXTURE_PALETTE_GAP);
+    if (rows < 1)
+        rows = 1;
+    return rows;
+}
+
+static S32 TerrainTextureEditorPaletteColumns(void) {
+    S32 rows;
+    S32 wanted;
+    S32 max_cols;
+
+    rows = TerrainTextureEditorPaletteRows();
+    wanted = (TerrainTextureEditorTexDefCount + 1 + rows - 1) / rows;
+    if (wanted < TERRAIN_TEXTURE_PALETTE_MIN_COLS)
+        wanted = TERRAIN_TEXTURE_PALETTE_MIN_COLS;
+
+    max_cols = (((S32)ModeDesiredX / TERRAIN_TEXTURE_PALETTE_MAX_WIDTH_DIV)
+                - TERRAIN_TEXTURE_PALETTE_PAD * 2
+                + TERRAIN_TEXTURE_PALETTE_GAP)
+               / (TERRAIN_TEXTURE_PALETTE_SWATCH + TERRAIN_TEXTURE_PALETTE_GAP);
+    if (max_cols < TERRAIN_TEXTURE_PALETTE_MIN_COLS)
+        max_cols = TERRAIN_TEXTURE_PALETTE_MIN_COLS;
+    if (wanted > max_cols)
+        wanted = max_cols;
+
+    return wanted;
+}
+
+static S32 TerrainTextureEditorPaletteVisibleCount(void) {
+    S32 count;
+
+    count = TerrainTextureEditorPaletteRows() * TerrainTextureEditorPaletteColumns();
+    if (count > TerrainTextureEditorTexDefCount + 1)
+        count = TerrainTextureEditorTexDefCount + 1;
+    return count;
+}
+
+static void TerrainTextureEditorPaletteRect(S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
+    S32 width;
+    S32 visible_count;
+    S32 rows;
+    S32 height;
+    S32 cols;
+
+    cols = TerrainTextureEditorPaletteColumns();
+    width = TERRAIN_TEXTURE_PALETTE_PAD * 2
+            + cols * TERRAIN_TEXTURE_PALETTE_SWATCH
+            + (cols - 1) * TERRAIN_TEXTURE_PALETTE_GAP;
+    visible_count = TerrainTextureEditorPaletteVisibleCount();
+    rows = (visible_count + cols - 1) / cols;
+    if (rows < 1)
+        rows = 1;
+    height = TERRAIN_TEXTURE_PALETTE_PAD * 2
+             + rows * TERRAIN_TEXTURE_PALETTE_SWATCH
+             + (rows - 1) * TERRAIN_TEXTURE_PALETTE_GAP;
+
+    *x1 = (S32)ModeDesiredX - TERRAIN_TEXTURE_PALETTE_PAD - 1;
+    *x0 = *x1 - width + 1;
+    *y0 = TERRAIN_TEXTURE_PALETTE_PAD;
+    *y1 = *y0 + height - 1;
+}
+
+static S32 TerrainTextureEditorPaletteEntryAt(S32 x, S32 y) {
+    S32 x0;
+    S32 y0;
+    S32 x1;
+    S32 y1;
+    S32 relx;
+    S32 rely;
+    S32 col;
+    S32 row;
+    S32 cellw;
+    S32 cellh;
+    S32 entry;
+    S32 cols;
+
+    TerrainTextureEditorPaletteRect(&x0, &y0, &x1, &y1);
+    if (x < x0 OR x > x1 OR y < y0 OR y > y1)
+        return TERRAIN_TEXTURE_PALETTE_NONE;
+
+    relx = x - x0 - TERRAIN_TEXTURE_PALETTE_PAD;
+    rely = y - y0 - TERRAIN_TEXTURE_PALETTE_PAD;
+    if (relx < 0 OR rely < 0)
+        return TERRAIN_TEXTURE_PALETTE_NONE;
+
+    cellw = TERRAIN_TEXTURE_PALETTE_SWATCH + TERRAIN_TEXTURE_PALETTE_GAP;
+    cellh = TERRAIN_TEXTURE_PALETTE_SWATCH + TERRAIN_TEXTURE_PALETTE_GAP;
+    col = relx / cellw;
+    row = rely / cellh;
+    cols = TerrainTextureEditorPaletteColumns();
+    if (col < 0 OR col >= cols)
+        return TERRAIN_TEXTURE_PALETTE_NONE;
+    if ((relx - col * cellw) >= TERRAIN_TEXTURE_PALETTE_SWATCH)
+        return TERRAIN_TEXTURE_PALETTE_NONE;
+    if ((rely - row * cellh) >= TERRAIN_TEXTURE_PALETTE_SWATCH)
+        return TERRAIN_TEXTURE_PALETTE_NONE;
+
+    entry = row * cols + col;
+    if (entry < 0 OR entry >= TerrainTextureEditorPaletteVisibleCount())
+        return TERRAIN_TEXTURE_PALETTE_NONE;
+    return entry - 1;
+}
+
+static S32 TerrainTextureEditorPaletteContainsPoint(S32 x, S32 y) {
+    S32 x0;
+    S32 y0;
+    S32 x1;
+    S32 y1;
+
+    TerrainTextureEditorPaletteRect(&x0, &y0, &x1, &y1);
+    return (x >= x0 AND x <= x1 AND y >= y0 AND y <= y1);
+}
+
+static T_TERRAIN_TEXTURE_INTENSITY_EDIT *TerrainTextureEditorFindIntensityEdit(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
+        T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit = &TerrainTextureIntensityEdits[i];
+
+        if (edit->Used
+                AND edit->CubeX == cube_x AND edit->CubeY == cube_y AND edit->Index == index)
+            return edit;
+    }
+    return NULL;
+}
+
+static T_TERRAIN_TEXTURE_INTENSITY_EDIT *TerrainTextureEditorGetOrCreateIntensityEdit(S32 cube_x, S32 cube_y, S32 index, U8 intensity) {
+    S32 i;
+    T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit;
+
+    edit = TerrainTextureEditorFindIntensityEdit(cube_x, cube_y, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
+        edit = &TerrainTextureIntensityEdits[i];
+        if (!edit->Used) {
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->Index = index;
+            edit->BaseIntensity = intensity;
+            edit->Intensity = intensity;
+            return edit;
+        }
+    }
+
+    Log_Warn("texedit intensity edit table is full; cannot track c%d,%d i%d",
+             (int)cube_x,
+             (int)cube_y,
+             (int)index);
+    return NULL;
+}
+
+static void TerrainTextureEditorAdjustIntensityVertex(S32 cube_x, S32 cube_y, S32 index, S32 delta) {
+    T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit;
+    U8 intensity;
+    S32 low;
+
+    if (!MapIntensity)
+        return;
+    if (index < 0 OR index >= (NB_COTE + 1) * (NB_COTE + 1))
+        return;
+
+    edit = TerrainTextureEditorGetOrCreateIntensityEdit(cube_x, cube_y, index, MapIntensity[index]);
+    if (!edit)
+        return;
+
+    intensity = edit->Intensity;
+    low = (intensity & 15) + delta;
+    if (low < 0)
+        low = 0;
+    if (low > 15)
+        low = 15;
+
+    edit->Intensity = (U8)((intensity & 0xF0) | low);
+    if (cube_x == CurrentCubeX AND cube_y == CurrentCubeY)
+        MapIntensity[index] = edit->Intensity;
+}
+
+static void TerrainTextureEditorTriangleVertices(S32 tri_index, S32 *v0, S32 *v1, S32 *v2) {
+    S32 cell;
+    S32 tri;
+    S32 xi;
+    S32 zi;
+    S32 p0;
+    S32 p1;
+    S32 p2;
+    S32 p3;
+    S32 sens;
+
+    cell = tri_index / 2;
+    tri = tri_index & 1;
+    zi = cell / NB_COTE;
+    xi = cell - zi * NB_COTE;
+
+    p0 = zi * (NB_COTE + 1) + xi;
+    p1 = (zi + 1) * (NB_COTE + 1) + xi;
+    p2 = (zi + 1) * (NB_COTE + 1) + xi + 1;
+    p3 = zi * (NB_COTE + 1) + xi + 1;
+    sens = MapPolyGround[cell * 2].Sens;
+
+    if (sens == 0) {
+        if (tri == 0) {
+            *v0 = p0;
+            *v1 = p1;
+            *v2 = p2;
+        } else {
+            *v0 = p2;
+            *v1 = p3;
+            *v2 = p0;
+        }
+    } else {
+        if (tri == 0) {
+            *v0 = p3;
+            *v1 = p0;
+            *v2 = p1;
+        } else {
+            *v0 = p1;
+            *v1 = p2;
+            *v2 = p3;
+        }
+    }
+}
+
+static void TerrainTextureEditorAdjustSelectedIntensity(S32 delta) {
+    S32 i;
+
+    if (!MapPolyGround OR !MapIntensity)
+        return;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+        S32 v0;
+        S32 v1;
+        S32 v2;
+
+        if (!sel->Used)
+            continue;
+        if (sel->CubeX != CurrentCubeX OR sel->CubeY != CurrentCubeY)
+            continue;
+        if (sel->Index < 0 OR sel->Index >= NB_COTE * NB_COTE * 2)
+            continue;
+
+        TerrainTextureEditorTriangleVertices(sel->Index, &v0, &v1, &v2);
+        TerrainTextureEditorAdjustIntensityVertex(sel->CubeX, sel->CubeY, v0, delta);
+        TerrainTextureEditorAdjustIntensityVertex(sel->CubeX, sel->CubeY, v1, delta);
+        TerrainTextureEditorAdjustIntensityVertex(sel->CubeX, sel->CubeY, v2, delta);
+    }
+}
+
+void TerrainTextureEditorBeginFrame(void) {
+    S32 click;
+    S32 up;
+    S32 down;
+    S32 left;
+    S32 right;
+    S32 step;
+
+    if (!TerrainTextureEditorSelect)
+        return;
+
+    click = Click;
+    TerrainTextureEditorPickPending = FALSE;
+    TerrainTextureEditorDragSelectPending = FALSE;
+
+    if ((click & 1) AND !(TerrainTextureEditorLastClick & 1)) {
+        if (TerrainTextureEditorPaletteContainsPoint((S32)MouseX, (S32)MouseY)) {
+            TerrainTextureEditorPalettePressEntry = TerrainTextureEditorPaletteEntryAt((S32)MouseX, (S32)MouseY);
+            if (TerrainTextureEditorPalettePressEntry == TERRAIN_TEXTURE_PALETTE_NONE)
+                TerrainTextureEditorPalettePressEntry = TERRAIN_TEXTURE_PALETTE_DEAD;
+        } else {
+            TerrainTextureEditorPalettePressEntry = TERRAIN_TEXTURE_PALETTE_NONE;
+        }
+    }
+
+    if (TerrainTextureEditorPalettePressEntry != TERRAIN_TEXTURE_PALETTE_NONE) {
+        if (!(click & 1) AND(TerrainTextureEditorLastClick & 1)) {
+            S32 entry;
+
+            entry = TerrainTextureEditorPaletteEntryAt((S32)MouseX, (S32)MouseY);
+            if (TerrainTextureEditorPalettePressEntry != TERRAIN_TEXTURE_PALETTE_DEAD
+                    AND entry == TerrainTextureEditorPalettePressEntry)
+                TerrainTextureEditorApplyTextureSelected(entry);
+            TerrainTextureEditorPalettePressEntry = TERRAIN_TEXTURE_PALETTE_NONE;
+        }
+        TerrainTextureEditorLastClick = click;
+        TerrainTextureEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
+        TerrainTextureEditorLastDown = CheckKey(K_DOWN) ? TRUE : FALSE;
+        TerrainTextureEditorLastLeft = CheckKey(K_LEFT) ? TRUE : FALSE;
+        TerrainTextureEditorLastRight = CheckKey(K_RIGHT) ? TRUE : FALSE;
+        return;
+    }
+
+    if ((click & 1) AND !(TerrainTextureEditorLastClick & 1)) {
+        TerrainTextureEditorDragActive = TRUE;
+        TerrainTextureEditorDragShift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+        TerrainTextureEditorDragX0 = (S32)MouseX;
+        TerrainTextureEditorDragY0 = (S32)MouseY;
+        TerrainTextureEditorDragX1 = TerrainTextureEditorDragX0;
+        TerrainTextureEditorDragY1 = TerrainTextureEditorDragY0;
+    }
+
+    if (TerrainTextureEditorDragActive AND(click & 1)) {
+        TerrainTextureEditorDragX1 = (S32)MouseX;
+        TerrainTextureEditorDragY1 = (S32)MouseY;
+    }
+
+    if (TerrainTextureEditorDragActive AND !(click & 1) AND(TerrainTextureEditorLastClick & 1)) {
+        S32 dx;
+        S32 dy;
+
+        TerrainTextureEditorDragX1 = (S32)MouseX;
+        TerrainTextureEditorDragY1 = (S32)MouseY;
+        dx = TerrainTextureEditorDragX1 - TerrainTextureEditorDragX0;
+        dy = TerrainTextureEditorDragY1 - TerrainTextureEditorDragY0;
+        if (dx < 0)
+            dx = -dx;
+        if (dy < 0)
+            dy = -dy;
+
+        if (dx > TERRAIN_TEXTURE_DRAG_MIN OR dy > TERRAIN_TEXTURE_DRAG_MIN) {
+            TerrainTextureEditorDragSelectPending = TRUE;
+            TerrainTextureEditorPickShift = TerrainTextureEditorDragShift;
+            if (!TerrainTextureEditorPickShift)
+                TerrainTextureEditorClearSelection();
+        } else {
+            TerrainTextureEditorPickPending = TRUE;
+            TerrainTextureEditorPickShift = TerrainTextureEditorDragShift;
+            TerrainTextureEditorPickBestIndex = -1;
+        }
+        TerrainTextureEditorDragActive = FALSE;
+    }
+
+    if (TerrainTextureEditorPickPending) {
+        TerrainTextureEditorPickBestIndex = -1;
+    }
+    TerrainTextureEditorLastClick = click;
+
+    up = CheckKey(K_UP) ? TRUE : FALSE;
+    down = CheckKey(K_DOWN) ? TRUE : FALSE;
+    left = CheckKey(K_LEFT) ? TRUE : FALSE;
+    right = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    step = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? 4 : 1;
+
+    if (up AND !TerrainTextureEditorLastUp)
+        TerrainTextureEditorAdjustSelectedIntensity(step);
+    if (down AND !TerrainTextureEditorLastDown)
+        TerrainTextureEditorAdjustSelectedIntensity(-step);
+
+    if (left AND !TerrainTextureEditorLastLeft)
+        TerrainTextureEditorCycleSelected(-1);
+    if (right AND !TerrainTextureEditorLastRight)
+        TerrainTextureEditorCycleSelected(1);
+
+    TerrainTextureEditorLastUp = up;
+    TerrainTextureEditorLastDown = down;
+    TerrainTextureEditorLastLeft = left;
+    TerrainTextureEditorLastRight = right;
+}
+
+static void TerrainTextureEditorSelectOnly(S32 cube_x, S32 cube_y, S32 index) {
+    TerrainTextureEditorClearSelection();
+    TerrainTextureEditorSelList[0].Used = TRUE;
+    TerrainTextureEditorSelList[0].CubeX = cube_x;
+    TerrainTextureEditorSelList[0].CubeY = cube_y;
+    TerrainTextureEditorSelList[0].Index = index;
+}
+
+static void TerrainTextureEditorAddSelected(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        if (TerrainTextureEditorSameTri(&TerrainTextureEditorSelList[i], cube_x, cube_y, index))
+            return;
+    }
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+
+        if (sel->Used)
+            continue;
+        sel->Used = TRUE;
+        sel->CubeX = cube_x;
+        sel->CubeY = cube_y;
+        sel->Index = index;
+        return;
+    }
+}
+
+static void TerrainTextureEditorToggleSelected(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+
+        if (TerrainTextureEditorSameTri(sel, cube_x, cube_y, index)) {
+            sel->Used = FALSE;
+            return;
+        }
+    }
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+
+        if (sel->Used)
+            continue;
+        sel->Used = TRUE;
+        sel->CubeX = cube_x;
+        sel->CubeY = cube_y;
+        sel->Index = index;
+        return;
+    }
+}
+
+void TerrainTextureEditorEndFrame(void) {
+    if (TerrainTextureEditorDragSelectPending) {
+        TerrainTextureEditorDragSelectPending = FALSE;
+        return;
+    }
+
+    if (!TerrainTextureEditorSelect OR !TerrainTextureEditorPickPending)
+        return;
+
+    if (TerrainTextureEditorPickBestIndex < 0) {
+        if (!TerrainTextureEditorPickShift)
+            TerrainTextureEditorClearSelection();
+    } else if (TerrainTextureEditorPickShift) {
+        TerrainTextureEditorToggleSelected(TerrainTextureEditorPickBestCubeX,
+                                           TerrainTextureEditorPickBestCubeY,
+                                           TerrainTextureEditorPickBestIndex);
+    } else {
+        TerrainTextureEditorSelectOnly(TerrainTextureEditorPickBestCubeX,
+                                       TerrainTextureEditorPickBestCubeY,
+                                       TerrainTextureEditorPickBestIndex);
+    }
+
+    TerrainTextureEditorPickPending = FALSE;
+}
+
+static S32 TerrainTextureEditorTriArea(S32 ax, S32 ay, S32 bx, S32 by, S32 cx, S32 cy) {
+    return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+}
+
+static S32 TerrainTextureEditorPointInTri(S32 px, S32 py, S32 ax, S32 ay, S32 bx, S32 by, S32 cx, S32 cy) {
+    S32 a;
+    S32 b;
+    S32 c;
+
+    a = TerrainTextureEditorTriArea(ax, ay, bx, by, px, py);
+    b = TerrainTextureEditorTriArea(bx, by, cx, cy, px, py);
+    c = TerrainTextureEditorTriArea(cx, cy, ax, ay, px, py);
+
+    return ((a >= 0 AND b >= 0 AND c >= 0) OR(a <= 0 AND b <= 0 AND c <= 0));
+}
+
+static void TerrainTextureEditorConsiderTri(S32 cube_x, S32 cube_y, S32 index,
+                                            S32 ax, S32 ay, S32 bx, S32 by, S32 cx, S32 cy) {
+    S32 mx;
+    S32 my;
+
+    mx = (ax + bx + cx) / 3;
+    my = (ay + by + cy) / 3;
+
+    if (TerrainTextureEditorDragSelectPending) {
+        S32 x0 = TerrainTextureEditorDragX0;
+        S32 y0 = TerrainTextureEditorDragY0;
+        S32 x1 = TerrainTextureEditorDragX1;
+        S32 y1 = TerrainTextureEditorDragY1;
+
+        if (x0 > x1) {
+            S32 t = x0;
+            x0 = x1;
+            x1 = t;
+        }
+        if (y0 > y1) {
+            S32 t = y0;
+            y0 = y1;
+            y1 = t;
+        }
+
+        if (mx >= x0 AND mx <= x1 AND my >= y0 AND my <= y1) {
+            if (TerrainTextureEditorPickShift)
+                TerrainTextureEditorToggleSelected(cube_x, cube_y, index);
+            else
+                TerrainTextureEditorAddSelected(cube_x, cube_y, index);
+            if (MapPolyGround
+                    AND index >= 0 AND index < NB_COTE * NB_COTE * 2)
+                TerrainTextureEditorGetOrCreateEdit(cube_x, cube_y, index, &MapPolyGround[index]);
+        }
+    }
+
+    if (!TerrainTextureEditorPickPending)
+        return;
+
+    if (TerrainTextureEditorPointInTri((S32)MouseX, (S32)MouseY, ax, ay, bx, by, cx, cy)) {
+        TerrainTextureEditorPickBestCubeX = cube_x;
+        TerrainTextureEditorPickBestCubeY = cube_y;
+        TerrainTextureEditorPickBestIndex = index;
+        if (MapPolyGround
+                AND index >= 0 AND index < NB_COTE * NB_COTE * 2)
+            TerrainTextureEditorGetOrCreateEdit(cube_x, cube_y, index, &MapPolyGround[index]);
+    }
+}
+
+static void TerrainTextureEditorDrawSelectedTri(S32 ax, S32 ay, S32 bx, S32 by, S32 cx, S32 cy) {
+    Line(ax, ay, bx, by, TERRAIN_TEXTURE_EDITOR_MARK);
+    Line(bx, by, cx, cy, TERRAIN_TEXTURE_EDITOR_MARK);
+    Line(cx, cy, ax, ay, TERRAIN_TEXTURE_EDITOR_MARK);
+}
+
+static void TerrainTextureEditorDrawSelectedIndex(S32 index) {
+    S32 cell;
+    S32 tri;
+    S32 xi;
+    S32 zi;
+    T_SOMMET_ROT *ptrs;
+    U8 *ptra;
+    S32 x0;
+    S32 y0;
+    S32 x1;
+    S32 y1;
+    S32 x2;
+    S32 y2;
+    S32 x3;
+    S32 y3;
+    S32 sens;
+
+    if (!MapPolyGround)
+        return;
+    if (index < 0 OR index >= NB_COTE * NB_COTE * 2)
+        return;
+
+    cell = index / 2;
+    tri = index & 1;
+    zi = cell / NB_COTE;
+    xi = cell - zi * NB_COTE;
+    ptrs = &SommetRot[zi][xi];
+    ptra = &SommetAffichable[zi][xi];
+    x0 = ptrs[0].X2D;
+    y0 = ptrs[0].Y2D;
+    x1 = ptrs[65].X2D;
+    y1 = ptrs[65].Y2D;
+    x2 = ptrs[66].X2D;
+    y2 = ptrs[66].Y2D;
+    x3 = ptrs[1].X2D;
+    y3 = ptrs[1].Y2D;
+    sens = MapPolyGround[cell * 2].Sens;
+
+    if (sens == 0) {
+        if (tri == 0) {
+            if ((ptra[0] & 16) AND(ptra[65] & 16) AND(ptra[66] & 16))
+                TerrainTextureEditorDrawSelectedTri(x0, y0, x1, y1, x2, y2);
+        } else {
+            if ((ptra[66] & 16) AND(ptra[1] & 16) AND(ptra[0] & 16))
+                TerrainTextureEditorDrawSelectedTri(x2, y2, x3, y3, x0, y0);
+        }
+    } else {
+        if (tri == 0) {
+            if ((ptra[1] & 16) AND(ptra[0] & 16) AND(ptra[65] & 16))
+                TerrainTextureEditorDrawSelectedTri(x3, y3, x0, y0, x1, y1);
+        } else {
+            if ((ptra[65] & 16) AND(ptra[66] & 16) AND(ptra[1] & 16))
+                TerrainTextureEditorDrawSelectedTri(x1, y1, x2, y2, x3, y3);
+        }
+    }
+}
+
+static void TerrainTextureEditorDrawSelectedList(void) {
+    S32 i;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_SELECTED; i++) {
+        T_TERRAIN_TEXTURE_EDITOR_SEL *sel = &TerrainTextureEditorSelList[i];
+
+        if (!sel->Used)
+            continue;
+        if (sel->CubeX != CurrentCubeX OR sel->CubeY != CurrentCubeY)
+            continue;
+        TerrainTextureEditorDrawSelectedIndex(sel->Index);
+    }
+}
+
+static void TerrainTextureEditorDrawDragBox(void) {
+    S32 x0;
+    S32 y0;
+    S32 x1;
+    S32 y1;
+
+    if (!TerrainTextureEditorDragActive)
+        return;
+
+    x0 = TerrainTextureEditorDragX0;
+    y0 = TerrainTextureEditorDragY0;
+    x1 = TerrainTextureEditorDragX1;
+    y1 = TerrainTextureEditorDragY1;
+
+    if (x0 > x1) {
+        S32 t = x0;
+        x0 = x1;
+        x1 = t;
+    }
+    if (y0 > y1) {
+        S32 t = y0;
+        y0 = y1;
+        y1 = t;
+    }
+
+    Rect(x0, y0, x1, y1, TERRAIN_TEXTURE_DRAG_MARK);
+}
+
+static void TerrainTextureEditorFillRect(S32 x0, S32 y0, S32 x1, S32 y1, S32 color) {
+    S32 x;
+    S32 y;
+
+    for (y = y0; y <= y1; y++) {
+        for (x = x0; x <= x1; x++) {
+            Plot(x, y, color);
+        }
+    }
+}
+
+static void TerrainTextureEditorDrawNoTextureSwatch(S32 x0, S32 y0) {
+    S32 x;
+    S32 y;
+    S32 x1;
+    S32 y1;
+
+    x1 = x0 + TERRAIN_TEXTURE_PALETTE_SWATCH - 1;
+    y1 = y0 + TERRAIN_TEXTURE_PALETTE_SWATCH - 1;
+
+    for (y = y0; y <= y1; y++) {
+        for (x = x0; x <= x1; x++) {
+            Plot(x, y, ((x + y) & 4) ? 8 : 0);
+        }
+    }
+    Line(x0 + 3, y0 + 3, x1 - 3, y1 - 3, 15);
+    Line(x0 + 3, y1 - 3, x1 - 3, y0 + 3, 15);
+}
+
+static void TerrainTextureEditorDrawTextureSwatch(S32 x0, S32 y0, S32 texture_index) {
+    T_HALF_TEX *tex;
+    S32 min_u;
+    S32 min_v;
+    S32 max_u;
+    S32 max_v;
+    S32 x;
+    S32 y;
+    S32 u;
+    S32 v;
+
+    if (!GroundTexture OR !ListTexDef OR texture_index < 0 OR texture_index >= TerrainTextureEditorTexDefCount) {
+        TerrainTextureEditorFillRect(x0,
+                                     y0,
+                                     x0 + TERRAIN_TEXTURE_PALETTE_SWATCH - 1,
+                                     y0 + TERRAIN_TEXTURE_PALETTE_SWATCH - 1,
+                                     0);
+        return;
+    }
+
+    tex = &ListTexDef[texture_index];
+    min_u = (S32)tex->Tx0;
+    max_u = min_u;
+    min_v = (S32)tex->Ty0;
+    max_v = min_v;
+
+    if ((S32)tex->Tx1 < min_u)
+        min_u = (S32)tex->Tx1;
+    if ((S32)tex->Tx2 < min_u)
+        min_u = (S32)tex->Tx2;
+    if ((S32)tex->Tx1 > max_u)
+        max_u = (S32)tex->Tx1;
+    if ((S32)tex->Tx2 > max_u)
+        max_u = (S32)tex->Tx2;
+
+    if ((S32)tex->Ty1 < min_v)
+        min_v = (S32)tex->Ty1;
+    if ((S32)tex->Ty2 < min_v)
+        min_v = (S32)tex->Ty2;
+    if ((S32)tex->Ty1 > max_v)
+        max_v = (S32)tex->Ty1;
+    if ((S32)tex->Ty2 > max_v)
+        max_v = (S32)tex->Ty2;
+
+    if (max_u <= min_u)
+        max_u = min_u + 256;
+    if (max_v <= min_v)
+        max_v = min_v + 256;
+
+    for (y = 0; y < TERRAIN_TEXTURE_PALETTE_SWATCH; y++) {
+        for (x = 0; x < TERRAIN_TEXTURE_PALETTE_SWATCH; x++) {
+            u = (min_u + ((max_u - min_u) * x) / (TERRAIN_TEXTURE_PALETTE_SWATCH - 1)) >> 8;
+            v = (min_v + ((max_v - min_v) * y) / (TERRAIN_TEXTURE_PALETTE_SWATCH - 1)) >> 8;
+            Plot(x0 + x, y0 + y, GroundTexture[((v & 255) << 8) + (u & 255)]);
+        }
+    }
+}
+
+static void TerrainTextureEditorDrawPalette(void) {
+    S32 panel_x0;
+    S32 panel_y0;
+    S32 panel_x1;
+    S32 panel_y1;
+    S32 visible_count;
+    S32 selected_entry;
+    S32 entry;
+    S32 cols;
+
+    TerrainTextureEditorPaletteRect(&panel_x0, &panel_y0, &panel_x1, &panel_y1);
+    TerrainTextureEditorFillRect(panel_x0, panel_y0, panel_x1, panel_y1, TERRAIN_TEXTURE_PALETTE_BACK);
+    Rect(panel_x0, panel_y0, panel_x1, panel_y1, TERRAIN_TEXTURE_PALETTE_BORDER);
+
+    visible_count = TerrainTextureEditorPaletteVisibleCount();
+    selected_entry = TerrainTextureEditorSelectedTextureEntry();
+    cols = TerrainTextureEditorPaletteColumns();
+
+    for (entry = 0; entry < visible_count; entry++) {
+        S32 col;
+        S32 row;
+        S32 sx;
+        S32 sy;
+        S32 texture_entry;
+        S32 border;
+
+        col = entry % cols;
+        row = entry / cols;
+        sx = panel_x0 + TERRAIN_TEXTURE_PALETTE_PAD
+             + col * (TERRAIN_TEXTURE_PALETTE_SWATCH + TERRAIN_TEXTURE_PALETTE_GAP);
+        sy = panel_y0 + TERRAIN_TEXTURE_PALETTE_PAD
+             + row * (TERRAIN_TEXTURE_PALETTE_SWATCH + TERRAIN_TEXTURE_PALETTE_GAP);
+        texture_entry = entry - 1;
+
+        if (texture_entry < 0)
+            TerrainTextureEditorDrawNoTextureSwatch(sx, sy);
+        else
+            TerrainTextureEditorDrawTextureSwatch(sx, sy, texture_entry);
+
+        border = TERRAIN_TEXTURE_PALETTE_BORDER;
+        if (selected_entry == texture_entry OR TerrainTextureEditorPalettePressEntry == texture_entry)
+            border = TERRAIN_TEXTURE_PALETTE_SELECT;
+        Rect(sx - 1,
+             sy - 1,
+             sx + TERRAIN_TEXTURE_PALETTE_SWATCH,
+             sy + TERRAIN_TEXTURE_PALETTE_SWATCH,
+             border);
+    }
+}
+
+void TerrainTextureEditorOverlayDraw(void) {
+    S32 xi;
+    S32 zi;
+
+    if (!TerrainTextureEditorSelect)
+        return;
+    if (!TerrainEditorLoadedCurrentCube())
+        return;
+
+    UnsetClip();
+
+    if (TerrainTextureEditorPickPending OR TerrainTextureEditorDragSelectPending) {
+        for (zi = 0; zi < NB_COTE; zi++) {
+            for (xi = 0; xi < NB_COTE; xi++) {
+                S32 index0 = zi * NB_COTE * 2 + xi * 2;
+                S32 index1 = index0 + 1;
+                T_SOMMET_ROT *ptrs = &SommetRot[zi][xi];
+                U8 *ptra = &SommetAffichable[zi][xi];
+                S32 x0 = ptrs[0].X2D;
+                S32 y0 = ptrs[0].Y2D;
+                S32 x1 = ptrs[65].X2D;
+                S32 y1 = ptrs[65].Y2D;
+                S32 x2 = ptrs[66].X2D;
+                S32 y2 = ptrs[66].Y2D;
+                S32 x3 = ptrs[1].X2D;
+                S32 y3 = ptrs[1].Y2D;
+                S32 sens = MapPolyGround[index0].Sens;
+
+                if (sens == 0) {
+                    if ((ptra[0] & 16) AND(ptra[65] & 16) AND(ptra[66] & 16))
+                        TerrainTextureEditorConsiderTri(CurrentCubeX, CurrentCubeY, index0, x0, y0, x1, y1, x2, y2);
+
+                    if ((ptra[66] & 16) AND(ptra[1] & 16) AND(ptra[0] & 16))
+                        TerrainTextureEditorConsiderTri(CurrentCubeX, CurrentCubeY, index1, x2, y2, x3, y3, x0, y0);
+                } else {
+                    if ((ptra[1] & 16) AND(ptra[0] & 16) AND(ptra[65] & 16))
+                        TerrainTextureEditorConsiderTri(CurrentCubeX, CurrentCubeY, index0, x3, y3, x0, y0, x1, y1);
+
+                    if ((ptra[65] & 16) AND(ptra[66] & 16) AND(ptra[1] & 16))
+                        TerrainTextureEditorConsiderTri(CurrentCubeX, CurrentCubeY, index1, x1, y1, x2, y2, x3, y3);
+                }
+            }
+        }
+    }
+
+    TerrainTextureEditorDrawSelectedList();
+    TerrainTextureEditorDrawDragBox();
+    TerrainTextureEditorDrawPalette();
+
+    UnsetClip();
+}
+#endif

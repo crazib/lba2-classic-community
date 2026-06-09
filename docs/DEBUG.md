@@ -40,7 +40,9 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
-| `.` | Toggle exterior decor edit selection | `LBA2CC_EDITOR` only. Exterior scenes only; also enables decor labels and boxes. |
+| `,` | Toggle terrain editing | Requires LBA2CC_EDITOR (exterior only) |
+| `.` | Toggle exterior decor editing | Requires LBA2CC_EDITOR (exterior only) |
+| `/` | Toggle terrain texture editing | Requires LBA2CC_EDITOR (exterior only) |
 | `F9` | Screenshot | Captures screenshot as PCX (original format) |
 | `F10` | Terrain benchmark | Runs 20-loop terrain rendering benchmark (exterior only) |
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |

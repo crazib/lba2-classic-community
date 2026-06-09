@@ -29,6 +29,10 @@
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
 extern void ExtDecorEditorSetSelect(S32 select);
 extern S32 ExtDecorEditorGetSelect(void);
+extern void TerrainEditorSetSelect(S32 select);
+extern S32 TerrainEditorGetSelect(void);
+extern void TerrainTextureEditorSetSelect(S32 select);
+extern S32 TerrainTextureEditorGetSelect(void);
 #endif
 
 #ifdef DEBUG_TOOLS
@@ -776,7 +780,34 @@ restartloop:
 
 #if defined(LBA2CC_EDITOR)
         if (MyKey == K_PERIOD) {
+            TerrainEditorSetSelect(FALSE);
+            TerrainTextureEditorSetSelect(FALSE);
             ExtDecorEditorSetSelect(!ExtDecorEditorGetSelect());
+            InitWaitNoKey();
+        }
+
+        if (MyKey == K_COMMA) {
+            if (CubeMode == CUBE_EXTERIEUR) {
+                ExtDecorEditorSetSelect(FALSE);
+                TerrainTextureEditorSetSelect(FALSE);
+                TerrainEditorSetSelect(!TerrainEditorGetSelect());
+                FirstTime = AFF_ALL_FLIP;
+            } else {
+                TerrainEditorSetSelect(FALSE);
+                TerrainTextureEditorSetSelect(FALSE);
+            }
+            InitWaitNoKey();
+        }
+
+        if (MyKey == K_EXC) {
+            if (CubeMode == CUBE_EXTERIEUR) {
+                ExtDecorEditorSetSelect(FALSE);
+                TerrainEditorSetSelect(FALSE);
+                TerrainTextureEditorSetSelect(!TerrainTextureEditorGetSelect());
+                FirstTime = AFF_ALL_FLIP;
+            } else {
+                TerrainTextureEditorSetSelect(FALSE);
+            }
             InitWaitNoKey();
         }
 #endif
@@ -1938,7 +1969,7 @@ restartloop:
         /* affiche tout */
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
-        if (CubeMode == CUBE_EXTERIEUR AND ExtDecorEditorGetSelect())
+        if (CubeMode == CUBE_EXTERIEUR AND(ExtDecorEditorGetSelect() OR TerrainEditorGetSelect() OR TerrainTextureEditorGetSelect()))
             FirstTime = AFF_ALL_FLIP;
 #endif
 

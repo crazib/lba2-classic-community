@@ -15,6 +15,8 @@
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
 extern S32 ExtDecorEditorConsumesInput(void);
+extern S32 TerrainEditorConsumesInput(void);
+extern S32 TerrainTextureEditorConsumesInput(void);
 #endif
 
 // Input
@@ -310,7 +312,7 @@ void MyGetInput() {
     }
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
-    if (ExtDecorEditorConsumesInput()) {
+    if (ExtDecorEditorConsumesInput() OR TerrainEditorConsumesInput() OR TerrainTextureEditorConsumesInput()) {
         Input &= ~(I_UP | I_DOWN | I_LEFT | I_RIGHT | I_INVENTORY);
         if (MyKey == K_UP OR MyKey == K_DOWN OR MyKey == K_LEFT OR MyKey == K_RIGHT)
             MyKey = 0;

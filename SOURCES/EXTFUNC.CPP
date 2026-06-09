@@ -20,6 +20,10 @@
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
 extern void ExtDecorEditorBeginFrame(void);
 extern void ExtDecorEditorEndFrame(void);
+extern void TerrainEditorBeginFrame(void);
+extern void TerrainEditorEndFrame(void);
+extern void TerrainTextureEditorBeginFrame(void);
+extern void TerrainTextureEditorEndFrame(void);
 #endif
 
 extern S32 Nxw, Nyw, Nzw;
@@ -319,6 +323,8 @@ void AffGrilleExt() {
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
     ExtDecorEditorBeginFrame();
+    TerrainEditorBeginFrame();
+    TerrainTextureEditorBeginFrame();
 #endif
 
 #ifdef LBA_EDITOR
@@ -336,6 +342,8 @@ void AffGrilleExt() {
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
     ExtDecorEditorEndFrame();
+    TerrainEditorEndFrame();
+    TerrainTextureEditorEndFrame();
 #endif
 
     ManageSystem(); // for streaming

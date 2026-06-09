@@ -30,4 +30,27 @@ extern void DrawAnimatedPolys();
 extern void FiltreAnimatedPolys();
 /*--------------------------------------------------------------------------*/
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void TerrainEditorSetSelect(S32 select);
+extern S32 TerrainEditorGetSelect(void);
+extern void TerrainEditorClearSelection(void);
+extern S32 TerrainEditorConsumesInput(void);
+extern void TerrainEditorClearRuntimeEdits(void);
+extern void TerrainEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
+extern void TerrainEditorSetLoadedCube(S32 cube_x, S32 cube_y);
+extern void TerrainEditorBeginFrame(void);
+extern void TerrainEditorEndFrame(void);
+extern void TerrainEditorOverlayDraw(void);
+extern void TerrainTextureEditorSetSelect(S32 select);
+extern S32 TerrainTextureEditorGetSelect(void);
+extern void TerrainTextureEditorClearSelection(void);
+extern S32 TerrainTextureEditorConsumesInput(void);
+extern void TerrainTextureEditorClearRuntimeEdits(void);
+extern void TerrainTextureEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
+extern void TerrainTextureEditorSetTexDefCount(S32 count);
+extern void TerrainTextureEditorBeginFrame(void);
+extern void TerrainTextureEditorEndFrame(void);
+extern void TerrainTextureEditorOverlayDraw(void);
+#endif
+
 #endif // TERRAIN_H
