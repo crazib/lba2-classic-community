@@ -13,6 +13,7 @@ import signal
 import struct
 import sys
 
+import hqr_inspect
 import ile_objects
 import ile_terrain
 import scene_zones
@@ -23,6 +24,12 @@ def data_path(data_dir, relpath):
     if os.path.isabs(relpath):
         raise ValueError("mod manifest file paths must be relative to --data-dir")
     return os.path.join(data_dir, relpath)
+
+
+def manifest_path(manifest_dir, relpath):
+    if os.path.isabs(relpath):
+        raise ValueError("mod manifest source paths must be relative to the manifest file")
+    return os.path.join(manifest_dir, relpath)
 
 
 def as_triplet(value, name):
@@ -261,6 +268,170 @@ def op_add_text(op, data_dir, write):
     return True
 
 
+# Copy an HQR entry from one index to another in the same file.
+def op_copy_hqr_entry(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    source_index = int(op["from"])
+    target_index = int(op["to"])
+    ents, data = hqr_inspect.entries(path)
+
+    if source_index < 0 or source_index >= len(ents):
+        raise ValueError("source entry %d is out of range [0,%d)" % (source_index, len(ents)))
+    if target_index < 0 or target_index >= len(ents):
+        raise ValueError("target entry %d is out of range [0,%d)" % (target_index, len(ents)))
+
+    source = ents[source_index]
+    target = ents[target_index]
+
+    print("copy_hqr_entry %s %d -> %d:" % (op["file"], source_index, target_index))
+
+    if source[2] is None:
+        raise ValueError("source entry %d is empty" % source_index)
+
+    source_offset = source[1]
+    source_size = source[2]
+    source_compressed_size = source[3]
+    source_method = source[4]
+    source_blob = data[source_offset : source_offset + 10 + source_compressed_size]
+
+    print(
+        "  source size=%d compressed=%d method=%d"
+        % (source_size, source_compressed_size, source_method)
+    )
+
+    if target[2] is not None:
+        target_offset = target[1]
+        target_size = target[2]
+        target_compressed_size = target[3]
+        target_method = target[4]
+        target_blob = data[target_offset : target_offset + 10 + target_compressed_size]
+        if target_blob == source_blob:
+            print("  already applied")
+            return False
+        raise ValueError(
+            "target entry %d is not empty: size=%d compressed=%d method=%d"
+            % (target_index, target_size, target_compressed_size, target_method)
+        )
+
+    print("  target is empty")
+
+    if write:
+        new_entries = []
+        for index, ent in enumerate(ents):
+            if index == target_index:
+                new_entries.append(source_blob)
+            elif ent[2] is None:
+                new_entries.append(None)
+            else:
+                offset = ent[1]
+                compressed_size = ent[3]
+                new_entries.append(data[offset : offset + 10 + compressed_size])
+
+        table_size = len(ents) * 4
+        offsets = []
+        pos = table_size
+        for blob in new_entries:
+            if blob is None:
+                offsets.append(0)
+            else:
+                offsets.append(pos)
+                pos += len(blob)
+
+        out = bytearray()
+        for offset in offsets:
+            out.extend(struct.pack("<I", offset))
+        for blob in new_entries:
+            if blob is not None:
+                out.extend(blob)
+
+        with open(path, "wb") as f:
+            f.write(out)
+        print("  wrote copied entry")
+    else:
+        print("  dry run only")
+
+    return True
+
+
+def op_replace_hqr_entry(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    entry_index = int(op["entry"])
+    manifest_dir = op.get("_manifest_dir", ".")
+    source_path = manifest_path(manifest_dir, op["source"])
+
+    ents, data = hqr_inspect.entries(path)
+
+    if entry_index < 0 or entry_index >= len(ents):
+        raise ValueError("entry %d is out of range [0,%d)" % (entry_index, len(ents)))
+
+    with open(source_path, "rb") as f:
+        payload = f.read()
+
+    if len(payload) == 0:
+        raise ValueError("source file %s is empty" % source_path)
+
+    source_blob = struct.pack("<IIH", len(payload), len(payload), 0) + payload
+    target = ents[entry_index]
+
+    print("replace_hqr_entry %s entry %d <- %s:" % (op["file"], entry_index, op["source"]))
+    print("  source size=%d stored=%d" % (len(payload), len(source_blob)))
+
+    if target[2] is not None:
+        target_offset = target[1]
+        target_compressed_size = target[3]
+        target_blob = data[target_offset : target_offset + 10 + target_compressed_size]
+        if target_blob == source_blob:
+            print("  already applied")
+            return False
+        print(
+            "  replacing existing size=%d compressed=%d method=%d"
+            % (target[2], target[3], target[4])
+        )
+    else:
+        print("  replacing empty entry")
+
+    if write:
+        new_entries = []
+        for index, ent in enumerate(ents):
+            if index == entry_index:
+                new_entries.append(source_blob)
+            elif ent[2] is None:
+                new_entries.append(None)
+            else:
+                offset = ent[1]
+                compressed_size = ent[3]
+                new_entries.append(data[offset : offset + 10 + compressed_size])
+
+        table_size = len(ents) * 4
+        offsets = []
+        pos = table_size
+
+        for blob in new_entries:
+            if blob is None:
+                offsets.append(0)
+            else:
+                offsets.append(pos)
+                pos += len(blob)
+
+        out = bytearray()
+
+        for offset in offsets:
+            out.extend(struct.pack("<I", offset))
+
+        for blob in new_entries:
+            if blob is not None:
+                out.extend(blob)
+
+        with open(path, "wb") as f:
+            f.write(out)
+
+        print("  wrote replaced entry")
+    else:
+        print("  dry run only")
+
+    return True
+
+
 def op_set_terrain_heights(op, data_dir, write):
     path = data_path(data_dir, op["file"])
     cube_x, cube_y = parse_cube(op["cube"])
@@ -301,6 +472,8 @@ OPERATIONS = {
     "set_ile_object": op_set_ile_object,
     "set_scene_zones": op_set_scene_zones,
     "add_text": op_add_text,
+    "copy_hqr_entry": op_copy_hqr_entry,
+    "replace_hqr_entry": op_replace_hqr_entry,
     "set_terrain_heights": op_set_terrain_heights,
 }
 
@@ -326,8 +499,10 @@ def main():
 
     try:
         manifest = load_manifest(args.manifest)
+        manifest_dir = os.path.dirname(os.path.abspath(args.manifest))
         changed = 0
         for index, op in enumerate(manifest["operations"]):
+            op["_manifest_dir"] = manifest_dir
             op_type = op.get("type")
             if op_type not in OPERATIONS:
                 raise ValueError("operation %d has unknown type %r" % (index, op_type))

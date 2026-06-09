@@ -205,6 +205,86 @@ def print_rows(bank, rows):
         )
 
 
+def free_id_summary(bank):
+    ids = sorted(set(bank["ids"]))
+    if not ids:
+        return {
+            "lowest_used": None,
+            "highest_used": None,
+            "next_available": 0,
+            "append_safe_id": 0,
+            "first_gap": None,
+            "gaps": [],
+        }
+
+    gaps = []
+    prev = ids[0]
+    for text_id in ids[1:]:
+        if text_id > prev + 1:
+            gaps.append(
+                {"start": prev + 1, "end": text_id - 1, "count": text_id - prev - 1}
+            )
+        prev = text_id
+
+    return {
+        "lowest_used": ids[0],
+        "highest_used": ids[-1],
+        "next_available": gaps[0]["start"]
+        if gaps
+        else (ids[-1] + 1 if ids[-1] < 0xFFFF else None),
+        "append_safe_id": ids[-1] + 1 if ids[-1] < 0xFFFF else None,
+        "first_gap": gaps[0]["start"] if gaps else None,
+        "gaps": gaps,
+    }
+
+
+def format_gap(gap):
+    if gap["start"] == gap["end"]:
+        return "%d" % gap["start"]
+    return "%d..%d (%d ids)" % (gap["start"], gap["end"], gap["count"])
+
+
+def print_free_id_summary(bank, summary, limit):
+    print(
+        "TEXT.HQR %s_%s order entry %d text entry %d count %d"
+        % (
+            LANGUAGE_NAMES[bank["language"]],
+            FILE_NAMES[bank["file"]],
+            bank["order_entry"],
+            bank["text_entry"],
+            len(bank["texts"]),
+        )
+    )
+    print("  lowest used:    %s" % (summary["lowest_used"] if summary["lowest_used"] is not None else "none"))
+    print("  highest used:   %s" % (summary["highest_used"] if summary["highest_used"] is not None else "none"))
+    print(
+        "  next available: %s"
+        % (summary["next_available"] if summary["next_available"] is not None else "none")
+    )
+    print(
+        "  append-safe id: %s"
+        % (
+            summary["append_safe_id"]
+            if summary["append_safe_id"] is not None
+            else "none (65535 is already used)"
+        )
+    )
+    print("  first gap:      %s" % (summary["first_gap"] if summary["first_gap"] is not None else "none"))
+
+    gaps = summary["gaps"]
+    if limit:
+        gaps = gaps[:limit]
+    if not gaps:
+        print("  gaps:           none")
+        return
+
+    print("  gaps:")
+    for gap in gaps:
+        print("    %s" % format_gap(gap))
+    if limit and len(summary["gaps"]) > limit:
+        print("    ... %d more" % (len(summary["gaps"]) - limit))
+
+
 def rebuild_text_blob(bank, replacement_id, new_text, new_flag):
     ids = bank["ids"]
     old_rows = bank["texts"]
@@ -297,6 +377,13 @@ def main():
     ap.add_argument("--set", dest="set_text", help="Replacement text for --text")
     ap.add_argument("--flag", type=int, help="Replacement flag byte for --set")
     ap.add_argument("--add", type=int, help="Append a new text id; requires --set")
+    ap.add_argument(
+        "--next-id",
+        action="store_true",
+        dest="next_id",
+        help="Report next free id, highest used id, append-safe id, and gaps",
+    )
+    ap.add_argument("--gap-limit", type=int, default=20, help="Gap list limit for --next-id; 0 = no limit")
     ap.add_argument("--write", action="store_true", help="Write replacement text back to TEXT.HQR")
     args = ap.parse_args()
 
@@ -307,6 +394,29 @@ def main():
     except Exception as exc:
         print(str(exc), file=sys.stderr)
         return 1
+
+    if args.next_id:
+        summary = free_id_summary(bank)
+        if args.json:
+            out = {
+                "language": LANGUAGE_NAMES[language],
+                "file": FILE_NAMES[file_index],
+                "order_entry": bank["order_entry"],
+                "text_entry": bank["text_entry"],
+                "count": len(bank["texts"]),
+                "lowest_used": summary["lowest_used"],
+                "highest_used": summary["highest_used"],
+                "next_available": summary["next_available"],
+                "append_safe_id": summary["append_safe_id"],
+                "first_gap": summary["first_gap"],
+                "gaps": summary["gaps"],
+            }
+            if args.gap_limit:
+                out["gaps"] = out["gaps"][: args.gap_limit]
+            print(json.dumps(out, indent=2, sort_keys=True))
+        else:
+            print_free_id_summary(bank, summary, args.gap_limit)
+        return 0
 
     rows = selected_rows(bank, args.text, args.contains, args.limit)
 
