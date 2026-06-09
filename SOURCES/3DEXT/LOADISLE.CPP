@@ -57,6 +57,11 @@ extern U32 MapIntensityMem;
  *══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ExtDecorEditorClearRuntimeEdits(void);
+extern void ZoneEditorClearRuntimeEdits(void);
+#endif
+
 // MAX_OBJ_DECORS pour tous les cubes de toutes les iles
 // devra etre ajusté au max
 // celui de l'editeur:
@@ -138,6 +143,7 @@ void LoadIsland() {
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
     ExtDecorEditorClearRuntimeEdits();
+    ZoneEditorClearRuntimeEdits();
 #endif
 
     // reinit ressources HQR

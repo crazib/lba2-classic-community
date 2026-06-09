@@ -13,8 +13,12 @@
 #include <SVGA/SCREEN.H>
 #include <SVGA/VIDEO.H>
 #include <SYSTEM/HQFILE.H>
+#include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LOG.H>
+#include <SYSTEM/MOUSE.H>
 #include <stdint.h>
+#include <string.h>
 
 extern S32 FlagAnimWhoSpeak; // MESSAGE.CPP
 
@@ -99,11 +103,52 @@ static S32 ZoneOverlayIds = FALSE;
 static S32 ZoneOverlayBoxes = FALSE;
 static S32 ZoneOverlayMaxDist = 0;
 static S32 ZoneOverlayType = -1;
+static S32 ZoneEditorLastUp = 0;
+static S32 ZoneEditorLastDown = 0;
+static S32 ZoneEditorLastLeft = 0;
+static S32 ZoneEditorLastRight = 0;
+static S32 ZoneEditorPickBestDist = 0;
+static S32 ZoneEditorPickBestIndex = -1;
+
+#define ZONE_EDITOR_MAX_SELECTED 1024
+#define ZONE_EDITOR_MAX_EDITS 4096
+
+typedef struct
+{
+    S32 Used;
+    S32 Cube;
+    S32 Index;
+    S16 Type;
+    S16 Num;
+    S32 BaseX0;
+    S32 BaseY0;
+    S32 BaseZ0;
+    S32 BaseX1;
+    S32 BaseY1;
+    S32 BaseZ1;
+    S32 Dx;
+    S32 Dz;
+} T_ZONE_EDITOR_EDIT;
+
+static T_ZONE_EDITOR_EDIT ZoneEditorEdits[ZONE_EDITOR_MAX_EDITS];
 
 #define ZONE_OVERLAY_TEXT 15
 #define ZONE_OVERLAY_BACK 0
 #define ZONE_OVERLAY_BOX 15
 #define ZONE_OVERLAY_BOX_AXIS 248
+#define ZONE_EDITOR_TEXT 0
+#define ZONE_EDITOR_BACK 14
+#define ZONE_EDITOR_BOX 14
+#define ZONE_EDITOR_BOX_AXIS 12
+#define ZONE_EDITOR_PICK_RADIUS 32
+#define ZONE_EDITOR_NUDGE 512
+#define ZONE_EDITOR_NUDGE_SHIFT (5 * ZONE_EDITOR_NUDGE)
+
+static S32 ZoneEditorSelected[ZONE_EDITOR_MAX_SELECTED];
+
+extern S32 ExtDecorEditorGetSelect(void);
+extern S32 ExtDecorEditorGetPickPending(void);
+extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq);
 
 void ZoneOverlaySet(S32 ids, S32 boxes) {
     ZoneOverlayIds = ids ? TRUE : FALSE;
@@ -132,6 +177,210 @@ S32 ZoneOverlayGetMaxDist(void) {
 
 S32 ZoneOverlayGetType(void) {
     return ZoneOverlayType;
+}
+
+static S32 ZoneEditorIsSelected(S32 index) {
+    if (index < 0 OR index >= ZONE_EDITOR_MAX_SELECTED)
+        return FALSE;
+    return ZoneEditorSelected[index];
+}
+
+static void ZoneEditorToggleSelected(S32 index) {
+    if (index < 0 OR index >= ZONE_EDITOR_MAX_SELECTED)
+        return;
+    ZoneEditorSelected[index] = ZoneEditorSelected[index] ? FALSE : TRUE;
+}
+
+void ZoneEditorClearAllSelected(void) {
+    memset(ZoneEditorSelected, 0, sizeof(ZoneEditorSelected));
+}
+
+S32 ZoneEditorHasAnySelected(void) {
+    S32 n;
+
+    for (n = 0; n < ZONE_EDITOR_MAX_SELECTED; n++) {
+        if (ZoneEditorSelected[n])
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void ZoneEditorSelectOnly(S32 index) {
+    memset(ZoneEditorSelected, 0, sizeof(ZoneEditorSelected));
+    if (index >= 0 AND index < ZONE_EDITOR_MAX_SELECTED)
+        ZoneEditorSelected[index] = TRUE;
+}
+
+void ZoneEditorToggleSelectedByIndex(S32 index) {
+    ZoneEditorToggleSelected(index);
+}
+
+void ZoneEditorBeginPick(void) {
+    ZoneEditorPickBestDist = ZONE_EDITOR_PICK_RADIUS * ZONE_EDITOR_PICK_RADIUS;
+    ZoneEditorPickBestIndex = -1;
+}
+
+static T_ZONE_EDITOR_EDIT *ZoneEditorFindEdit(S32 cube, S32 index) {
+    S32 i;
+
+    for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+        T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
+
+        if (edit->Used AND edit->Cube == cube AND edit->Index == index)
+            return edit;
+    }
+
+    return NULL;
+}
+
+static void ZoneEditorApplyEditToZone(T_ZONE_EDITOR_EDIT *edit, T_ZONE *ptrz) {
+    ptrz->X0 = edit->BaseX0 + edit->Dx;
+    ptrz->Y0 = edit->BaseY0;
+    ptrz->Z0 = edit->BaseZ0 + edit->Dz;
+    ptrz->X1 = edit->BaseX1 + edit->Dx;
+    ptrz->Y1 = edit->BaseY1;
+    ptrz->Z1 = edit->BaseZ1 + edit->Dz;
+}
+
+static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE *ptrz) {
+    S32 i;
+    T_ZONE_EDITOR_EDIT *edit;
+
+    edit = ZoneEditorFindEdit(cube, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+        edit = &ZoneEditorEdits[i];
+        if (!edit->Used) {
+            edit->Used = TRUE;
+            edit->Cube = cube;
+            edit->Index = index;
+            edit->Type = ptrz->Type;
+            edit->Num = ptrz->Num;
+            edit->BaseX0 = ptrz->X0;
+            edit->BaseY0 = ptrz->Y0;
+            edit->BaseZ0 = ptrz->Z0;
+            edit->BaseX1 = ptrz->X1;
+            edit->BaseY1 = ptrz->Y1;
+            edit->BaseZ1 = ptrz->Z1;
+            edit->Dx = 0;
+            edit->Dz = 0;
+            return edit;
+        }
+    }
+
+    Log_Warn("zoneedit runtime edit table is full; cannot track cube %d z%d t%d n%d",
+             (int)cube,
+             (int)index,
+             (int)ptrz->Type,
+             (int)ptrz->Num);
+    return NULL;
+}
+
+void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
+    S32 i;
+
+    if (!ListZone OR NbZones <= 0)
+        return;
+
+    for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+        T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
+        T_ZONE *ptrz;
+
+        if (!edit->Used OR edit->Cube != cube)
+            continue;
+        if (edit->Index < 0 OR edit->Index >= NbZones)
+            continue;
+
+        ptrz = &ListZone[edit->Index];
+        if (ptrz->Type != edit->Type OR ptrz->Num != edit->Num)
+            continue;
+
+        ZoneEditorApplyEditToZone(edit, ptrz);
+    }
+}
+
+void ZoneEditorClearRuntimeEdits(void) {
+    memset(ZoneEditorEdits, 0, sizeof(ZoneEditorEdits));
+}
+
+static void ZoneEditorMoveSelected(S32 dx, S32 dz) {
+    S32 n;
+    T_ZONE *ptrz;
+
+    if (!ListZone OR NbZones <= 0)
+        return;
+
+    ptrz = ListZone;
+    for (n = 0; n < NbZones; n++, ptrz++) {
+        T_ZONE_EDITOR_EDIT *edit;
+
+        if (!ZoneEditorIsSelected(n))
+            continue;
+
+        edit = ZoneEditorGetOrCreateEdit(NumCube, n, ptrz);
+        if (!edit)
+            continue;
+
+        edit->Dx += dx;
+        edit->Dz += dz;
+        ZoneEditorApplyEditToZone(edit, ptrz);
+    }
+}
+
+static void ZoneEditorBeginFrame(void) {
+    S32 up;
+    S32 down;
+    S32 left;
+    S32 right;
+    S32 step;
+
+    if (!ExtDecorEditorGetSelect())
+        return;
+
+    up = CheckKey(K_UP) ? TRUE : FALSE;
+    down = CheckKey(K_DOWN) ? TRUE : FALSE;
+    left = CheckKey(K_LEFT) ? TRUE : FALSE;
+    right = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    step = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? ZONE_EDITOR_NUDGE_SHIFT : ZONE_EDITOR_NUDGE;
+
+    if (up AND !ZoneEditorLastUp)
+        ZoneEditorMoveSelected(0, step);
+    if (down AND !ZoneEditorLastDown)
+        ZoneEditorMoveSelected(0, -step);
+    if (left AND !ZoneEditorLastLeft)
+        ZoneEditorMoveSelected(-step, 0);
+    if (right AND !ZoneEditorLastRight)
+        ZoneEditorMoveSelected(step, 0);
+
+    ZoneEditorLastUp = up;
+    ZoneEditorLastDown = down;
+    ZoneEditorLastLeft = left;
+    ZoneEditorLastRight = right;
+}
+
+static void ZoneEditorConsiderPickPoint(S32 zone_index, S32 xs, S32 ys) {
+    S32 dx;
+    S32 dy;
+    S32 dist;
+
+    if (!ExtDecorEditorGetPickPending())
+        return;
+
+    dx = xs - (S32)MouseX;
+    dy = ys - (S32)MouseY;
+    dist = dx * dx + dy * dy;
+    if (dist <= ZoneEditorPickBestDist) {
+        ZoneEditorPickBestDist = dist;
+        ZoneEditorPickBestIndex = zone_index;
+    }
+}
+
+static void ZoneEditorEndFrame(void) {
+    if (!ExtDecorEditorGetSelect())
+        return;
+    ExtDecorEditorResolveClickPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist);
 }
 #endif
 
@@ -418,10 +667,8 @@ static S32 ZoneOverlayProject(S32 x, S32 y, S32 z, S32 *xs, S32 *ys) {
     return TRUE;
 }
 
-static void ZoneOverlayDrawBox(T_ZONE *ptrz) {
+static void ZoneOverlayDrawBoxColor(T_ZONE *ptrz, S16 coul, S16 coul1) {
     S32 x0, y0, x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, x7, y7;
-    S16 coul = ZONE_OVERLAY_BOX;
-    S16 coul1 = ZONE_OVERLAY_BOX_AXIS;
 
     if (!ZoneOverlayProject(ptrz->X0, ptrz->Y0, ptrz->Z0, &x0, &y0))
         return;
@@ -455,6 +702,10 @@ static void ZoneOverlayDrawBox(T_ZONE *ptrz) {
     Line(x7, y7, x4, y4, coul1);
 }
 
+static void ZoneOverlayDrawBox(T_ZONE *ptrz) {
+    ZoneOverlayDrawBoxColor(ptrz, ZONE_OVERLAY_BOX, ZONE_OVERLAY_BOX_AXIS);
+}
+
 static S32 ZoneOverlayInDistance(T_ZONE *ptrz) {
     S64 dx;
     S64 dy;
@@ -484,12 +735,15 @@ void ZoneOverlayDraw(void) {
 
     UnsetClip();
 
+    ZoneEditorBeginFrame();
+
     ptrz = ListZone;
     for (n = 0; n < NbZones; n++, ptrz++) {
         S32 center_x;
         S32 center_y;
         S32 center_z;
         S32 xs, ys;
+        S32 selected;
 
         if (ZoneOverlayType >= 0 AND ptrz->Type != ZoneOverlayType)
             continue;
@@ -497,13 +751,15 @@ void ZoneOverlayDraw(void) {
         if (!ZoneOverlayInDistance(ptrz))
             continue;
 
+        selected = ZoneEditorIsSelected(n);
+
         if (ZoneOverlayBoxes) {
-            ZoneOverlayDrawBox(ptrz);
+            if (selected)
+                ZoneOverlayDrawBoxColor(ptrz, ZONE_EDITOR_BOX, ZONE_EDITOR_BOX_AXIS);
+            else
+                ZoneOverlayDrawBox(ptrz);
             UnsetClip();
         }
-
-        if (!ZoneOverlayIds)
-            continue;
 
         center_x = (ptrz->X0 + ptrz->X1) / 2;
         center_y = (ptrz->Y0 + ptrz->Y1) / 2;
@@ -513,16 +769,39 @@ void ZoneOverlayDraw(void) {
             S32 label_y = ys - 12;
             if (label_y < 0)
                 label_y = ys;
-            CoulText(ZONE_OVERLAY_TEXT, ZONE_OVERLAY_BACK);
-            if (ptrz->Type == 5) {
-                GraphPrintf(FALSE, xs, label_y, "z%d t%d n%d d%s",
-                            n, ptrz->Type, ptrz->Num, ZoneOverlayMessageDir(ptrz->Info2));
-            } else {
-                GraphPrintf(FALSE, xs, label_y, "z%d t%d n%d",
-                            n, ptrz->Type, ptrz->Num);
+            ZoneEditorConsiderPickPoint(n, xs, ys);
+            ZoneEditorConsiderPickPoint(n, xs, label_y);
+            if (ZoneOverlayIds) {
+                if (selected) {
+                    CoulText(ZONE_EDITOR_TEXT, ZONE_EDITOR_BACK);
+                } else {
+                    CoulText(ZONE_OVERLAY_TEXT, ZONE_OVERLAY_BACK);
+                }
+                if (ptrz->Type == 5) {
+                    GraphPrintf(FALSE, xs, label_y, "z%d t%d n%d d%s",
+                                n, ptrz->Type, ptrz->Num, ZoneOverlayMessageDir(ptrz->Info2));
+                } else {
+                    GraphPrintf(FALSE, xs, label_y, "z%d t%d n%d",
+                                n, ptrz->Type, ptrz->Num);
+                }
             }
         }
+
+        if (ZoneOverlayProject(ptrz->X0, ptrz->Y0, ptrz->Z0, &xs, &ys))
+            ZoneEditorConsiderPickPoint(n, xs, ys);
+        if (ZoneOverlayProject(ptrz->X1, ptrz->Y0, ptrz->Z0, &xs, &ys))
+            ZoneEditorConsiderPickPoint(n, xs, ys);
+        if (ZoneOverlayProject(ptrz->X1, ptrz->Y0, ptrz->Z1, &xs, &ys))
+            ZoneEditorConsiderPickPoint(n, xs, ys);
+        if (ZoneOverlayProject(ptrz->X0, ptrz->Y0, ptrz->Z1, &xs, &ys))
+            ZoneEditorConsiderPickPoint(n, xs, ys);
+        if (ZoneOverlayProject(ptrz->X0, ptrz->Y1, ptrz->Z0, &xs, &ys))
+            ZoneEditorConsiderPickPoint(n, xs, ys);
+        if (ZoneOverlayProject(ptrz->X1, ptrz->Y1, ptrz->Z1, &xs, &ys))
+            ZoneEditorConsiderPickPoint(n, xs, ys);
     }
+
+    ZoneEditorEndFrame();
 
     UnsetClip();
 }

@@ -117,6 +117,13 @@ extern S32 ZoneOverlayGetBoxes(void);
 extern S32 ZoneOverlayGetMaxDist(void);
 extern S32 ZoneOverlayGetType(void);
 extern void ZoneOverlayDraw(void);
+extern void ZoneEditorBeginPick(void);
+extern void ZoneEditorClearAllSelected(void);
+extern void ZoneEditorSelectOnly(S32 index);
+extern void ZoneEditorToggleSelectedByIndex(S32 index);
+extern S32 ZoneEditorHasAnySelected(void);
+extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
+extern void ZoneEditorClearRuntimeEdits(void);
 #endif
 /*--------------------------------------------------------------------------*/
 extern void SetZoneCamera(T_ZONE *ptrz);

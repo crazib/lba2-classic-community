@@ -36,35 +36,47 @@ extern S32 FlagMasque;
 #define SIZE_BRICK_Y 256
 
 #if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ZoneOverlaySet(S32 ids, S32 boxes);
+extern void ZoneOverlaySetType(S32 type);
+extern void ZoneEditorBeginPick(void);
+extern void ZoneEditorClearAllSelected(void);
+extern void ZoneEditorSelectOnly(S32 index);
+extern void ZoneEditorToggleSelectedByIndex(S32 index);
+extern S32 ZoneEditorHasAnySelected(void);
+
 static S32 ExtDecorOverlayIds = FALSE;
 static S32 ExtDecorOverlayBoxes = FALSE;
 static S32 ExtDecorOverlayMaxDist = 0;
 static S32 ExtDecorEditorSelect = FALSE;
-static T_DECORS *ExtDecorEditorSelected = NULL;
-static S32 ExtDecorEditorSelectedCubeX = 0;
-static S32 ExtDecorEditorSelectedCubeY = 0;
-static S32 ExtDecorEditorSelectedNum = -1;
-static S32 ExtDecorEditorSelectedBody = -1;
 static S32 ExtDecorEditorLastClick = 0;
 static S32 ExtDecorEditorLastUp = 0;
 static S32 ExtDecorEditorLastDown = 0;
 static S32 ExtDecorEditorLastLeft = 0;
 static S32 ExtDecorEditorLastRight = 0;
 static S32 ExtDecorEditorPickPending = FALSE;
+static S32 ExtDecorEditorPickShift = FALSE;
 static S32 ExtDecorEditorPickBestDist = 0;
-static T_DECORS *ExtDecorEditorPickBestPtr = NULL;
 static S32 ExtDecorEditorPickBestCubeX = 0;
 static S32 ExtDecorEditorPickBestCubeY = 0;
 static S32 ExtDecorEditorPickBestNum = -1;
 static S32 ExtDecorEditorPickBestBody = -1;
-static S32 ExtDecorEditorMovePending = FALSE;
-static S32 ExtDecorEditorMoveDx = 0;
-static S32 ExtDecorEditorMoveDz = 0;
 static S32 ExtDecorEditorPickPasses = 0;
 static S32 ExtDecorEditorPickObjects = 0;
 static S32 ExtDecorEditorPickPoints = 0;
 
 #define EXT_DECOR_EDITOR_MAX_EDITS 4096
+#define EXT_DECOR_EDITOR_MAX_SELECTED 256
+
+typedef struct
+{
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 Num;
+    S32 Body;
+} T_EXT_DECOR_EDITOR_SEL;
+
+static T_EXT_DECOR_EDITOR_SEL ExtDecorEditorSelList[EXT_DECOR_EDITOR_MAX_SELECTED];
 
 typedef struct
 {
@@ -126,11 +138,13 @@ void ExtDecorEditorSetSelect(S32 select) {
     ExtDecorEditorSelect = select ? TRUE : FALSE;
     if (ExtDecorEditorSelect) {
         ExtDecorOverlaySet(TRUE, TRUE);
+        ZoneOverlaySet(TRUE, TRUE);
+        ZoneOverlaySetType(-1);
     } else {
         ExtDecorOverlaySet(FALSE, FALSE);
-        ExtDecorEditorSelected = NULL;
-        ExtDecorEditorSelectedNum = -1;
-        ExtDecorEditorSelectedBody = -1;
+        ZoneOverlaySet(FALSE, FALSE);
+        memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
+        ZoneEditorClearAllSelected();
     }
     ExtDecorEditorLastClick = Click;
     ExtDecorEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
@@ -145,13 +159,95 @@ S32 ExtDecorEditorGetSelect(void) {
 }
 
 S32 ExtDecorEditorHasSelection(void) {
-    return ExtDecorEditorSelectedNum >= 0;
+    S32 i;
+
+    for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
+        if (ExtDecorEditorSelList[i].Used)
+            return TRUE;
+    }
+    return ZoneEditorHasAnySelected();
 }
 
 void ExtDecorEditorClearSelection(void) {
-    ExtDecorEditorSelected = NULL;
-    ExtDecorEditorSelectedNum = -1;
-    ExtDecorEditorSelectedBody = -1;
+    memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
+    ZoneEditorClearAllSelected();
+}
+
+S32 ExtDecorEditorGetPickPending(void) {
+    return ExtDecorEditorPickPending;
+}
+
+void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq) {
+    S32 decor_hit;
+    S32 zone_hit;
+    S32 decor_wins;
+
+    if (!ExtDecorEditorPickPending)
+        return;
+
+    decor_hit = ExtDecorEditorPickBestNum >= 0;
+    zone_hit = zone_index >= 0;
+
+    if (!decor_hit AND !zone_hit) {
+        if (!ExtDecorEditorPickShift)
+            ExtDecorEditorClearSelection();
+        ExtDecorEditorPickPending = FALSE;
+        return;
+    }
+
+    decor_wins = decor_hit AND (!zone_hit OR ExtDecorEditorPickBestDist <= zone_dist_sq);
+
+    if (ExtDecorEditorPickShift) {
+        if (decor_wins) {
+            S32 i;
+            S32 found = FALSE;
+
+            for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
+                T_EXT_DECOR_EDITOR_SEL *sel = &ExtDecorEditorSelList[i];
+
+                if (!sel->Used)
+                    continue;
+                if (sel->CubeX == ExtDecorEditorPickBestCubeX
+                        AND sel->CubeY == ExtDecorEditorPickBestCubeY
+                        AND sel->Num == ExtDecorEditorPickBestNum
+                        AND sel->Body == ExtDecorEditorPickBestBody) {
+                    sel->Used = FALSE;
+                    found = TRUE;
+                    break;
+                }
+            }
+            if (!found) {
+                for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
+                    T_EXT_DECOR_EDITOR_SEL *sel = &ExtDecorEditorSelList[i];
+
+                    if (sel->Used)
+                        continue;
+                    sel->Used = TRUE;
+                    sel->CubeX = ExtDecorEditorPickBestCubeX;
+                    sel->CubeY = ExtDecorEditorPickBestCubeY;
+                    sel->Num = ExtDecorEditorPickBestNum;
+                    sel->Body = ExtDecorEditorPickBestBody;
+                    break;
+                }
+            }
+        } else {
+            ZoneEditorToggleSelectedByIndex(zone_index);
+        }
+    } else {
+        memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
+        ZoneEditorClearAllSelected();
+        if (decor_wins) {
+            ExtDecorEditorSelList[0].Used = TRUE;
+            ExtDecorEditorSelList[0].CubeX = ExtDecorEditorPickBestCubeX;
+            ExtDecorEditorSelList[0].CubeY = ExtDecorEditorPickBestCubeY;
+            ExtDecorEditorSelList[0].Num = ExtDecorEditorPickBestNum;
+            ExtDecorEditorSelList[0].Body = ExtDecorEditorPickBestBody;
+        } else {
+            ZoneEditorSelectOnly(zone_index);
+        }
+    }
+
+    ExtDecorEditorPickPending = FALSE;
 }
 
 S32 ExtDecorEditorConsumesInput(void) {
@@ -317,17 +413,25 @@ static void ExtDecorOverlayDrawBox(T_DECORS *ptrobj) {
 }
 
 static S32 ExtDecorEditorIsSelectedObject(T_DECORS *ptrobj, S32 num) {
+    S32 i;
+    S32 body;
+
     if (!ExtDecorEditorSelect)
         return FALSE;
-    if (ExtDecorEditorSelectedNum < 0)
-        return FALSE;
-    if (CurrentCubeX != ExtDecorEditorSelectedCubeX OR CurrentCubeY != ExtDecorEditorSelectedCubeY)
-        return FALSE;
-    if (num != ExtDecorEditorSelectedNum)
-        return FALSE;
-    if ((ptrobj->Body & 0xFFFF) != ExtDecorEditorSelectedBody)
-        return FALSE;
-    return TRUE;
+
+    body = ptrobj->Body & 0xFFFF;
+    for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
+        T_EXT_DECOR_EDITOR_SEL *sel = &ExtDecorEditorSelList[i];
+
+        if (!sel->Used)
+            continue;
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Num == num
+                AND sel->Body == body)
+            return TRUE;
+    }
+    return FALSE;
 }
 
 static T_EXT_DECOR_EDITOR_EDIT *ExtDecorEditorFindEdit(S32 cube_x, S32 cube_y, S32 num, S32 body) {
@@ -417,50 +521,41 @@ void ExtDecorEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
     }
 }
 
-static S32 ExtDecorEditorResolveSelection(void) {
-    T_DECORS *ptrobj;
+static void ExtDecorEditorMoveAllSelected(S32 dx, S32 dz) {
+    S32 i;
 
-    if (ExtDecorEditorSelectedNum < 0)
-        return FALSE;
+    for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
+        T_EXT_DECOR_EDITOR_SEL *sel = &ExtDecorEditorSelList[i];
+        T_EXT_DECOR_EDITOR_EDIT *edit;
+        T_DECORS *ptrobj;
 
-    if (CurrentCubeX != ExtDecorEditorSelectedCubeX OR CurrentCubeY != ExtDecorEditorSelectedCubeY) {
-        ExtDecorEditorSelected = NULL;
-        return FALSE;
+        if (!sel->Used)
+            continue;
+
+        edit = ExtDecorEditorFindEdit(sel->CubeX, sel->CubeY, sel->Num, sel->Body);
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Num >= 0
+                AND sel->Num < NbObjDecors) {
+            ptrobj = &ListDecors[sel->Num];
+            if ((ptrobj->Body & 0xFFFF) == sel->Body)
+                edit = ExtDecorEditorGetOrCreateEdit(sel->CubeX, sel->CubeY, sel->Num, ptrobj);
+        }
+        if (!edit)
+            continue;
+
+        edit->Dx += dx;
+        edit->Dz += dz;
+
+        if (sel->CubeX == CurrentCubeX
+                AND sel->CubeY == CurrentCubeY
+                AND sel->Num >= 0
+                AND sel->Num < NbObjDecors) {
+            ptrobj = &ListDecors[sel->Num];
+            if ((ptrobj->Body & 0xFFFF) == sel->Body)
+                ExtDecorEditorApplyEditToObject(edit, ptrobj);
+        }
     }
-
-    if (ExtDecorEditorSelectedNum >= NbObjDecors) {
-        ExtDecorEditorClearSelection();
-        return FALSE;
-    }
-
-    ptrobj = &ListDecors[ExtDecorEditorSelectedNum];
-    if ((ptrobj->Body & 0xFFFF) != ExtDecorEditorSelectedBody) {
-        ExtDecorEditorClearSelection();
-        return FALSE;
-    }
-
-    ExtDecorEditorSelected = ptrobj;
-    return TRUE;
-}
-
-static void ExtDecorEditorMoveResolved(S32 dx, S32 dz) {
-    T_DECORS *ptrobj;
-    T_EXT_DECOR_EDITOR_EDIT *edit;
-
-    if (!ExtDecorEditorResolveSelection())
-        return;
-
-    ptrobj = ExtDecorEditorSelected;
-    edit = ExtDecorEditorGetOrCreateEdit(ExtDecorEditorSelectedCubeX,
-                                         ExtDecorEditorSelectedCubeY,
-                                         ExtDecorEditorSelectedNum,
-                                         ptrobj);
-    if (!edit)
-        return;
-
-    edit->Dx += dx;
-    edit->Dz += dz;
-    ExtDecorEditorApplyEditToObject(edit, ptrobj);
 }
 
 static void ExtDecorEditorConsiderCurrentCubePick(void) {
@@ -523,7 +618,6 @@ static void ExtDecorEditorConsiderCurrentCubePick(void) {
             dist = dx * dx + dy * dy;
             if (dist <= ExtDecorEditorPickBestDist) {
                 ExtDecorEditorPickBestDist = dist;
-                ExtDecorEditorPickBestPtr = ptrtri->PtrDec;
                 ExtDecorEditorPickBestCubeX = CurrentCubeX;
                 ExtDecorEditorPickBestCubeY = CurrentCubeY;
                 ExtDecorEditorPickBestNum = ptrtri->Num;
@@ -548,13 +642,14 @@ void ExtDecorEditorBeginFrame(void) {
     ExtDecorEditorPickPending = FALSE;
     if ((click & 1) AND !(ExtDecorEditorLastClick & 1)) {
         ExtDecorEditorPickPending = TRUE;
+        ExtDecorEditorPickShift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
         ExtDecorEditorPickBestDist = EXT_DECOR_EDITOR_PICK_RADIUS * EXT_DECOR_EDITOR_PICK_RADIUS;
-        ExtDecorEditorPickBestPtr = NULL;
         ExtDecorEditorPickBestNum = -1;
         ExtDecorEditorPickBestBody = -1;
         ExtDecorEditorPickPasses = 0;
         ExtDecorEditorPickObjects = 0;
         ExtDecorEditorPickPoints = 0;
+        ZoneEditorBeginPick();
     }
     ExtDecorEditorLastClick = click;
 
@@ -564,25 +659,14 @@ void ExtDecorEditorBeginFrame(void) {
     right = CheckKey(K_RIGHT) ? TRUE : FALSE;
     step = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? EXT_DECOR_EDITOR_NUDGE_SHIFT : EXT_DECOR_EDITOR_NUDGE;
 
-    ExtDecorEditorMovePending = FALSE;
-    ExtDecorEditorMoveDx = 0;
-    ExtDecorEditorMoveDz = 0;
-    if (up AND !ExtDecorEditorLastUp) {
-        ExtDecorEditorMovePending = TRUE;
-        ExtDecorEditorMoveDz += step;
-    }
-    if (down AND !ExtDecorEditorLastDown) {
-        ExtDecorEditorMovePending = TRUE;
-        ExtDecorEditorMoveDz -= step;
-    }
-    if (left AND !ExtDecorEditorLastLeft) {
-        ExtDecorEditorMovePending = TRUE;
-        ExtDecorEditorMoveDx -= step;
-    }
-    if (right AND !ExtDecorEditorLastRight) {
-        ExtDecorEditorMovePending = TRUE;
-        ExtDecorEditorMoveDx += step;
-    }
+    if (up AND !ExtDecorEditorLastUp)
+        ExtDecorEditorMoveAllSelected(0, step);
+    if (down AND !ExtDecorEditorLastDown)
+        ExtDecorEditorMoveAllSelected(0, -step);
+    if (left AND !ExtDecorEditorLastLeft)
+        ExtDecorEditorMoveAllSelected(-step, 0);
+    if (right AND !ExtDecorEditorLastRight)
+        ExtDecorEditorMoveAllSelected(step, 0);
     ExtDecorEditorLastUp = up;
     ExtDecorEditorLastDown = down;
     ExtDecorEditorLastLeft = left;
@@ -590,21 +674,6 @@ void ExtDecorEditorBeginFrame(void) {
 }
 
 void ExtDecorEditorEndFrame(void) {
-    if (!ExtDecorEditorSelect)
-        return;
-
-    if (ExtDecorEditorPickPending) {
-        if (ExtDecorEditorPickBestNum >= 0) {
-            ExtDecorEditorSelected = ExtDecorEditorPickBestPtr;
-            ExtDecorEditorSelectedCubeX = ExtDecorEditorPickBestCubeX;
-            ExtDecorEditorSelectedCubeY = ExtDecorEditorPickBestCubeY;
-            ExtDecorEditorSelectedNum = ExtDecorEditorPickBestNum;
-            ExtDecorEditorSelectedBody = ExtDecorEditorPickBestBody;
-        } else {
-            ExtDecorEditorClearSelection();
-        }
-        ExtDecorEditorPickPending = FALSE;
-    }
 }
 
 void ExtDecorOverlayDraw(void) {
@@ -634,13 +703,6 @@ void ExtDecorOverlayDraw(void) {
             continue;
 
         selected = ExtDecorEditorIsSelectedObject(ptrobj, ptrtri->Num);
-        if (selected) {
-            ExtDecorEditorSelected = ptrobj;
-            if (ExtDecorEditorMovePending) {
-                ExtDecorEditorMoveResolved(ExtDecorEditorMoveDx, ExtDecorEditorMoveDz);
-                ExtDecorEditorMovePending = FALSE;
-            }
-        }
 
         if (ExtDecorOverlayBoxes) {
             if (selected)

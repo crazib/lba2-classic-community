@@ -5,6 +5,10 @@
 
 #include <errno.h>
 
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
+#endif
+
 U8 *PtrSce;
 U8 *PtrScene;
 S32 CubeMode = 0;     // 0-->Intérieur - 1-->Extérieur
@@ -269,6 +273,10 @@ S32 LoadScene(S32 numscene) {
             break;
         }
     }
+
+#if defined(DEBUG_TOOLS) && defined(LBA2CC_EDITOR)
+    ZoneEditorApplyRuntimeEditsForLoadedScene(numscene);
+#endif
 
     // point track: TRACK
 
