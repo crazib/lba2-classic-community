@@ -4668,13 +4668,14 @@ void DoDir(U8 numobj) {
 
                     switch (Weapon) {
                     case FLAG_BALLE_MAGIQUE: // balle magique
+                    case FLAG_TOMATOES:      // tomatoes (magic ball placeholder)
                         if (MagicBallFlags & MAGIC_BALL_LACHEE) {
                             // Si la balle est deja lancee et qu'on
                             // appuie sur la touche <ALT> apres l'avoir
                             // lachee, cela fait revenir la balle
                             MagicBallFlags = MAGIC_BALL_RAPPELEE;
                         } else {
-                            if (ListVarGame[FLAG_BALLE_MAGIQUE] == 1) {
+                            if (ListVarGame[Weapon] > 0) {
                                 if (MagicBall == -1) {
                                     InitAnim(GEN_ANIM_LANCE, ANIM_THEN, numobj);
                                     MagicBallFlags = MAGIC_BALL_LANCEE;
@@ -4685,6 +4686,11 @@ void DoDir(U8 numobj) {
                                 if (!(ptrobj->WorkFlags & ANIM_MASTER_ROT)) {
                                     ptrobj->Obj.Beta += GetDeltaMove(&ptrobj->BoundAngle.Move);
                                     ptrobj->Obj.Beta &= 4095;
+                                }
+                            } else if (Weapon == FLAG_TOMATOES AND ptrobj->GenAnim == GEN_ANIM_RIEN) {
+                                // Repasse en balle magique
+                                if (ListVarGame[FLAG_BALLE_MAGIQUE]) {
+                                    Weapon = FLAG_BALLE_MAGIQUE;
                                 }
                             }
                         }

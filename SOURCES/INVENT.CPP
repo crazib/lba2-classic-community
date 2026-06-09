@@ -413,6 +413,60 @@ T_INV_OBJ InitTabInv[MAX_INVENTORY] =
             0,            //	S32 FlagInv
             0,            //	S32 IdObj3D
             {39, 0, 0, 0} //	U8 TabObj3D[4]
+        },
+        {
+            //	40: FLAG_SCAPHANDRE (pas dans l'inventaire)
+            -1,          //	S32 Box
+            0,           //	S32 BetaObj
+            0,           //	S32 PtMagie
+            0,           //	S32 FlagInv
+            0,           //	S32 IdObj3D
+            {0, 0, 0, 0} //	U8 TabObj3D[4]
+        },
+        {
+            //	41: FLAG_TOMATOES
+            35,             //	S32 Box
+            0,              //	S32 BetaObj
+            0,              //	S32 PtMagie
+            FLAG_INV_FEWER, //	S32 FlagInv
+            0,              //	S32 IdObj3D
+            {54, 0, 0, 0}   //	U8 TabObj3D[4]
+        },
+        {
+            //	42: SLOT LIBRE
+            36,          //	S32 Box
+            0,           //	S32 BetaObj
+            0,           //	S32 PtMagie
+            0,           //	S32 FlagInv
+            0,           //	S32 IdObj3D
+            {8, 0, 0, 0} //	U8 TabObj3D[4]
+        },
+        {
+            //	43: SLOT LIBRE
+            37,          //	S32 Box
+            0,           //	S32 BetaObj
+            0,           //	S32 PtMagie
+            0,           //	S32 FlagInv
+            0,           //	S32 IdObj3D
+            {8, 0, 0, 0} //	U8 TabObj3D[4]
+        },
+        {
+            //	44: SLOT LIBRE
+            38,          //	S32 Box
+            0,           //	S32 BetaObj
+            0,           //	S32 PtMagie
+            0,           //	S32 FlagInv
+            0,           //	S32 IdObj3D
+            {8, 0, 0, 0} //	U8 TabObj3D[4]
+        },
+        {
+            //	45: SLOT LIBRE
+            39,          //	S32 Box
+            0,           //	S32 BetaObj
+            0,           //	S32 PtMagie
+            0,           //	S32 FlagInv
+            0,           //	S32 IdObj3D
+            {8, 0, 0, 0} //	U8 TabObj3D[4]
         }};
 
 U8 TabIndir[MAX_BOX_INVENTORY];
@@ -507,9 +561,9 @@ void InitTabIndir() //	NEW
 #else
         if (ListVarGame[i])
 #endif
-        {
-            TabIndir[pt->Box] = (U8)i; //	Table d'indirection
-        }
+            if (pt->Box >= 0 AND pt->Box < MAX_BOX_INVENTORY) {
+                TabIndir[pt->Box] = (U8)i; //	Table d'indirection
+            }
     }
 }
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -1844,6 +1898,7 @@ void DoFoundObj(S32 numvar) {
         TakeAllDarts();
 
     case FLAG_BALLE_MAGIQUE:
+    case FLAG_TOMATOES:
     case FLAG_SARBACANE:
     case FLAG_GANT:
 #ifdef LBA_EDITOR

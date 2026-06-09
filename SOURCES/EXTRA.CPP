@@ -211,6 +211,13 @@ void	MagicBallExplo(	S32 x, S32 y, S32 z, S32 beta )
 	CreateParticleFlow( 0, 0, 0, x, y, z, beta, FLOW_MAGIC_BALL ) ;
 }
 
+void	TomatoExplo(	S32 x, S32 y, S32 z, S32 beta )
+{
+	y = ((y/SIZE_BRICK_Y)+1)*SIZE_BRICK_Y ;
+
+	CreateParticleFlow( 0, 0, 0, x, y, z, beta, FLOW_PINGOUIN ) ;
+}
+
 /*══════════════════════════════════════════════════════════════════════════*/
 S32	SearchBonusKey()
 {
@@ -1632,6 +1639,20 @@ void	InitBackMagicBall( T_EXTRA *ptrextra, S16 num, S32 flags )
 	{
 		HQ_3D_MixSample( SAMPLE_EXPLO_MAGIC_BALL, 0x1000, 300, 1,
 			ptrextra->PosX, ptrextra->PosY, ptrextra->PosZ ) ;
+	}
+
+	if( ptrextra->Divers == FLAG_TOMATOES )
+	{
+		MagicBall = -1 ;
+
+		TomatoExplo( ptrextra->PosX,
+            ptrextra->PosY,
+            ptrextra->PosZ,
+            GetAngle2D( ptrextra->PosX, ptrextra->PosZ,
+                  ptrextra->PosX+ptrextra->Vx,
+                  ptrextra->PosZ+ptrextra->Vz ) ) ;
+
+        return ;
 	}
 
 	if( flags&BACK_EXPLO )

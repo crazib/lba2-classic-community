@@ -1145,6 +1145,7 @@ restartloop:
                     break;
 
                 case FLAG_BALLE_MAGIQUE: // balle magique
+                case FLAG_TOMATOES:      // Tomate
                 case FLAG_DART:          // Flechette
                 case FLAG_SARBACANE:     // Sarbacane
                 case FLAG_GANT:          // Gant (raquette)

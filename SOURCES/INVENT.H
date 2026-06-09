@@ -12,7 +12,7 @@
 #define INV_START_X_MARGIN 8 //	Margin inventory screen X (from the 4:3 inner box's left edge)
 #define INV_START_Y 8        //	Margin inventory screen Y
 
-#define INV_NBOBJ_X 7 //	Nb Object X ex 8
+#define INV_NBOBJ_X 8 //	Nb Object X ex 8
 #define INV_NBOBJ_Y 5 //	Nb Object Y
 
 #define INV_INTER_X 8 //	Distance between 2 objects in X

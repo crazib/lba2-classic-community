@@ -16,10 +16,11 @@ extern "C" {
 
 /* Mirrored FLAG_* indices (see SOURCES/COMMON.H). */
 #define CONSOLE_GIVE_IDX_MONEY 8
+#define CONSOLE_GIVE_IDX_TOMATOES 41
 #define CONSOLE_GIVE_IDX_CLOVER 251
 
 /* Mirrors COMMON.H MAX_INVENTORY: real inventory slots are 0..this-1. */
-#define CONSOLE_GIVE_MAX_INVENTORY 40
+#define CONSOLE_GIVE_MAX_INVENTORY 46
 
 /*
  * Resolve a token to a flag index: a case-insensitive item name, or a numeric

@@ -58,6 +58,11 @@ static const GiveItem s_items[] = {
     {"bourgmestrekey", 37, 0},
     {"bourgmestrenote", 38, 0},
     {"protection", 39, 0},
+    {"tomatoes", 41, 1},
+    {"slot42", 42, 0},
+    {"slot43", 43, 0},
+    {"slot44", 44, 0},
+    {"slot45", 45, 0},
     {"clover", CONSOLE_GIVE_IDX_CLOVER, 1},
 };
 
@@ -89,7 +94,7 @@ S32 Console_GiveResolveItem(const char *token) {
     {
         char *end = NULL;
         long v = strtol(token, &end, 0);
-        if (end != token && end != NULL && *end == '\0' && v >= 0 &&
+        if (end != token && end != NULL && *end == '\0' && v >= 0 && v != 40 &&
             v < CONSOLE_GIVE_MAX_INVENTORY)
             return (S32)v;
     }

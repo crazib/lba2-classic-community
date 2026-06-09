@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "description": "Tomatoes!",
+  "operations": [
+    {
+      "type": "replace_hqr_entry",
+      "file": "OBJFIX.HQR",
+      "entry": 54,
+      "source": "tomato.lm2"
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 54,
+      "flag": 1,
+      "text": "You just found some tomatoes! You can throw them at your enemies, which is rude, but effective."
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 154,
+      "flag": 1,
+      "text": "Tomatoes"
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 254,
+      "flag": 65,
+      "text": "A small stock of ripe tomatoes. Throw them for no noble reason whatsoever."
+    }
+  ]
+}

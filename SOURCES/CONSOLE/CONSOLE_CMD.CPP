@@ -42,10 +42,13 @@
 #if FLAG_MONEY != CONSOLE_GIVE_IDX_MONEY
 #error "CONSOLE_GIVE.H CONSOLE_GIVE_IDX_MONEY must match COMMON.H FLAG_MONEY"
 #endif
+#if FLAG_TOMATOES != CONSOLE_GIVE_IDX_TOMATOES
+#error "CONSOLE_GIVE.H CONSOLE_GIVE_IDX_TOMATOES must match COMMON.H FLAG_TOMATOES"
+#endif
 #if FLAG_CLOVER != CONSOLE_GIVE_IDX_CLOVER
 #error "CONSOLE_GIVE.H CONSOLE_GIVE_IDX_CLOVER must match COMMON.H FLAG_CLOVER"
 #endif
-/* MAX_INVENTORY is ((U8)40) — not a plain preprocessor constant, so it cannot
+/* MAX_INVENTORY is not a plain preprocessor constant, so it cannot
    be checked with #if. Catch any drift at compile time instead. */
 typedef char console_give_max_inventory_check[(MAX_INVENTORY == CONSOLE_GIVE_MAX_INVENTORY) ? 1 : -1];
 

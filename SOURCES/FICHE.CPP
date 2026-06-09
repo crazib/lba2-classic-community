@@ -62,6 +62,11 @@ void ThrowMagicBall(S32 x, S32 y, S32 z,
     force = MagicBallHitForce[MagicLevel];
     sprite = MagicBallSprite[MagicLevel];
 
+    if (Weapon == FLAG_TOMATOES) {
+        force = MagicBallHitForce[3];
+        sprite = MagicBallSprite[3];
+    }
+
     MagicBallType = (U8)(((MagicPoint - 1) / 20) + 1);
     if (MagicPoint == 0)
         MagicBallType = 0;
@@ -133,6 +138,10 @@ void ThrowMagicBall(S32 x, S32 y, S32 z,
     if (MagicBall != -1) {
         ListExtra[MagicBall].Flags |= EXTRA_MAGIC_BALL;
 
+        if (Weapon == FLAG_TOMATOES) {
+            ListExtra[MagicBall].Divers = FLAG_TOMATOES;
+        }
+
         if (MagicLevel == 4) {
             ListExtra[MagicBall].Flags |= EXTRA_TRANSPARENT;
 
@@ -154,9 +163,14 @@ void ThrowMagicBall(S32 x, S32 y, S32 z,
         }
     }
 
-    // la balle magique coute 1 point de magie
-    if (MagicPoint > 0)
-        MagicPoint--;
+    if (Weapon == FLAG_TOMATOES) {
+        if (ListVarGame[FLAG_TOMATOES] > 0)
+            ListVarGame[FLAG_TOMATOES]--;
+    } else {
+        // la balle magique coute 1 point de magie
+        if (MagicPoint > 0)
+            MagicPoint--;
+    }
 }
 
 /*══════════════════════════════════════════════════════════════════════════*/
@@ -791,7 +805,9 @@ void GereAnimAction(T_OBJET *ptrobj, U8 numobj) {
         case F_SAMPLE_MAGIC:
             if (testframe == *ptrc++) /* frame */
             {
-                SampleMagicBall(ptrobj->Obj.X, ptrobj->Obj.Y, ptrobj->Obj.Z);
+                if (numobj != NUM_PERSO || Weapon != FLAG_TOMATOES) {
+                    SampleMagicBall(ptrobj->Obj.X, ptrobj->Obj.Y, ptrobj->Obj.Z);
+                }
             }
             break;
 

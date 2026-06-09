@@ -165,7 +165,7 @@ typedef	struct	{
 
 /*----------------- SAUVEGARDES ----------------------*/
 
-#define	NUM_VERSION		36	// (max 127)
+#define	NUM_VERSION		37	// (max 127)
 #define	SAVE_COMPRESS		0x80
 #define	MASK_NUM_VERSION	~(SAVE_COMPRESS)
 
@@ -270,6 +270,7 @@ typedef	struct	{
 // ATTENTION: Magouille car le scaphandre ne fait pas parti de l'inventaire
 // donc on utilise un VAR_GAME scénarique
 #define	FLAG_SCAPHANDRE		40
+#define	FLAG_TOMATOES		41
 
 //	Autres
 
@@ -463,8 +464,8 @@ typedef	struct	{
 #define MAX_VARS_CUBE           80
 #define MAX_VARS_GAME           256
 
-#define	MAX_INVENTORY		((U8)40)
-#define	MAX_BOX_INVENTORY	((U8)35)
+#define	MAX_INVENTORY		((U8)46)
+#define	MAX_BOX_INVENTORY	((U8)40)
 
 #define MAX_CHAPTER             20
 
@@ -1423,5 +1424,3 @@ typedef	struct
 
 #define	NB_PCX_EFFECTS	2
 #endif	/* COMMON_H */
-
-
