@@ -1,10 +1,14 @@
 #include "DEFINES.H"
+#include "../EDITOR_JSON.H"
+#include "../EDITOR.H"
 #include "../PERSO.H"
 
 #include <SVGA/SCREEN.H>
 #ifdef LBA2CC_EDITOR
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LIMITS.H>
+#include <SYSTEM/FILES.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/MOUSE.H>
 #endif
@@ -30,6 +34,10 @@ S32 FlagMasque = TRUE;
 
 #if defined(DEBUG_TOOLS) && defined(LBA_GAME)
 extern S32 DebugFps;
+#endif
+
+#ifdef LBA2CC_EDITOR
+extern S32 Island;
 #endif
 
 #ifndef LBA_GAME
@@ -1227,7 +1235,9 @@ typedef struct
     S32 CubeY;
     S32 Index;
     S16 BaseY;
+    S32 HasExpectY;
     S32 Dy;
+    S32 SkipLogged;
 } T_TERRAIN_EDITOR_EDIT;
 
 typedef struct
@@ -1246,6 +1256,8 @@ typedef struct
     S32 Index;
     T_HALF_POLY BasePoly;
     T_HALF_POLY Poly;
+    S32 HasExpectPoly;
+    S32 SkipLogged;
 } T_TERRAIN_TEXTURE_EDITOR_EDIT;
 
 typedef struct
@@ -1256,6 +1268,8 @@ typedef struct
     S32 Index;
     U8 BaseIntensity;
     U8 Intensity;
+    S32 HasExpectIntensity;
+    S32 SkipLogged;
 } T_TERRAIN_TEXTURE_INTENSITY_EDIT;
 
 static T_TERRAIN_EDITOR_SEL TerrainEditorSelList[TERRAIN_EDITOR_MAX_SELECTED];
@@ -1347,7 +1361,9 @@ static T_TERRAIN_EDITOR_EDIT *TerrainEditorGetOrCreateEdit(S32 cube_x, S32 cube_
             edit->CubeY = cube_y;
             edit->Index = index;
             edit->BaseY = *height;
+            edit->HasExpectY = TRUE;
             edit->Dy = 0;
+            edit->SkipLogged = FALSE;
             return edit;
         }
     }
@@ -1382,8 +1398,596 @@ void TerrainEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
         if (!edit->Used
                  OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= (NB_COTE + 1) * (NB_COTE + 1))
             continue;
+        if (edit->HasExpectY AND MapSommetY[edit->Index] != edit->BaseY) {
+            if (!edit->SkipLogged) {
+                Log_Warn("[editor] terrain edit skipped c%d,%d v%d: height %d does not match expected %d",
+                         (int)cube_x,
+                         (int)cube_y,
+                         (int)edit->Index,
+                         (int)MapSommetY[edit->Index],
+                         (int)edit->BaseY);
+                edit->SkipLogged = TRUE;
+            }
+            continue;
+        }
         TerrainEditorApplyEditToPoint(edit, &MapSommetY[edit->Index]);
     }
+}
+
+static T_TERRAIN_EDITOR_EDIT *TerrainEditorImportedEdit(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+    T_TERRAIN_EDITOR_EDIT *edit;
+
+    edit = TerrainEditorFindEdit(cube_x, cube_y, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < TERRAIN_EDITOR_MAX_EDITS; i++) {
+        edit = &TerrainEditorEdits[i];
+        if (!edit->Used) {
+            memset(edit, 0, sizeof(*edit));
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->Index = index;
+            return edit;
+        }
+    }
+
+    Log_Warn("[editor] terrain import skipped c%d,%d v%d: runtime edit table is full",
+             (int)cube_x,
+             (int)cube_y,
+             (int)index);
+    return NULL;
+}
+
+static S32 TerrainEditorImportHeight(const char *json,
+                                     jsmntok_t *tokens,
+                                     S32 count,
+                                     S32 cube_x,
+                                     S32 cube_y,
+                                     S32 point,
+                                     S32 *skipped) {
+    S32 x;
+    S32 z;
+    S32 height;
+    S32 expect;
+    S32 has_expect;
+    S32 index;
+    T_TERRAIN_EDITOR_EDIT *edit;
+
+    if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "x"), &x)
+            OR !EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "z"), &z)
+            OR !EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "height"), &height)) {
+        (*skipped)++;
+        return FALSE;
+    }
+    if (x < 0 OR x > NB_COTE OR z < 0 OR z > NB_COTE) {
+        (*skipped)++;
+        return FALSE;
+    }
+    if (height < -32768 OR height > 32767) {
+        (*skipped)++;
+        return FALSE;
+    }
+    has_expect = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "expect"), &expect);
+    if (has_expect AND(expect < -32768 OR expect > 32767)) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    index = z * (NB_COTE + 1) + x;
+    edit = TerrainEditorImportedEdit(cube_x, cube_y, index);
+    if (!edit) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    edit->HasExpectY = has_expect;
+    edit->BaseY = (S16)(edit->HasExpectY ? expect : height);
+    edit->Dy = height - edit->BaseY;
+    edit->SkipLogged = FALSE;
+    return TRUE;
+}
+
+static void TerrainTextureEditorSetPolyField(T_HALF_POLY *poly, const char *json, jsmntok_t *tokens, S32 count, S32 object, const char *key, S32 *present) {
+    S32 value;
+    const char *field;
+
+    if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, object, key), &value))
+        return;
+    *present = TRUE;
+    field = strncmp(key, "expect_", 7) == 0 ? key + 7 : key;
+    if (strcmp(field, "bank") == 0)
+        poly->Bank = (U32)value;
+    else if (strcmp(field, "tex_flag") == 0)
+        poly->TexFlag = (U32)value;
+    else if (strcmp(field, "poly_flag") == 0)
+        poly->PolyFlag = (U32)value;
+    else if (strcmp(field, "sample_step") == 0)
+        poly->SampleStep = (U32)value;
+    else if (strcmp(field, "code_jeu") == 0)
+        poly->CodeJeu = (U32)value;
+    else if (strcmp(field, "sens") == 0)
+        poly->Sens = (U32)value;
+    else if (strcmp(field, "col") == 0)
+        poly->Col = (U32)value;
+    else if (strcmp(field, "dummy") == 0)
+        poly->Dummy = (U32)value;
+    else if (strcmp(field, "index_tex") == 0)
+        poly->IndexTex = (U32)value;
+}
+
+static T_TERRAIN_TEXTURE_EDITOR_EDIT *TerrainTextureEditorFindEdit(S32 cube_x, S32 cube_y, S32 index);
+static T_TERRAIN_TEXTURE_INTENSITY_EDIT *TerrainTextureEditorFindIntensityEdit(S32 cube_x, S32 cube_y, S32 index);
+
+static T_TERRAIN_TEXTURE_EDITOR_EDIT *TerrainTextureEditorImportedEdit(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+    T_TERRAIN_TEXTURE_EDITOR_EDIT *edit;
+
+    edit = TerrainTextureEditorFindEdit(cube_x, cube_y, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_EDITS; i++) {
+        edit = &TerrainTextureEditorEdits[i];
+        if (!edit->Used) {
+            memset(edit, 0, sizeof(*edit));
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->Index = index;
+            return edit;
+        }
+    }
+
+    Log_Warn("[editor] texture import skipped c%d,%d t%d: runtime edit table is full",
+             (int)cube_x,
+             (int)cube_y,
+             (int)index);
+    return NULL;
+}
+
+static S32 TerrainTextureEditorImportTriangle(const char *json,
+                                              jsmntok_t *tokens,
+                                              S32 count,
+                                              S32 cube_x,
+                                              S32 cube_y,
+                                              S32 triangle,
+                                              S32 *skipped) {
+    S32 index;
+    S32 present = FALSE;
+    S32 expect_present = FALSE;
+    T_TERRAIN_TEXTURE_EDITOR_EDIT *edit;
+    T_HALF_POLY poly;
+    T_HALF_POLY expect_poly;
+
+    memset(&poly, 0, sizeof(poly));
+    memset(&expect_poly, 0, sizeof(expect_poly));
+
+    if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, triangle, "triangle"), &index)) {
+        (*skipped)++;
+        return FALSE;
+    }
+    if (index < 0 OR index >= NB_COTE * NB_COTE * 2) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "bank", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "tex_flag", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "poly_flag", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "sample_step", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "code_jeu", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "sens", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "col", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "dummy", &present);
+    TerrainTextureEditorSetPolyField(&poly, json, tokens, count, triangle, "index_tex", &present);
+
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_bank", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_tex_flag", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_poly_flag", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_sample_step", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_code_jeu", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_sens", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_col", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_dummy", &expect_present);
+    TerrainTextureEditorSetPolyField(&expect_poly, json, tokens, count, triangle, "expect_index_tex", &expect_present);
+
+    if (!present) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    edit = TerrainTextureEditorImportedEdit(cube_x, cube_y, index);
+    if (!edit) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    edit->Poly = poly;
+    edit->BasePoly = expect_poly;
+    edit->HasExpectPoly = expect_present;
+    edit->SkipLogged = FALSE;
+    return TRUE;
+}
+
+static T_TERRAIN_TEXTURE_INTENSITY_EDIT *TerrainTextureEditorImportedIntensityEdit(S32 cube_x, S32 cube_y, S32 index) {
+    S32 i;
+    T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit;
+
+    edit = TerrainTextureEditorFindIntensityEdit(cube_x, cube_y, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
+        edit = &TerrainTextureIntensityEdits[i];
+        if (!edit->Used) {
+            memset(edit, 0, sizeof(*edit));
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->Index = index;
+            return edit;
+        }
+    }
+
+    Log_Warn("[editor] intensity import skipped c%d,%d i%d: runtime edit table is full",
+             (int)cube_x,
+             (int)cube_y,
+             (int)index);
+    return NULL;
+}
+
+static S32 TerrainTextureEditorImportIntensity(const char *json,
+                                               jsmntok_t *tokens,
+                                               S32 count,
+                                               S32 cube_x,
+                                               S32 cube_y,
+                                               S32 point,
+                                               S32 *skipped) {
+    S32 x;
+    S32 z;
+    S32 intensity;
+    S32 expect;
+    S32 has_expect;
+    S32 index;
+    T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit;
+
+    if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "x"), &x)
+            OR !EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "z"), &z)
+            OR !EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "intensity"), &intensity)) {
+        (*skipped)++;
+        return FALSE;
+    }
+    if (x < 0 OR x > NB_COTE OR z < 0 OR z > NB_COTE OR intensity < 0 OR intensity > 255) {
+        (*skipped)++;
+        return FALSE;
+    }
+    has_expect = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, point, "expect"), &expect);
+    if (has_expect AND(expect < 0 OR expect > 255)) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    index = z * (NB_COTE + 1) + x;
+    edit = TerrainTextureEditorImportedIntensityEdit(cube_x, cube_y, index);
+    if (!edit) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    edit->HasExpectIntensity = has_expect;
+    edit->BaseIntensity = (U8)(has_expect ? expect : 0);
+    edit->Intensity = (U8)intensity;
+    edit->SkipLogged = FALSE;
+    return TRUE;
+}
+
+static void TerrainEditorImportCube(const char *json,
+                                    jsmntok_t *tokens,
+                                    S32 count,
+                                    S32 cube,
+                                    S32 *loaded,
+                                    S32 *skipped) {
+    S32 cube_xy[2];
+    S32 terrain;
+    S32 heights;
+    S32 heights_end;
+    S32 triangles;
+    S32 triangles_end;
+    S32 intensities;
+    S32 intensities_end;
+    S32 point;
+
+    if (!EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, cube, "cube"), cube_xy, 2)) {
+        (*skipped)++;
+        return;
+    }
+
+    terrain = EditorJsonFindValue(json, tokens, count, cube, "terrain");
+    if (terrain < 0)
+        terrain = cube;
+    heights = EditorJsonFindValue(json, tokens, count, terrain, "heights");
+    if (heights >= 0 AND tokens[heights].type == JSMN_ARRAY) {
+        heights_end = EditorJsonTokenEnd(tokens, count, heights);
+        for (point = heights + 1; point < heights_end; point = EditorJsonTokenEnd(tokens, count, point)) {
+            if (tokens[point].parent != heights)
+                continue;
+            if (tokens[point].type != JSMN_OBJECT) {
+                (*skipped)++;
+                continue;
+            }
+            if (TerrainEditorImportHeight(json, tokens, count, cube_xy[0], cube_xy[1], point, skipped))
+                (*loaded)++;
+        }
+    }
+
+    triangles = EditorJsonFindValue(json, tokens, count, terrain, "triangles");
+    if (triangles >= 0 AND tokens[triangles].type == JSMN_ARRAY) {
+        triangles_end = EditorJsonTokenEnd(tokens, count, triangles);
+        for (point = triangles + 1; point < triangles_end; point = EditorJsonTokenEnd(tokens, count, point)) {
+            if (tokens[point].parent != triangles)
+                continue;
+            if (tokens[point].type != JSMN_OBJECT) {
+                (*skipped)++;
+                continue;
+            }
+            if (TerrainTextureEditorImportTriangle(json, tokens, count, cube_xy[0], cube_xy[1], point, skipped))
+                (*loaded)++;
+        }
+    }
+
+    intensities = EditorJsonFindValue(json, tokens, count, terrain, "intensities");
+    if (intensities >= 0 AND tokens[intensities].type == JSMN_ARRAY) {
+        intensities_end = EditorJsonTokenEnd(tokens, count, intensities);
+        for (point = intensities + 1; point < intensities_end; point = EditorJsonTokenEnd(tokens, count, point)) {
+            if (tokens[point].parent != intensities)
+                continue;
+            if (tokens[point].type != JSMN_OBJECT) {
+                (*skipped)++;
+                continue;
+            }
+            if (TerrainTextureEditorImportIntensity(json, tokens, count, cube_xy[0], cube_xy[1], point, skipped))
+                (*loaded)++;
+        }
+    }
+}
+
+void TerrainEditorLoadAuthoringEditsForCurrentIsland(void) {
+    char dir[ADELINE_MAX_PATH];
+    char path[ADELINE_MAX_PATH];
+    char *json;
+    jsmntok_t *tokens;
+    S32 count;
+    S32 island_value;
+    S32 cubes;
+    S32 cube;
+    S32 loaded = 0;
+    S32 skipped = 0;
+
+    if (!Editor_ResolveOutputDir(dir, sizeof(dir)))
+        return;
+    snprintf(path, sizeof(path), "%s%sterrain_edits.json", dir, ADELINE_PATH_SEP);
+    path[sizeof(path) - 1] = '\0';
+
+    if (!EditorJsonParseFile(path, &json, &tokens, &count)) {
+        if (EditorJsonFileExists(path))
+            Log_Warn("[editor] cannot load terrain edits: invalid JSON: %s", path);
+        return;
+    }
+
+    if (EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, 0, "island"), &island_value)
+            AND island_value != Island) {
+        Log_Warn("[editor] terrain edits ignored: %s is for island %d, current island is %d",
+                 path,
+                 (int)island_value,
+                 (int)Island);
+        free(tokens);
+        free(json);
+        return;
+    }
+
+    cubes = EditorJsonFindValue(json, tokens, count, 0, "cubes");
+    if (cubes >= 0 AND tokens[cubes].type == JSMN_ARRAY) {
+        S32 cubes_end = EditorJsonTokenEnd(tokens, count, cubes);
+        for (cube = cubes + 1; cube < cubes_end; cube = EditorJsonTokenEnd(tokens, count, cube)) {
+            if (tokens[cube].parent != cubes)
+                continue;
+            if (tokens[cube].type != JSMN_OBJECT) {
+                skipped++;
+                continue;
+            }
+            TerrainEditorImportCube(json, tokens, count, cube, &loaded, &skipped);
+        }
+    } else {
+        TerrainEditorImportCube(json, tokens, count, 0, &loaded, &skipped);
+    }
+
+    Log_Info("[editor] loaded terrain edits: %s (loaded=%d skipped=%d)", path, (int)loaded, (int)skipped);
+    free(tokens);
+    free(json);
+}
+
+S32 TerrainEditorSaveRuntimeEdits(const char *island_dir, S32 island) {
+    char path[ADELINE_MAX_PATH];
+    FILE *f;
+    S32 cube_x;
+    S32 cube_y;
+    S32 count = 0;
+    S32 first_cube = TRUE;
+
+    if (!island_dir OR !island_dir[0])
+        return FALSE;
+
+    snprintf(path, sizeof(path), "%s%sterrain_edits.json", island_dir, ADELINE_PATH_SEP);
+    path[sizeof(path) - 1] = '\0';
+
+    f = fopen(path, "wb");
+    if (!f) {
+        Editor_SetStatus("Terrain save failed: cannot open terrain_edits.json");
+        Log_Warn("[editor] cannot write terrain edits: %s", path);
+        return FALSE;
+    }
+
+    fprintf(f, "{\n");
+    fprintf(f, "  \"island\": %d,\n", (int)island);
+    fprintf(f, "  \"description\": \"Authoring edits exported by the terrain editor.\",\n");
+    fprintf(f, "  \"cubes\": [\n");
+
+    for (cube_y = 0; cube_y < 16; cube_y++) {
+        for (cube_x = 0; cube_x < 16; cube_x++) {
+        S32 i;
+        S32 n;
+        S32 has_cube = FALSE;
+        S32 x;
+        S32 z;
+        S32 first_height = TRUE;
+        S32 first_triangle = TRUE;
+        S32 first_intensity = TRUE;
+
+        for (i = 0; i < TERRAIN_EDITOR_MAX_EDITS; i++) {
+            if (TerrainEditorEdits[i].Used
+                    AND TerrainEditorEdits[i].CubeX == cube_x
+                    AND TerrainEditorEdits[i].CubeY == cube_y)
+                has_cube = TRUE;
+        }
+        for (i = 0; i < TERRAIN_TEXTURE_EDITOR_MAX_EDITS; i++) {
+            if (TerrainTextureEditorEdits[i].Used
+                    AND TerrainTextureEditorEdits[i].CubeX == cube_x
+                    AND TerrainTextureEditorEdits[i].CubeY == cube_y)
+                has_cube = TRUE;
+        }
+        for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
+            if (TerrainTextureIntensityEdits[i].Used
+                    AND TerrainTextureIntensityEdits[i].CubeX == cube_x
+                    AND TerrainTextureIntensityEdits[i].CubeY == cube_y)
+                has_cube = TRUE;
+        }
+        if (!has_cube)
+            continue;
+
+        if (!first_cube)
+            fprintf(f, ",\n");
+        first_cube = FALSE;
+
+        fprintf(f, "    {\n");
+        fprintf(f, "      \"cube\": [%d, %d],\n", (int)cube_x, (int)cube_y);
+        fprintf(f, "      \"terrain\": {\n");
+        fprintf(f, "        \"heights\": [\n");
+
+        for (n = 0; n < TERRAIN_EDITOR_MAX_EDITS; n++) {
+            T_TERRAIN_EDITOR_EDIT *other = &TerrainEditorEdits[n];
+            S32 height;
+
+            if (!other->Used
+                    OR other->CubeX != cube_x
+                    OR other->CubeY != cube_y)
+                continue;
+
+            x = other->Index % (NB_COTE + 1);
+            z = other->Index / (NB_COTE + 1);
+            height = (S32)other->BaseY + other->Dy;
+            if (height < -32768)
+                height = -32768;
+            if (height > 32767)
+                height = 32767;
+
+            if (!first_height)
+                fprintf(f, ",\n");
+            first_height = FALSE;
+            count++;
+
+            fprintf(f, "          {\"x\": %d, \"z\": %d, ", (int)x, (int)z);
+            if (other->HasExpectY)
+                fprintf(f, "\"expect\": %d, ", (int)other->BaseY);
+            fprintf(f, "\"height\": %d}", (int)height);
+        }
+
+        fprintf(f, "\n");
+        fprintf(f, "        ],\n");
+        fprintf(f, "        \"triangles\": [\n");
+
+        for (n = 0; n < TERRAIN_TEXTURE_EDITOR_MAX_EDITS; n++) {
+            T_TERRAIN_TEXTURE_EDITOR_EDIT *other = &TerrainTextureEditorEdits[n];
+
+            if (!other->Used
+                    OR other->CubeX != cube_x
+                    OR other->CubeY != cube_y)
+                continue;
+
+            if (!first_triangle)
+                fprintf(f, ",\n");
+            first_triangle = FALSE;
+            count++;
+
+            fprintf(f, "          {\"triangle\": %d, ", (int)other->Index);
+            if (other->HasExpectPoly) {
+                fprintf(f,
+                        "\"expect_bank\": %d, \"expect_tex_flag\": %d, \"expect_poly_flag\": %d, \"expect_sample_step\": %d, \"expect_code_jeu\": %d, \"expect_sens\": %d, \"expect_col\": %d, \"expect_dummy\": %d, \"expect_index_tex\": %d, ",
+                        (int)other->BasePoly.Bank,
+                        (int)other->BasePoly.TexFlag,
+                        (int)other->BasePoly.PolyFlag,
+                        (int)other->BasePoly.SampleStep,
+                        (int)other->BasePoly.CodeJeu,
+                        (int)other->BasePoly.Sens,
+                        (int)other->BasePoly.Col,
+                        (int)other->BasePoly.Dummy,
+                        (int)other->BasePoly.IndexTex);
+            }
+            fprintf(f,
+                    "\"bank\": %d, \"tex_flag\": %d, \"poly_flag\": %d, \"sample_step\": %d, \"code_jeu\": %d, \"sens\": %d, \"col\": %d, \"dummy\": %d, \"index_tex\": %d}",
+                    (int)other->Poly.Bank,
+                    (int)other->Poly.TexFlag,
+                    (int)other->Poly.PolyFlag,
+                    (int)other->Poly.SampleStep,
+                    (int)other->Poly.CodeJeu,
+                    (int)other->Poly.Sens,
+                    (int)other->Poly.Col,
+                    (int)other->Poly.Dummy,
+                    (int)other->Poly.IndexTex);
+        }
+
+        fprintf(f, "\n");
+        fprintf(f, "        ],\n");
+        fprintf(f, "        \"intensities\": [\n");
+
+        for (n = 0; n < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; n++) {
+            T_TERRAIN_TEXTURE_INTENSITY_EDIT *other = &TerrainTextureIntensityEdits[n];
+
+            if (!other->Used
+                    OR other->CubeX != cube_x
+                    OR other->CubeY != cube_y)
+                continue;
+
+            x = other->Index % (NB_COTE + 1);
+            z = other->Index / (NB_COTE + 1);
+
+            if (!first_intensity)
+                fprintf(f, ",\n");
+            first_intensity = FALSE;
+            count++;
+
+            fprintf(f, "          {\"x\": %d, \"z\": %d, ", (int)x, (int)z);
+            if (other->HasExpectIntensity)
+                fprintf(f, "\"expect\": %d, ", (int)other->BaseIntensity);
+            fprintf(f, "\"intensity\": %d}", (int)other->Intensity);
+        }
+
+        fprintf(f, "\n");
+        fprintf(f, "        ]\n");
+        fprintf(f, "      }\n");
+        fprintf(f, "    }");
+        }
+    }
+
+    fprintf(f, "\n");
+    fprintf(f, "  ]\n");
+    fprintf(f, "}\n");
+    fclose(f);
+
+    Log_Info("[editor] saved %d terrain edit(s) to %s", (int)count, path);
+    return TRUE;
 }
 
 static void TerrainEditorMoveSelected(S32 dy) {
@@ -1746,6 +2350,8 @@ static T_TERRAIN_TEXTURE_EDITOR_EDIT *TerrainTextureEditorGetOrCreateEdit(S32 cu
             edit->Index = index;
             edit->BasePoly = *poly;
             edit->Poly = *poly;
+            edit->HasExpectPoly = TRUE;
+            edit->SkipLogged = FALSE;
             return edit;
         }
     }
@@ -1773,19 +2379,51 @@ void TerrainTextureEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) 
         if (!edit->Used
                 OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= NB_COTE * NB_COTE * 2)
             continue;
+        if (edit->HasExpectPoly) {
+            T_HALF_POLY *poly = &MapPolyGround[edit->Index];
+            if (poly->Bank != edit->BasePoly.Bank
+                    OR poly->TexFlag != edit->BasePoly.TexFlag
+                    OR poly->PolyFlag != edit->BasePoly.PolyFlag
+                    OR poly->SampleStep != edit->BasePoly.SampleStep
+                    OR poly->CodeJeu != edit->BasePoly.CodeJeu
+                    OR poly->Sens != edit->BasePoly.Sens
+                    OR poly->Col != edit->BasePoly.Col
+                    OR poly->Dummy != edit->BasePoly.Dummy
+                    OR poly->IndexTex != edit->BasePoly.IndexTex) {
+                if (!edit->SkipLogged) {
+                    Log_Warn("[editor] texture edit skipped c%d,%d t%d: current poly does not match expected",
+                             (int)cube_x,
+                             (int)cube_y,
+                             (int)edit->Index);
+                    edit->SkipLogged = TRUE;
+                }
+                continue;
+            }
+        }
         TerrainTextureEditorApplyEditToPoly(edit, &MapPolyGround[edit->Index]);
     }
 
-    if (!MapIntensity)
-        return;
+    if (MapIntensity) {
+        for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
+            T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit = &TerrainTextureIntensityEdits[i];
 
-    for (i = 0; i < TERRAIN_TEXTURE_INTENSITY_MAX_EDITS; i++) {
-        T_TERRAIN_TEXTURE_INTENSITY_EDIT *edit = &TerrainTextureIntensityEdits[i];
-
-        if (!edit->Used
-                OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= (NB_COTE + 1) * (NB_COTE + 1))
-            continue;
-        MapIntensity[edit->Index] = edit->Intensity;
+            if (!edit->Used
+                    OR edit->CubeX != cube_x OR edit->CubeY != cube_y OR edit->Index < 0 OR edit->Index >= (NB_COTE + 1) * (NB_COTE + 1))
+                continue;
+            if (edit->HasExpectIntensity AND MapIntensity[edit->Index] != edit->BaseIntensity) {
+                if (!edit->SkipLogged) {
+                    Log_Warn("[editor] intensity edit skipped c%d,%d i%d: intensity %d does not match expected %d",
+                             (int)cube_x,
+                             (int)cube_y,
+                             (int)edit->Index,
+                             (int)MapIntensity[edit->Index],
+                             (int)edit->BaseIntensity);
+                    edit->SkipLogged = TRUE;
+                }
+                continue;
+            }
+            MapIntensity[edit->Index] = edit->Intensity;
+        }
     }
 }
 
@@ -2098,6 +2736,8 @@ static T_TERRAIN_TEXTURE_INTENSITY_EDIT *TerrainTextureEditorGetOrCreateIntensit
             edit->Index = index;
             edit->BaseIntensity = intensity;
             edit->Intensity = intensity;
+            edit->HasExpectIntensity = TRUE;
+            edit->SkipLogged = FALSE;
             return edit;
         }
     }

@@ -17,6 +17,7 @@
 extern S32 ExtDecorEditorConsumesInput(void);
 extern S32 TerrainEditorConsumesInput(void);
 extern S32 TerrainTextureEditorConsumesInput(void);
+#include "EDITOR.H"
 #endif
 
 // Input
@@ -312,10 +313,9 @@ void MyGetInput() {
     }
 
 #ifdef LBA2CC_EDITOR
-    if (ExtDecorEditorConsumesInput() OR TerrainEditorConsumesInput() OR TerrainTextureEditorConsumesInput()) {
-        Input &= ~(I_UP | I_DOWN | I_LEFT | I_RIGHT | I_INVENTORY);
-        if (MyKey == K_UP OR MyKey == K_DOWN OR MyKey == K_LEFT OR MyKey == K_RIGHT)
-            MyKey = 0;
+    if (Editor_IsActive() OR ExtDecorEditorConsumesInput() OR TerrainEditorConsumesInput() OR TerrainTextureEditorConsumesInput()) {
+        Input = 0;
+        MyKey = 0;
     }
 #endif
 

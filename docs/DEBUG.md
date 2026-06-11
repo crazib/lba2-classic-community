@@ -40,9 +40,17 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
-| `,` | Toggle terrain editing | Requires LBA2CC_EDITOR (exterior only) |
-| `.` | Toggle exterior decor editing | Requires LBA2CC_EDITOR (exterior only) |
-| `/` | Toggle terrain texture editing | Requires LBA2CC_EDITOR (exterior only) |
+| `.` / `,` | Cycle editor tool | Includes Editor Off; requires LBA2CC_EDITOR |
+| `Esc` | Editor Off | Requires an active LBA2CC_EDITOR tool |
+| `Enter` / numpad `Enter` | Deselect all | Clears decor, terrain, texture, and zone selections |
+| `D` | Toggle decor overlay | Requires an active LBA2CC_EDITOR tool |
+| `Z` | Toggle zone overlay | Requires an active LBA2CC_EDITOR tool |
+| `I` | Toggle overlay detail | Switches boxes only vs boxes plus ids |
+| `Ctrl+S` | Save editor authoring JSON | Requires LBA2CC_EDITOR and an active editor UI/tool |
+| `Delete` / `Backspace` | Delete selected exterior decor | Requires LBA2CC_EDITOR Select/Move tool |
+| `P` / `Insert` | Place selected decor body | Requires LBA2CC_EDITOR Select/Move or Decor Place tool |
+| `[` / `]` | Change selected decor body | Requires LBA2CC_EDITOR Decor Place tool |
+| `Ctrl+D` | Duplicate selected exterior decor | Requires LBA2CC_EDITOR Select/Move tool and a deleted decor slot |
 | `F9` | Screenshot | Captures screenshot as PCX (original format) |
 | `F10` | Terrain benchmark | Runs 20-loop terrain rendering benchmark (exterior only) |
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |
@@ -79,7 +87,7 @@ When `DEBUG_TOOLS` and `LBA2CC_EDITOR` are enabled, the console exposes modern c
 | `zones off` | Disable the scene zone overlay. |
 | `zones status` | Show the current zone overlay state. |
 
-While `extedit select` is active, arrow keys nudge the selected decor object at runtime by one meter (`512` world units): left/right move west/east and up/down move north/south. Hold `Shift` with an arrow key to nudge five meters. These runtime nudges do not yet write back to `.ILE` data or a mod manifest.
+Press `.` and `,` to cycle through Editor Off, Select/Move, Decor Place, Terrain Edit, and Texture Select. `Esc` returns directly to Editor Off, and `Enter` deselects all editor selections. Tool changes briefly appear in the bottom-left. `D` toggles the decor overlay, `Z` toggles the zone overlay, and `I` switches overlay detail between boxes only and boxes plus ids. In Select/Move, arrow keys nudge selected decor and related zones by one meter (`512` world units); hold `Shift` to nudge five meters. `PageUp` and `PageDown` move selected decor vertically. In Decor Place, `[` and `]` change the current body id and left-click or `P` places it; placement reuses a deleted slot when available and appends a runtime object otherwise. `Delete` or `Backspace` deletes selected decor, and `Ctrl+D` duplicates selected decor into a deleted slot. `Ctrl+S` writes runtime editor edits to the current island's mod authoring folder.
 
 ## File locations
 
