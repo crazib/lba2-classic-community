@@ -59,13 +59,19 @@ extern U32 MapIntensityMem;
 
 #ifdef LBA2CC_EDITOR
 extern void ExtDecorEditorClearRuntimeEdits(void);
+extern void ExtDecorEditorReleaseOwnedDecorList(void);
+extern void ExtDecorEditorLoadAuthoringEditsForCurrentIsland(void);
+extern void ExtDecorEditorSetLoadedCube(S32 cube_x, S32 cube_y);
+extern void ExtDecorEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainEditorClearRuntimeEdits(void);
+extern void TerrainEditorLoadAuthoringEditsForCurrentIsland(void);
 extern void TerrainEditorSetLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainTextureEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainTextureEditorClearRuntimeEdits(void);
 extern void TerrainTextureEditorSetTexDefCount(S32 count);
 extern void ZoneEditorClearRuntimeEdits(void);
+extern void ZoneEditorLoadAuthoringEditsForCurrentIsland(void);
 #endif
 
 // MAX_OBJ_DECORS pour tous les cubes de toutes les iles
@@ -193,6 +199,12 @@ void LoadIsland() {
 
     if (!Load_HQR(islandFilePath, ObjTexture, HQR_TEX_OBJ))
         TheEndCheckFile(islandFilePath);
+
+#ifdef LBA2CC_EDITOR
+    ExtDecorEditorLoadAuthoringEditsForCurrentIsland();
+    TerrainEditorLoadAuthoringEditsForCurrentIsland();
+    ZoneEditorLoadAuthoringEditsForCurrentIsland();
+#endif
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -216,6 +228,10 @@ S32 LoadCube(S32 x, S32 y) {
 
     ListCubeInfos = (S32 *)HQR_Get(HQR_CubeInfos, index + HQR_CUBE_INF);
 
+#ifdef LBA2CC_EDITOR
+    ExtDecorEditorReleaseOwnedDecorList();
+    ExtDecorEditorSetLoadedCube(x, y);
+#endif
     NbObjDecors = ListCubeInfos[INFO_NB_DECORS];
     AlphaLight = ListCubeInfos[INFO_ALPHA_LIGHT] & 0xFFFF;
     CubeBitField = (U16)(ListCubeInfos[INFO_ALPHA_LIGHT] >> 16);

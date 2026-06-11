@@ -124,6 +124,7 @@ extern void ZoneEditorToggleSelectedByIndex(S32 index);
 extern S32 ZoneEditorHasAnySelected(void);
 extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
 extern void ZoneEditorClearRuntimeEdits(void);
+extern void ZoneEditorLoadAuthoringEditsForCurrentIsland(void);
 #endif
 /*--------------------------------------------------------------------------*/
 extern void SetZoneCamera(T_ZONE *ptrz);

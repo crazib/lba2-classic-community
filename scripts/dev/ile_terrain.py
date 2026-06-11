@@ -11,10 +11,14 @@ import ile_objects
 
 
 HQR_CUBE_Y = 4
+HQR_CUBE_GRD = 2
+HQR_CUBE_LUM = 5
 HQR_STEP_CUBE = 6
 HQR_START_CUBE = 3
 HEIGHT_SIDE = 65
 HEIGHT_COUNT = HEIGHT_SIDE * HEIGHT_SIDE
+POLY_SIDE = 64
+POLY_COUNT = POLY_SIDE * POLY_SIDE * 2
 
 
 def parse_cube(text):
@@ -99,6 +103,29 @@ def load_heights(path, cube_x, cube_y):
         raise ValueError("Y entry %d has unexpected size %d" % (entry_index, len(raw)))
     heights = list(struct.unpack("<%dh" % HEIGHT_COUNT, raw))
     return slot, entry_index, bytearray(raw), heights
+
+
+def load_polys(path, cube_x, cube_y):
+    slot = cube_slot(path, cube_x, cube_y)
+    entry_index = HQR_START_CUBE + HQR_STEP_CUBE * (slot - 1) + HQR_CUBE_GRD
+    raw = ile_objects.entry_bytes(path, entry_index)
+    if raw is None:
+        raise ValueError("cube %d,%d slot %d has no GRD entry" % (cube_x, cube_y, slot))
+    if len(raw) != POLY_COUNT * 4:
+        raise ValueError("GRD entry %d has unexpected size %d" % (entry_index, len(raw)))
+    polys = list(struct.unpack("<%dI" % POLY_COUNT, raw))
+    return slot, entry_index, bytearray(raw), polys
+
+
+def load_intensities(path, cube_x, cube_y):
+    slot = cube_slot(path, cube_x, cube_y)
+    entry_index = HQR_START_CUBE + HQR_STEP_CUBE * (slot - 1) + HQR_CUBE_LUM
+    raw = ile_objects.entry_bytes(path, entry_index)
+    if raw is None:
+        raise ValueError("cube %d,%d slot %d has no LUM entry" % (cube_x, cube_y, slot))
+    if len(raw) != HEIGHT_COUNT:
+        raise ValueError("LUM entry %d has unexpected size %d" % (entry_index, len(raw)))
+    return slot, entry_index, bytearray(raw), list(raw)
 
 
 def print_patch(heights, center_x, center_z, radius):

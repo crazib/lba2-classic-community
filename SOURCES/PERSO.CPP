@@ -13,6 +13,7 @@
 #include "EXIT_SCREEN.H"
 #include "PERFTRACE.H"
 #include "TOUCH_INPUT.H"
+#include "EDITOR.H"
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
 #include "ASSET_PREFLIGHT.H"
@@ -779,37 +780,7 @@ restartloop:
         }
 
 #if defined(LBA2CC_EDITOR)
-        if (MyKey == K_PERIOD) {
-            TerrainEditorSetSelect(FALSE);
-            TerrainTextureEditorSetSelect(FALSE);
-            ExtDecorEditorSetSelect(!ExtDecorEditorGetSelect());
-            InitWaitNoKey();
-        }
-
-        if (MyKey == K_COMMA) {
-            if (CubeMode == CUBE_EXTERIEUR) {
-                ExtDecorEditorSetSelect(FALSE);
-                TerrainTextureEditorSetSelect(FALSE);
-                TerrainEditorSetSelect(!TerrainEditorGetSelect());
-                FirstTime = AFF_ALL_FLIP;
-            } else {
-                TerrainEditorSetSelect(FALSE);
-                TerrainTextureEditorSetSelect(FALSE);
-            }
-            InitWaitNoKey();
-        }
-
-        if (MyKey == K_EXC) {
-            if (CubeMode == CUBE_EXTERIEUR) {
-                ExtDecorEditorSetSelect(FALSE);
-                TerrainEditorSetSelect(FALSE);
-                TerrainTextureEditorSetSelect(!TerrainTextureEditorGetSelect());
-                FirstTime = AFF_ALL_FLIP;
-            } else {
-                TerrainTextureEditorSetSelect(FALSE);
-            }
-            InitWaitNoKey();
-        }
+        Editor_UpdateInput();
 #endif
 
         if (MyKey == K_K) {
@@ -1726,9 +1697,10 @@ restartloop:
         if (!CameraZone) {
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
-                GereExtKeys(MyKey);
+                if (!Editor_IsActive())
+                    GereExtKeys(MyKey);
 
-                if (Input & I_CAMERA) {
+                if (!Editor_IsActive() AND(Input & I_CAMERA)) {
                     SaveTimer();
                     AddBetaCam = (AddBetaCam + 1024) & 4095;
                     /* FollowCamera: do not use CameraCenter(2) — it resets
@@ -1758,7 +1730,7 @@ restartloop:
 
                 if (FollowCamera AND CubeMode == CUBE_EXTERIEUR) {
                     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
-                    S32 manualPan = CheckKey(K_LBRACKET) OR CheckKey(K_RBRACKET);
+                    S32 manualPan = !Editor_IsActive() AND(CheckKey(K_LBRACKET) OR CheckKey(K_RBRACKET));
                     S32 heroMoving = (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Z != FollowCamPrevHeroZ);
 
                     /* First-frame init: sync to current camera state.

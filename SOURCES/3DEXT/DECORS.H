@@ -26,10 +26,20 @@ extern S32 ExtDecorEditorGetPickPending(void);
 extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq);
 extern S32 ExtDecorEditorConsumesInput(void);
 extern void ExtDecorEditorClearRuntimeEdits(void);
+extern void ExtDecorEditorReleaseOwnedDecorList(void);
+extern void ExtDecorEditorLoadAuthoringEditsForCurrentIsland(void);
+extern void ExtDecorEditorSetLoadedCube(S32 cube_x, S32 cube_y);
 extern void ExtDecorEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 extern void ExtDecorEditorBeginFrame(void);
 extern void ExtDecorEditorEndFrame(void);
 extern void ExtDecorOverlayDraw(void);
+extern void ExtDecorEditorDeleteSelected(void);
+extern void ExtDecorEditorDuplicateSelected(void);
+extern void ExtDecorEditorPlacePaletteInDeletedSlot(void);
+extern void ExtDecorEditorPaletteNext(S32 dir);
+extern S32 ExtDecorEditorGetPaletteBody(void);
+extern void ExtDecorEditorPaletteDraw(S32 x0, S32 y0);
+extern S32 ExtDecorEditorSaveRuntimeEdits(const char *island_dir, S32 island);
 /*--------------------------------------------------------------------------*/
 #endif
 extern S32 TestZVDecors(S32 xw, S32 yw, S32 zw, T_DECORS *objet);

@@ -1,6 +1,8 @@
 #include "C_EXTERN.H"
 
 #include "DEMO_SEED.H"
+#include "EDITOR_JSON.H"
+#include "EDITOR.H"
 #include "SAVEGAME.H"
 
 #include <stdio.h>
@@ -15,6 +17,8 @@
 #include <SYSTEM/HQFILE.H>
 #include <SYSTEM/KEYBOARD.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
+#include <SYSTEM/LIMITS.H>
+#include <SYSTEM/FILES.H>
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/MOUSE.H>
 #include <stdint.h>
@@ -119,15 +123,28 @@ typedef struct
     S32 Cube;
     S32 Index;
     S16 Type;
+    S32 HasExpectType;
     S16 Num;
+    S32 HasExpectNum;
+    S16 TargetNum;
+    S32 HasTargetNum;
+    S32 HasExpectBounds;
+    S32 HasTargetBounds;
     S32 BaseX0;
     S32 BaseY0;
     S32 BaseZ0;
     S32 BaseX1;
     S32 BaseY1;
     S32 BaseZ1;
+    S32 TargetX0;
+    S32 TargetY0;
+    S32 TargetZ0;
+    S32 TargetX1;
+    S32 TargetY1;
+    S32 TargetZ1;
     S32 Dx;
     S32 Dz;
+    S32 SkipLogged;
 } T_ZONE_EDITOR_EDIT;
 
 static T_ZONE_EDITOR_EDIT ZoneEditorEdits[ZONE_EDITOR_MAX_EDITS];
@@ -234,12 +251,23 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorFindEdit(S32 cube, S32 index) {
 }
 
 static void ZoneEditorApplyEditToZone(T_ZONE_EDITOR_EDIT *edit, T_ZONE *ptrz) {
-    ptrz->X0 = edit->BaseX0 + edit->Dx;
-    ptrz->Y0 = edit->BaseY0;
-    ptrz->Z0 = edit->BaseZ0 + edit->Dz;
-    ptrz->X1 = edit->BaseX1 + edit->Dx;
-    ptrz->Y1 = edit->BaseY1;
-    ptrz->Z1 = edit->BaseZ1 + edit->Dz;
+    if (edit->HasTargetBounds) {
+        ptrz->X0 = edit->TargetX0;
+        ptrz->Y0 = edit->TargetY0;
+        ptrz->Z0 = edit->TargetZ0;
+        ptrz->X1 = edit->TargetX1;
+        ptrz->Y1 = edit->TargetY1;
+        ptrz->Z1 = edit->TargetZ1;
+    } else {
+        ptrz->X0 = edit->BaseX0 + edit->Dx;
+        ptrz->Y0 = edit->BaseY0;
+        ptrz->Z0 = edit->BaseZ0 + edit->Dz;
+        ptrz->X1 = edit->BaseX1 + edit->Dx;
+        ptrz->Y1 = edit->BaseY1;
+        ptrz->Z1 = edit->BaseZ1 + edit->Dz;
+    }
+    if (edit->HasTargetNum)
+        ptrz->Num = edit->TargetNum;
 }
 
 static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE *ptrz) {
@@ -257,7 +285,13 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE
             edit->Cube = cube;
             edit->Index = index;
             edit->Type = ptrz->Type;
+            edit->HasExpectType = TRUE;
             edit->Num = ptrz->Num;
+            edit->HasExpectNum = TRUE;
+            edit->TargetNum = ptrz->Num;
+            edit->HasTargetNum = FALSE;
+            edit->HasExpectBounds = TRUE;
+            edit->HasTargetBounds = FALSE;
             edit->BaseX0 = ptrz->X0;
             edit->BaseY0 = ptrz->Y0;
             edit->BaseZ0 = ptrz->Z0;
@@ -266,6 +300,7 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE
             edit->BaseZ1 = ptrz->Z1;
             edit->Dx = 0;
             edit->Dz = 0;
+            edit->SkipLogged = FALSE;
             return edit;
         }
     }
@@ -287,15 +322,47 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
     for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
         T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
         T_ZONE *ptrz;
+        S32 bounds_match;
 
         if (!edit->Used OR edit->Cube != cube)
             continue;
-        if (edit->Index < 0 OR edit->Index >= NbZones)
+        if (edit->Index < 0 OR edit->Index >= NbZones) {
+            if (!edit->SkipLogged) {
+                Log_Warn("[editor] zone edit skipped scene %d z%d: zone index is out of range [0,%d)",
+                         (int)cube,
+                         (int)edit->Index,
+                         (int)NbZones);
+                edit->SkipLogged = TRUE;
+            }
             continue;
+        }
 
         ptrz = &ListZone[edit->Index];
-        if (ptrz->Type != edit->Type OR ptrz->Num != edit->Num)
+        bounds_match = ptrz->X0 == edit->BaseX0
+                       AND ptrz->Y0 == edit->BaseY0
+                       AND ptrz->Z0 == edit->BaseZ0
+                       AND ptrz->X1 == edit->BaseX1
+                       AND ptrz->Y1 == edit->BaseY1
+                       AND ptrz->Z1 == edit->BaseZ1;
+        if ((edit->HasExpectType AND ptrz->Type != edit->Type)
+                OR(edit->HasExpectNum AND ptrz->Num != edit->Num)
+                OR(edit->HasExpectBounds AND !bounds_match)) {
+            if (!edit->SkipLogged) {
+                Log_Warn("[editor] zone edit skipped scene %d z%d: current t%d n%d bounds [%d,%d,%d,%d,%d,%d] do not match expected",
+                         (int)cube,
+                         (int)edit->Index,
+                         (int)ptrz->Type,
+                         (int)ptrz->Num,
+                         (int)ptrz->X0,
+                         (int)ptrz->Y0,
+                         (int)ptrz->Z0,
+                         (int)ptrz->X1,
+                         (int)ptrz->Y1,
+                         (int)ptrz->Z1);
+                edit->SkipLogged = TRUE;
+            }
             continue;
+        }
 
         ZoneEditorApplyEditToZone(edit, ptrz);
     }
@@ -303,6 +370,183 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
 
 void ZoneEditorClearRuntimeEdits(void) {
     memset(ZoneEditorEdits, 0, sizeof(ZoneEditorEdits));
+}
+
+static T_ZONE_EDITOR_EDIT *ZoneEditorImportedEdit(S32 scene, S32 index) {
+    S32 i;
+    T_ZONE_EDITOR_EDIT *edit;
+
+    edit = ZoneEditorFindEdit(scene, index);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+        edit = &ZoneEditorEdits[i];
+        if (!edit->Used) {
+            memset(edit, 0, sizeof(*edit));
+            edit->Used = TRUE;
+            edit->Cube = scene;
+            edit->Index = index;
+            return edit;
+        }
+    }
+
+    Log_Warn("[editor] zone import skipped scene %d z%d: runtime edit table is full",
+             (int)scene,
+             (int)index);
+    return NULL;
+}
+
+static S32 ZoneEditorImportZone(const char *json,
+                                jsmntok_t *tokens,
+                                S32 count,
+                                S32 scene,
+                                S32 zone,
+                                S32 *skipped) {
+    S32 index;
+    S32 type;
+    S32 num;
+    S32 target_num;
+    S32 expect_bounds[6];
+    S32 bounds[6];
+    T_ZONE_EDITOR_EDIT *edit;
+
+    if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "zone"), &index)) {
+        (*skipped)++;
+        return FALSE;
+    }
+    if (!EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "bounds"), bounds, 6)) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    edit = ZoneEditorImportedEdit(scene, index);
+    if (!edit) {
+        (*skipped)++;
+        return FALSE;
+    }
+
+    edit->HasExpectType = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "expect_type"), &type);
+    edit->Type = (S16)(edit->HasExpectType ? type : 0);
+    edit->HasExpectNum = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "expect_num"), &num);
+    edit->Num = (S16)(edit->HasExpectNum ? num : 0);
+    edit->HasTargetNum = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "num"), &target_num);
+    edit->TargetNum = (S16)(edit->HasTargetNum ? target_num : edit->Num);
+    edit->HasExpectBounds = EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "expect_bounds"), expect_bounds, 6);
+    if (edit->HasExpectBounds) {
+        edit->BaseX0 = expect_bounds[0];
+        edit->BaseY0 = expect_bounds[1];
+        edit->BaseZ0 = expect_bounds[2];
+        edit->BaseX1 = expect_bounds[3];
+        edit->BaseY1 = expect_bounds[4];
+        edit->BaseZ1 = expect_bounds[5];
+    } else {
+        edit->BaseX0 = bounds[0];
+        edit->BaseY0 = bounds[1];
+        edit->BaseZ0 = bounds[2];
+        edit->BaseX1 = bounds[3];
+        edit->BaseY1 = bounds[4];
+        edit->BaseZ1 = bounds[5];
+    }
+    edit->Dx = bounds[0] - edit->BaseX0;
+    edit->Dz = bounds[2] - edit->BaseZ0;
+    edit->HasTargetBounds = TRUE;
+    edit->TargetX0 = bounds[0];
+    edit->TargetY0 = bounds[1];
+    edit->TargetZ0 = bounds[2];
+    edit->TargetX1 = bounds[3];
+    edit->TargetY1 = bounds[4];
+    edit->TargetZ1 = bounds[5];
+    edit->SkipLogged = FALSE;
+    return TRUE;
+}
+
+static void ZoneEditorImportScene(const char *json,
+                                  jsmntok_t *tokens,
+                                  S32 count,
+                                  S32 scene_obj,
+                                  S32 *loaded,
+                                  S32 *skipped) {
+    S32 scene;
+    S32 zones;
+    S32 zone;
+    S32 zones_end;
+
+    if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, scene_obj, "scene"), &scene)) {
+        (*skipped)++;
+        return;
+    }
+
+    zones = EditorJsonFindValue(json, tokens, count, scene_obj, "zones");
+    if (zones < 0 OR tokens[zones].type != JSMN_ARRAY)
+        return;
+
+    zones_end = EditorJsonTokenEnd(tokens, count, zones);
+    for (zone = zones + 1; zone < zones_end; zone = EditorJsonTokenEnd(tokens, count, zone)) {
+        if (tokens[zone].parent != zones)
+            continue;
+        if (tokens[zone].type != JSMN_OBJECT) {
+            (*skipped)++;
+            continue;
+        }
+        if (ZoneEditorImportZone(json, tokens, count, scene, zone, skipped))
+            (*loaded)++;
+    }
+}
+
+void ZoneEditorLoadAuthoringEditsForCurrentIsland(void) {
+    char dir[ADELINE_MAX_PATH];
+    char path[ADELINE_MAX_PATH];
+    char *json;
+    jsmntok_t *tokens;
+    S32 count;
+    S32 island_value;
+    S32 scenes;
+    S32 scene;
+    S32 loaded = 0;
+    S32 skipped = 0;
+
+    if (!Editor_ResolveOutputDir(dir, sizeof(dir)))
+        return;
+    snprintf(path, sizeof(path), "%s%szone_edits.json", dir, ADELINE_PATH_SEP);
+    path[sizeof(path) - 1] = '\0';
+
+    if (!EditorJsonParseFile(path, &json, &tokens, &count)) {
+        if (EditorJsonFileExists(path))
+            Log_Warn("[editor] cannot load zone edits: invalid JSON: %s", path);
+        return;
+    }
+
+    if (EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, 0, "island"), &island_value)
+            AND island_value != Island) {
+        Log_Warn("[editor] zone edits ignored: %s is for island %d, current island is %d",
+                 path,
+                 (int)island_value,
+                 (int)Island);
+        free(tokens);
+        free(json);
+        return;
+    }
+
+    scenes = EditorJsonFindValue(json, tokens, count, 0, "scenes");
+    if (scenes >= 0 AND tokens[scenes].type == JSMN_ARRAY) {
+        S32 scenes_end = EditorJsonTokenEnd(tokens, count, scenes);
+        for (scene = scenes + 1; scene < scenes_end; scene = EditorJsonTokenEnd(tokens, count, scene)) {
+            if (tokens[scene].parent != scenes)
+                continue;
+            if (tokens[scene].type != JSMN_OBJECT) {
+                skipped++;
+                continue;
+            }
+            ZoneEditorImportScene(json, tokens, count, scene, &loaded, &skipped);
+        }
+    } else {
+        ZoneEditorImportScene(json, tokens, count, 0, &loaded, &skipped);
+    }
+
+    Log_Info("[editor] loaded zone edits: %s (loaded=%d skipped=%d)", path, (int)loaded, (int)skipped);
+    free(tokens);
+    free(json);
 }
 
 static void ZoneEditorMoveSelected(S32 dx, S32 dz) {
@@ -336,7 +580,7 @@ static void ZoneEditorBeginFrame(void) {
     S32 right;
     S32 step;
 
-    if (!ExtDecorEditorGetSelect())
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE))
         return;
 
     up = CheckKey(K_UP) ? TRUE : FALSE;
@@ -365,7 +609,7 @@ static void ZoneEditorConsiderPickPoint(S32 zone_index, S32 xs, S32 ys) {
     S32 dy;
     S32 dist;
 
-    if (!ExtDecorEditorGetPickPending())
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) OR !ExtDecorEditorGetPickPending())
         return;
 
     dx = xs - (S32)MouseX;
@@ -378,7 +622,7 @@ static void ZoneEditorConsiderPickPoint(S32 zone_index, S32 xs, S32 ys) {
 }
 
 static void ZoneEditorEndFrame(void) {
-    if (!ExtDecorEditorGetSelect())
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE))
         return;
     ExtDecorEditorResolveClickPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist);
 }
@@ -6591,18 +6835,27 @@ startaffscene:
         if (!FlagAnimWhoSpeak)
             FixeCinemaMode(TRUE); // Scrolle les bandes noires
         AffNbFps();
+#ifdef LBA2CC_EDITOR
+        Editor_DrawOverlay();
+#endif
         BoxBlit();
         break;
 
     case AFF_ALL_FLIP:
         FixeCinemaMode(FALSE); // Scrolle les bandes noires
         AffNbFps();
+#ifdef LBA2CC_EDITOR
+        Editor_DrawOverlay();
+#endif
         BoxBlit();
         UnlockTimer();
         break;
 
     case AFF_ALL_NO_FLIP:
         AffNbFps();
+#ifdef LBA2CC_EDITOR
+        Editor_DrawOverlay();
+#endif
         UnlockTimer();
         break;
     }
