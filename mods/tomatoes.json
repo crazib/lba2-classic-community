@@ -42,7 +42,7 @@
       "text_file": "gam",
       "id": 254,
       "flag": 65,
-      "text": "A small stock of ripe tomatoes. Throw them for no noble reason whatsoever."
+      "text": "A small stock of ripe tomatoes. Select them in the inventory to throw."
     },
     {
       "type": "replace_hqr_entry",

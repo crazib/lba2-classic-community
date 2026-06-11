@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "description": "Extra Ferry Routes mod recipe.",
+  "operations": [
+    {
+      "type": "include_manifest",
+      "source": "tomatoes.json"
+    },
+    {
+      "type": "include_manifest",
+      "source": "efr_bootstrap.json"
+    }
+  ]
+}

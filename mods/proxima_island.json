@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "description": "Proxima Island authoring edits for Extra Ferry Routes. Apply after efr_bootstrap.json while Proxima is still a Citadel-derived workspace.",
+  "operations": [
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 223,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 224,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 225,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 226,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 227,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 228,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 229,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 230,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "remap_scene_zone_nums",
+      "file": "SCENE.HQR",
+      "scene": 231,
+      "map": {
+        "42": 223,
+        "43": 224,
+        "44": 225,
+        "45": 226,
+        "46": 227,
+        "47": 228,
+        "48": 229,
+        "49": 230,
+        "50": 231
+      }
+    },
+    {
+      "type": "apply_terrain_edits",
+      "file": "PROXIMA.ILE",
+      "source": "proxima/terrain_edits.json"
+    },
+    {
+      "type": "apply_decor_edits",
+      "file": "PROXIMA.ILE",
+      "source": "proxima/decor_edits.json"
+    }
+  ]
+}

@@ -1095,6 +1095,9 @@ S32 TestSpeak() {
 void InitDial(S32 file) {
     NormalWinDial(); //     By Security
 
+    if (file == START_FILE_ISLAND + 12)
+        file = START_FILE_ISLAND; // Proxima prototype reuses Citadel text bank.
+
     if (LastFileInit == file)
         return;
     LastFileInit = file;

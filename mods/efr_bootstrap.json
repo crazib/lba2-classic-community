@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "description": "Temporary Extra Ferry Routes workspace bootstrap. Clones Citadel exterior scenes into Proxima scene ids for early authoring.",
+  "operations": [
+    {
+      "type": "copy_file",
+      "from": "CITADEL.ILE",
+      "to": "PROXIMA.ILE"
+    },
+    {
+      "type": "copy_file",
+      "from": "CITADEL.OBL",
+      "to": "PROXIMA.OBL"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 42,
+      "to": 223,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 43,
+      "to": 224,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 44,
+      "to": 225,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 45,
+      "to": 226,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 46,
+      "to": 227,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 47,
+      "to": 228,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 48,
+      "to": 229,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 49,
+      "to": 230,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 50,
+      "to": 231,
+      "patch": { "island": 12 }
+    },
+    {
+      "type": "include_manifest",
+      "source": "proxima_island.json"
+    }
+  ]
+}

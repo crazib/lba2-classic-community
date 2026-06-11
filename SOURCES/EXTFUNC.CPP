@@ -216,6 +216,7 @@ const char *IleLst[] = {
     "ilotcx",
     "ascence",
     "souscelb",
+    "proxima",
 };
 
 void InitGrilleExt(U32 numcube) {
@@ -232,6 +233,14 @@ void InitGrilleExt(U32 numcube) {
     // GROSSE Rustine pour charger la citadelle quand il fait beau ou
     // quand il pleut
     switch (Island) {
+    case 12:
+        if (!strstr(IslandName, "proxima"))
+            LastIsland = 1; // pour que le chargement s'effectue
+
+        strcpy(IslandName, "proxima");
+        numskysea = RESS_SKYSEA0; // Proxima prototype reuses Citadel sky/sea.
+        break;
+
     case 0:
         if (TEMPETE_FINIE) {
             if (!strstr(IslandName, "citabeau"))

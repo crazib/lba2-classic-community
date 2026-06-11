@@ -441,6 +441,8 @@ void ChoicePalette(void) {
     if (CubeMode == CUBE_INTERIEUR
                         OR(Island == 0 AND TEMPETE_FINIE)) {
         IdxPalette = RESS_XPL00; // citabau
+    } else if (Island == 12) {
+        IdxPalette = RESS_XPL0; // Proxima prototype reuses Citadel palette.
     } else {
         IdxPalette = RESS_XPL0 + Island;
     }

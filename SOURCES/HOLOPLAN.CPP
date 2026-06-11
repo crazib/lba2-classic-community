@@ -28,7 +28,8 @@ S32 BodyFactorScale[MAX_ISLAND] =
         ZOOM_B, //  8	Knartas
         ZOOM_C, //  9	Island CX
         ZOOM_C, // 10	Elevator
-        ZOOM_B  // 11	Under Celebration
+        ZOOM_B, // 11	Under Celebration
+        ZOOM_A  // 12	Proxima (EFR prototype, Citadel-derived)
 };
 
 S32 ArrowFactorScale[MAX_ISLAND] =
@@ -44,7 +45,8 @@ S32 ArrowFactorScale[MAX_ISLAND] =
         ZOOM_E, //  8	Knartas
         ZOOM_F, //  9	Island CX
         ZOOM_F, // 10	Elevator
-        ZOOM_E  // 11	Under Celebration
+        ZOOM_E, // 11	Under Celebration
+        ZOOM_D  // 12	Proxima (EFR prototype, Citadel-derived)
 };
 //----------------------------------------------------------------------------
 void DrawTwinsenPlan(T_SORT *ptt) {
@@ -411,7 +413,9 @@ void InitHoloPlan() {
     BufBodyTempo = (U8 *)HoloMalloc(SizeCurrentBody);
     BufAnimTempo = (U8 *)HoloMalloc(SizeCurrentAnim);
 
-    if ((ZoomedIsland == 0) AND(TEMPETE_FINIE)) {
+    if (ZoomedIsland == 12) {
+        id = HQR_BEGIN_MAP; // Proxima prototype reuses Citadel holomap art.
+    } else if ((ZoomedIsland == 0) AND(TEMPETE_FINIE)) {
         id = HQR_BEGIN_MAP + (2 * 12); //	Citabau
     }
 #ifdef LBA_EDITOR

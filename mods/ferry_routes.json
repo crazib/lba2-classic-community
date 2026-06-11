@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "description": "Updated ferry routes for the Citadel Island ferry office.",
+  "operations": [
+    {
+      "type": "replace_hqr_entry",
+      "file": "SCENE.HQR",
+      "entry": 9,
+      "source": "citadel/citadel_ticket_office.ls2"
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 998,
+      "flag": 1,
+      "text": "All set. You can board when you're ready."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 998,
+      "source": "citadel/citadel_island_ticket_clerk_all_set.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 999,
+      "flag": 1,
+      "text": "We've just added a few old routes back to the schedule."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 999,
+      "source": "citadel/citadel_island_ticket_clerk_new_routes.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 1001,
+      "flag": 1,
+      "text": "Proxima Island."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 1001,
+      "source": "shared/twinsen_proxima_island.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 1002,
+      "flag": 1,
+      "text": "Principal Island."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 1002,
+      "source": "shared/twinsen_principal_island.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 1003,
+      "flag": 1,
+      "text": "Rebellion Island."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 1003,
+      "source": "shared/twinsen_rebellion_island.wav",
+      "next": false
+    }
+  ],
+  "_operations": [
+    { "FIXME": "something's wrong with either replace_text or replace_voice? seems to corrupt the whole HQR" },
+    {
+      "type": "replace_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 213,
+      "flag": 65,
+      "text": "This ticket allows you to travel aboard the ferry which links the northern hemisphere islands.",
+      "original": "This ticket allows you to travel aboard the ferry which links Citadel Island and White Leaf Desert Island."
+    },
+    {
+      "type": "replace_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 74,
+      "flag": 1,
+      "text": "The foul weather prevents the boats from leaving for Desert Island. Let me tell you, Mr. Twinsen, only the Weather Wizard could set things straight!!",
+      "original": "The foul weather prevents the boats from leaving the harbor. There's nothing to do, all maritime activity is paralyzed. Let me tell you, Mr. Twinsen, only the Weather Wizard could set things straight!!"
+    },
+    {
+      "type": "replace_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "000",
+      "id": 74,
+      "source": "citadel/mr_paul_foul_weather.wav",
+      "next": false
+    }
+  ]
+}
