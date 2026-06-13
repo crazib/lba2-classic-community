@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Decor objects for Proxima Island (not used at the moment).",
+  "_operations": [
+    {
+      "type": "add_hqr_entry",
+      "file": "PROXIMA.OBL",
+      "entry": 86,
+      "source": "proxima/wooden_docks.lm2"
+    },
+    {
+      "type": "add_hqr_entry",
+      "file": "PROXIMA.OBL",
+      "entry": 87,
+      "source": "proxima/wooden_docks_og.lm2"
+    }
+  ]
+}

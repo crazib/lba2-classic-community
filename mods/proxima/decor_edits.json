@@ -1,5 +1,550 @@
 {
   "island": 12,
-  "description": "Authoring edits exported by the Proxima exterior decor editor. Empty until decor is moved.",
-  "cubes": []
+  "description": "Authoring edits exported by the exterior decor editor.",
+  "cubes": [
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 0,
+          "expect_body": 48,
+          "body": 48,
+          "body_raw": 48,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 1024,
+          "deleted": false,
+          "position": [28672, 0, 7680],
+          "zv": [24172, 0, 4930, 33172, 3750, 10180]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 1,
+          "expect_body": 49,
+          "body": 34,
+          "body_raw": 34,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": false,
+          "position": [26112, 0, 12800],
+          "zv": [25796, 0, 12484, 26428, 600, 13116]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 2,
+          "expect_body": 29,
+          "body": 10407,
+          "body_raw": 10407,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": false,
+          "position": [11264, 0, 12800],
+          "zv": [9218, 609, 12887, 11265, 855, 16385]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 3,
+          "expect_body": 1,
+          "body": 10408,
+          "body_raw": 10408,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": false,
+          "position": [11264, 0, 12800],
+          "zv": [9344, -5, 13337, 11137, 604, 13875]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 4,
+          "expect_body": 28,
+          "body": 0,
+          "body_raw": 0,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": false,
+          "position": [22528, 0, 8192],
+          "zv": [21409, 0, 7391, 23012, 2222, 8993]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 5,
+          "expect_body": 28,
+          "body": 28,
+          "body_raw": 131100,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [26496, 750, 8640],
+          "zv": [26126, 750, 8440, 26526, 1300, 8840]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 6,
+          "expect_body": 0,
+          "body": 0,
+          "body_raw": 131072,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [21248, 750, 5760],
+          "zv": [20764, 750, 4959, 22367, 2972, 6561]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 7,
+          "expect_body": 51,
+          "body": 51,
+          "body_raw": 131123,
+          "code_jeu": 3,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [21760, 750, 8576],
+          "zv": [20981, 750, 8317, 22539, 1009, 8705]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 8,
+          "expect_body": 25,
+          "body": 25,
+          "body_raw": 131097,
+          "code_jeu": 9,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [21248, 750, 9984],
+          "zv": [21115, 750, 9651, 21514, 1083, 10317]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 9,
+          "expect_body": 25,
+          "body": 25,
+          "body_raw": 131097,
+          "code_jeu": 9,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [21760, 750, 9984],
+          "zv": [21627, 750, 9651, 22026, 1083, 10317]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 10,
+          "expect_body": 25,
+          "body": 25,
+          "body_raw": 131097,
+          "code_jeu": 9,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [22272, 750, 9984],
+          "zv": [22139, 750, 9651, 22538, 1083, 10317]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 11,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [22720, 750, 15936],
+          "zv": [21413, 750, 15860, 24027, 1288, 16320]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 12,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [19648, 750, 15936],
+          "zv": [18341, 750, 15860, 20955, 1288, 16320]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 13,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [13632, 750, 15936],
+          "zv": [12325, 750, 15860, 14939, 1288, 16320]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 14,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [10560, 750, 15936],
+          "zv": [9253, 750, 15860, 11867, 1288, 16320]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 15,
+          "expect_body": 28,
+          "body": 28,
+          "body_raw": 131100,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [7616, 750, 14272],
+          "zv": [7246, 750, 14072, 7646, 1300, 14472]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 16,
+          "expect_body": 28,
+          "body": 28,
+          "body_raw": 131100,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [15808, 750, 14272],
+          "zv": [15438, 750, 14072, 15838, 1300, 14472]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 17,
+          "expect_body": 28,
+          "body": 28,
+          "body_raw": 131100,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [7616, 750, 19712],
+          "zv": [7246, 750, 19512, 7646, 1300, 19912]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 18,
+          "expect_body": 5,
+          "body": 5,
+          "body_raw": 131077,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [27904, 750, 10496],
+          "zv": [27493, 750, 10208, 28315, 1624, 10784]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 19,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 1024,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [32256, 750, 10224],
+          "zv": [31872, 750, 8917, 32332, 1288, 11531]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 20,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 1024,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [32256, 750, 13312],
+          "zv": [31872, 750, 12005, 32332, 1288, 14619]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 21,
+          "expect_body": 50,
+          "body": 50,
+          "body_raw": 131122,
+          "code_jeu": 0,
+          "beta_raw": 1024,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [32252, 750, 16384],
+          "zv": [31868, 750, 15077, 32328, 1288, 17691]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 22,
+          "expect_body": 28,
+          "body": 28,
+          "body_raw": 131100,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [32000, 750, 8704],
+          "zv": [31630, 750, 8504, 32030, 1300, 8904]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 23,
+          "expect_body": 52,
+          "body": 52,
+          "body_raw": 131124,
+          "code_jeu": 3,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [21760, 750, 8576],
+          "zv": [20981, 788, 7940, 22539, 1477, 8317]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 24,
+          "expect_body": 53,
+          "body": 53,
+          "body_raw": 131125,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [22112, 750, 3328],
+          "zv": [21999, 750, 3273, 22992, 1694, 3439]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 25,
+          "expect_body": 53,
+          "body": 53,
+          "body_raw": 131125,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [21112, 750, 3328],
+          "zv": [20999, 750, 3273, 21992, 1694, 3439]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 26,
+          "expect_body": 53,
+          "body": 53,
+          "body_raw": 131125,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [20112, 750, 3328],
+          "zv": [19999, 750, 3273, 20992, 1694, 3439]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 27,
+          "expect_body": 54,
+          "body": 54,
+          "body_raw": 131126,
+          "code_jeu": 0,
+          "beta_raw": 2048,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [23056, 750, 3328],
+          "zv": [23001, 750, 3273, 23167, 1694, 3439]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 28,
+          "expect_body": 55,
+          "body": 55,
+          "body_raw": 131127,
+          "code_jeu": 3,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": true,
+          "position": [8196, 4, 20988],
+          "zv": [7709, 495, 19968, 8730, 745, 20987]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 2,
+          "expect_body": 10407,
+          "body": 10407,
+          "body_raw": 141479,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": false,
+          "position": [12288, 480, 12288],
+          "zv": [10242, 1089, 12375, 12289, 1335, 15873]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 3,
+          "expect_body": 10408,
+          "body": 10408,
+          "body_raw": 141480,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 0,
+          "deleted": false,
+          "position": [13824, 480, 10240],
+          "zv": [11904, 475, 10777, 13697, 1084, 11315]
+        }
+      ]
+    },
+    {
+      "cube": [7, 9],
+      "objects": [
+        {
+          "object": 4,
+          "expect_body": 0,
+          "body": 0,
+          "body_raw": 131072,
+          "code_jeu": 0,
+          "beta_raw": 0,
+          "dbeta": 2048,
+          "deleted": false,
+          "position": [22528, 0, 8192],
+          "zv": [21409, 0, 7391, 23012, 2222, 8993]
+        }
+      ]
+    }
+  ]
 }

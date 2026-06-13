@@ -1,4 +1,4 @@
-# EFR text and voice ids
+# EFR game variables
 
 | var | purpose |
 |---|---|

@@ -1,5 +1,42 @@
 {
   "island": 12,
-  "description": "Authoring edits exported by the Proxima zone editor. Empty until zones are edited.",
-  "scenes": []
+  "description": "Authoring edits exported by the zone editor.",
+  "scenes": [
+    {
+      "scene": 224,
+      "zones": [
+        {
+          "zone": 10,
+          "expect_type": 2,
+          "expect_num": 0,
+          "expect_bounds": [17408, 750, 10752, 23552, 2382, 15360],
+          "bounds": [17408, 750, 10752, 23552, 2382, 15360]
+        }
+      ]
+    },
+    {
+      "scene": 224,
+      "zones": [
+        {
+          "zone": 19,
+          "expect_type": 1,
+          "expect_num": 0,
+          "expect_bounds": [6144, 0, 15872, 10240, 3040, 19968],
+          "bounds": [5632, 0, 16384, 9728, 3040, 20480]
+        }
+      ]
+    },
+    {
+      "scene": 224,
+      "zones": [
+        {
+          "zone": 16,
+          "expect_type": 2,
+          "expect_num": 3,
+          "expect_bounds": [7680, 622, 20480, 8704, 2430, 21280],
+          "bounds": [8192, 622, 19968, 9216, 2430, 20768]
+        }
+      ]
+    }
+  ]
 }
