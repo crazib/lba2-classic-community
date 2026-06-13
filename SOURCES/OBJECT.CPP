@@ -124,6 +124,8 @@ typedef struct
     S32 Index;
     S16 Type;
     S32 HasExpectType;
+    S16 TargetType;
+    S32 HasTargetType;
     S16 Num;
     S32 HasExpectNum;
     S16 TargetNum;
@@ -266,6 +268,8 @@ static void ZoneEditorApplyEditToZone(T_ZONE_EDITOR_EDIT *edit, T_ZONE *ptrz) {
         ptrz->Y1 = edit->BaseY1;
         ptrz->Z1 = edit->BaseZ1 + edit->Dz;
     }
+    if (edit->HasTargetType)
+        ptrz->Type = edit->TargetType;
     if (edit->HasTargetNum)
         ptrz->Num = edit->TargetNum;
 }
@@ -286,6 +290,8 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE
             edit->Index = index;
             edit->Type = ptrz->Type;
             edit->HasExpectType = TRUE;
+            edit->TargetType = ptrz->Type;
+            edit->HasTargetType = FALSE;
             edit->Num = ptrz->Num;
             edit->HasExpectNum = TRUE;
             edit->TargetNum = ptrz->Num;
@@ -405,6 +411,7 @@ static S32 ZoneEditorImportZone(const char *json,
                                 S32 *skipped) {
     S32 index;
     S32 type;
+    S32 target_type;
     S32 num;
     S32 target_num;
     S32 expect_bounds[6];
@@ -428,6 +435,8 @@ static S32 ZoneEditorImportZone(const char *json,
 
     edit->HasExpectType = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "expect_type"), &type);
     edit->Type = (S16)(edit->HasExpectType ? type : 0);
+    edit->HasTargetType = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "type"), &target_type);
+    edit->TargetType = (S16)(edit->HasTargetType ? target_type : edit->Type);
     edit->HasExpectNum = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "expect_num"), &num);
     edit->Num = (S16)(edit->HasExpectNum ? num : 0);
     edit->HasTargetNum = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "num"), &target_num);
@@ -549,6 +558,174 @@ void ZoneEditorLoadAuthoringEditsForCurrentIsland(void) {
     free(json);
 }
 
+S32 ZoneEditorSaveRuntimeEdits(const char *island_dir, S32 island) {
+    char path[ADELINE_MAX_PATH];
+    FILE *f;
+    S32 i;
+    S32 first = TRUE;
+    S32 count = 0;
+
+    if (!island_dir OR !island_dir[0])
+        return FALSE;
+
+    snprintf(path, sizeof(path), "%s%szone_edits.json", island_dir, ADELINE_PATH_SEP);
+    path[sizeof(path) - 1] = '\0';
+    f = fopen(path, "wb");
+    if (!f) {
+        Editor_SetStatus("Zone save failed: cannot open zone_edits.json");
+        Log_Warn("[editor] cannot write zone edits: %s", path);
+        return FALSE;
+    }
+
+    fprintf(f, "{\n");
+    fprintf(f, "  \"island\": %d,\n", (int)island);
+    fprintf(f, "  \"description\": \"Authoring edits exported by the zone editor.\",\n");
+    fprintf(f, "  \"scenes\": [\n");
+    for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+        T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
+        S32 x0;
+        S32 y0;
+        S32 z0;
+        S32 x1;
+        S32 y1;
+        S32 z1;
+
+        if (!edit->Used)
+            continue;
+        if (!first)
+            fprintf(f, ",\n");
+        first = FALSE;
+        count++;
+
+        if (edit->HasTargetBounds) {
+            x0 = edit->TargetX0;
+            y0 = edit->TargetY0;
+            z0 = edit->TargetZ0;
+            x1 = edit->TargetX1;
+            y1 = edit->TargetY1;
+            z1 = edit->TargetZ1;
+        } else {
+            x0 = edit->BaseX0 + edit->Dx;
+            y0 = edit->BaseY0;
+            z0 = edit->BaseZ0 + edit->Dz;
+            x1 = edit->BaseX1 + edit->Dx;
+            y1 = edit->BaseY1;
+            z1 = edit->BaseZ1 + edit->Dz;
+        }
+
+        fprintf(f, "    {\n");
+        fprintf(f, "      \"scene\": %d,\n", (int)edit->Cube);
+        fprintf(f, "      \"zones\": [\n");
+        fprintf(f, "        {\n");
+        fprintf(f, "          \"zone\": %d,\n", (int)edit->Index);
+        if (edit->HasExpectType)
+            fprintf(f, "          \"expect_type\": %d,\n", (int)edit->Type);
+        if (edit->HasTargetType)
+            fprintf(f, "          \"type\": %d,\n", (int)edit->TargetType);
+        if (edit->HasExpectNum)
+            fprintf(f, "          \"expect_num\": %d,\n", (int)edit->Num);
+        if (edit->HasTargetNum)
+            fprintf(f, "          \"num\": %d,\n", (int)edit->TargetNum);
+        fprintf(f, "          \"expect_bounds\": [%d, %d, %d, %d, %d, %d],\n",
+                (int)edit->BaseX0, (int)edit->BaseY0, (int)edit->BaseZ0,
+                (int)edit->BaseX1, (int)edit->BaseY1, (int)edit->BaseZ1);
+        fprintf(f, "          \"bounds\": [%d, %d, %d, %d, %d, %d]\n",
+                (int)x0, (int)y0, (int)z0, (int)x1, (int)y1, (int)z1);
+        fprintf(f, "        }\n");
+        fprintf(f, "      ]\n");
+        fprintf(f, "    }");
+    }
+    fprintf(f, "\n");
+    fprintf(f, "  ]\n");
+    fprintf(f, "}\n");
+    fclose(f);
+
+    Log_Info("[editor] saved %d zone edit(s) to %s", (int)count, path);
+    return TRUE;
+}
+
+T_ZONE *ZoneEditorGetSelectedZone(void) {
+    S32 i;
+    T_ZONE *selected = NULL;
+
+    if (!ListZone)
+        return NULL;
+
+    for (i = 0; i < NbZones AND i < ZONE_EDITOR_MAX_SELECTED; i++) {
+        if (!ZoneEditorSelected[i])
+            continue;
+        if (selected)
+            return NULL;
+        selected = &ListZone[i];
+    }
+    return selected;
+}
+
+S32 ZoneEditorSetSelectedField(S32 field, S32 value) {
+    T_ZONE *zone = ZoneEditorGetSelectedZone();
+    T_ZONE_EDITOR_EDIT *edit;
+    S32 index;
+
+    if (!zone OR field < 0 OR field >= ZONE_EDITOR_FIELD_COUNT)
+        return FALSE;
+
+    index = (S32)(zone - ListZone);
+    edit = ZoneEditorGetOrCreateEdit(NumCube, index, zone);
+    if (!edit)
+        return FALSE;
+
+    if (!edit->HasTargetBounds) {
+        edit->TargetX0 = zone->X0;
+        edit->TargetY0 = zone->Y0;
+        edit->TargetZ0 = zone->Z0;
+        edit->TargetX1 = zone->X1;
+        edit->TargetY1 = zone->Y1;
+        edit->TargetZ1 = zone->Z1;
+    }
+
+    switch (field) {
+    case ZONE_EDITOR_FIELD_TYPE:
+        if (value < 0)
+            value = 0;
+        if (value > 9)
+            value = 9;
+        edit->TargetType = (S16)value;
+        edit->HasTargetType = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_NUM:
+        edit->TargetNum = (S16)value;
+        edit->HasTargetNum = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_X0:
+        edit->TargetX0 = value;
+        edit->HasTargetBounds = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_Y0:
+        edit->TargetY0 = value;
+        edit->HasTargetBounds = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_Z0:
+        edit->TargetZ0 = value;
+        edit->HasTargetBounds = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_X1:
+        edit->TargetX1 = value;
+        edit->HasTargetBounds = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_Y1:
+        edit->TargetY1 = value;
+        edit->HasTargetBounds = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_Z1:
+        edit->TargetZ1 = value;
+        edit->HasTargetBounds = TRUE;
+        break;
+    }
+
+    ZoneEditorApplyEditToZone(edit, zone);
+    return TRUE;
+}
+
 static void ZoneEditorMoveSelected(S32 dx, S32 dz) {
     S32 n;
     T_ZONE *ptrz;
@@ -587,12 +764,19 @@ static void ZoneEditorBeginFrame(void) {
     down = CheckKey(K_DOWN) ? TRUE : FALSE;
     left = CheckKey(K_LEFT) ? TRUE : FALSE;
     right = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    if (Editor_InspectorConsumesInput()) {
+        ZoneEditorLastUp = up;
+        ZoneEditorLastDown = down;
+        ZoneEditorLastLeft = left;
+        ZoneEditorLastRight = right;
+        return;
+    }
     step = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? ZONE_EDITOR_NUDGE_SHIFT : ZONE_EDITOR_NUDGE;
 
     if (up AND !ZoneEditorLastUp)
-        ZoneEditorMoveSelected(0, step);
-    if (down AND !ZoneEditorLastDown)
         ZoneEditorMoveSelected(0, -step);
+    if (down AND !ZoneEditorLastDown)
+        ZoneEditorMoveSelected(0, step);
     if (left AND !ZoneEditorLastLeft)
         ZoneEditorMoveSelected(-step, 0);
     if (right AND !ZoneEditorLastRight)
@@ -971,15 +1155,19 @@ void ZoneOverlayDraw(void) {
     S32 n;
     T_ZONE *ptrz;
 
-    if (!ZoneOverlayIds AND !ZoneOverlayBoxes)
-        return;
+    ZoneEditorBeginFrame();
 
-    if (!ListZone OR NbZones <= 0)
+    if (!ZoneOverlayIds AND !ZoneOverlayBoxes) {
+        ZoneEditorEndFrame();
         return;
+    }
+
+    if (!ListZone OR NbZones <= 0) {
+        ZoneEditorEndFrame();
+        return;
+    }
 
     UnsetClip();
-
-    ZoneEditorBeginFrame();
 
     ptrz = ListZone;
     for (n = 0; n < NbZones; n++, ptrz++) {

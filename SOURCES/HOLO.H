@@ -35,7 +35,6 @@
 #define SCE 32768           //	SizeXZ Cube Exterieur
 
 #define MAX_OBJECTIF 50
-#define MAX_ISLAND 13
 #define MAX_CUBE 255
 
 #define SIZE_ARROW_ISLAND 10000

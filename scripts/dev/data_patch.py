@@ -966,6 +966,78 @@ def op_replace_hqr_entry(op, data_dir, write):
     return True
 
 
+def op_add_hqr_entry(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    entry_index = int(op["entry"])
+    manifest_dir = op.get("_manifest_dir", ".")
+    source_path = manifest_path(manifest_dir, op["source"])
+
+    ents, data = hqr_inspect.entries(path)
+
+    with open(source_path, "rb") as f:
+        payload = f.read()
+
+    if len(payload) == 0:
+        raise ValueError("source file %s is empty" % source_path)
+
+    source_blob = struct.pack("<IIH", len(payload), len(payload), 0) + payload
+
+    print("add_hqr_entry %s entry %d <- %s:" % (op["file"], entry_index, op["source"]))
+    print("  source size=%d stored=%d" % (len(payload), len(source_blob)))
+
+    # extend ents if needed (this is the important bit)
+    if entry_index > len(ents):
+        print("  extending table from %d to %d entries" % (len(ents), entry_index))
+        while len(ents) < entry_index:
+            ents.append((0, 0, None, 0, 0))  # empty slot placeholder
+
+    # if exactly at end, just append
+    if entry_index == len(ents):
+        ents.append((0, 0, None, 0, 0))
+
+    if write:
+        new_entries = []
+
+        for i, ent in enumerate(ents):
+            if i == entry_index:
+                new_entries.append(source_blob)
+            elif ent[2] is None:
+                new_entries.append(None)
+            else:
+                offset = ent[1]
+                compressed_size = ent[3]
+                new_entries.append(data[offset : offset + 10 + compressed_size])
+
+        table_size = len(ents) * 4
+        offsets = []
+        pos = table_size
+
+        for blob in new_entries:
+            if blob is None:
+                offsets.append(0)
+            else:
+                offsets.append(pos)
+                pos += len(blob)
+
+        out = bytearray()
+
+        for offset in offsets:
+            out.extend(struct.pack("<I", offset))
+
+        for blob in new_entries:
+            if blob is not None:
+                out.extend(blob)
+
+        with open(path, "wb") as f:
+            f.write(out)
+
+        print("  wrote added entry")
+    else:
+        print("  dry run only")
+
+    return True
+
+
 def op_set_terrain_heights(op, data_dir, write):
     path = data_path(data_dir, op["file"])
     cube_x, cube_y = parse_cube(op["cube"])
@@ -1226,6 +1298,7 @@ OPERATIONS = {
     "replace_voice": op_replace_voice,
     "copy_hqr_entry": op_copy_hqr_entry,
     "replace_hqr_entry": op_replace_hqr_entry,
+    "add_hqr_entry": op_add_hqr_entry,
     "set_terrain_heights": op_set_terrain_heights,
     "set_terrain_intensities": op_set_terrain_intensities,
     "set_terrain_triangles": op_set_terrain_triangles,

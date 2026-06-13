@@ -18,6 +18,7 @@ extern Func_LongProjectPoint *LongProjectPoint;
 
 extern Func_LongProjectPoint LongProjectPointIso; ///< Do Not call from C
 extern Func_LongProjectPoint LongProjectPoint3D;  ///< Do Not call from C
+extern Func_LongProjectPoint LongProjectPointOrtho; ///< Do Not call from C
 
 // -----------------------------------------------------------------------------
 typedef void(Func_ProjectList)(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
@@ -27,6 +28,7 @@ typedef void(Func_ProjectList)(TYPE_PT *Dst, TYPE_VT16 *Src, S32 NbPt, S32 OrgX,
 extern Func_ProjectList *ProjectList;   ///< Do Not call from C
 extern Func_ProjectList ProjectListIso; ///< Do Not call from C
 extern Func_ProjectList *ProjectList3D; ///< Do Not call from C
+extern Func_ProjectList *ProjectListOrtho; ///< Do Not call from C
 
 // =============================================================================
 #ifdef __cplusplus

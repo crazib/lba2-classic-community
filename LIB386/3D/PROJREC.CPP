@@ -139,6 +139,14 @@ void Projrec_SetProjection(S32 xc, S32 yc, S32 clip, S32 fx, S32 fy) {
          s_event_count, (long)xc, (long)yc, (long)clip, (long)fx, (long)fy);
 }
 
+void Projrec_SetOrthoProjection(S32 xc, S32 yc, S32 clip) {
+    if (!Projrec_IsActive())
+        return;
+    ++s_event_count;
+    emit("SETORTHO seq=%ld xc=%ld yc=%ld clip=%ld\n",
+         s_event_count, (long)xc, (long)yc, (long)clip);
+}
+
 void Projrec_SetIsoProjection(S32 xc, S32 yc) {
     if (!Projrec_IsActive())
         return;
@@ -152,6 +160,15 @@ void Projrec_LongProjectPoint3D(S32 x, S32 y, S32 z, S32 ret, S32 xp, S32 yp) {
         return;
     ++s_event_count;
     emit("PROJ seq=%ld x=%ld y=%ld z=%ld -> ret=%ld xp=%ld yp=%ld\n",
+         s_event_count, (long)x, (long)y, (long)z,
+         (long)ret, (long)xp, (long)yp);
+}
+
+void Projrec_LongProjectPointOrtho(S32 x, S32 y, S32 z, S32 ret, S32 xp, S32 yp) {
+    if (!Projrec_IsActive())
+        return;
+    ++s_event_count;
+    emit("PROJORTHO seq=%ld x=%ld y=%ld z=%ld -> ret=%ld xp=%ld yp=%ld\n",
          s_event_count, (long)x, (long)y, (long)z,
          (long)ret, (long)xp, (long)yp);
 }
@@ -170,6 +187,14 @@ void Projrec_ProjectList3D(S32 nbpt, S32 orgx, S32 orgy, S32 orgz) {
         return;
     ++s_event_count;
     emit("PRLI seq=%ld nbpt=%ld orgx=%ld orgy=%ld orgz=%ld\n",
+         s_event_count, (long)nbpt, (long)orgx, (long)orgy, (long)orgz);
+}
+
+void Projrec_ProjectListOrtho(S32 nbpt, S32 orgx, S32 orgy, S32 orgz) {
+    if (!Projrec_IsActive())
+        return;
+    ++s_event_count;
+    emit("PRLIORTHO seq=%ld nbpt=%ld orgx=%ld orgy=%ld orgz=%ld\n",
          s_event_count, (long)nbpt, (long)orgx, (long)orgy, (long)orgz);
 }
 

@@ -26,6 +26,19 @@ void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
     FRatioY = -(float)LFactorY / FRatioX;
 }
 
+void SetOrthoProjection(S32 xcentre, S32 ycentre, S32 clip) {
+    LIB386_TRACE_CPP("SetOrthoProjection", "1", "xc=%d yc=%d clip=%d", xcentre, ycentre, clip);
+    Projrec_SetOrthoProjection(xcentre, ycentre, clip);
+    XCentre = xcentre;
+    YCentre = ycentre;
+    NearClip = clip;
+
+    TypeProj = TYPE_3D;
+
+    LongProjectPoint = LongProjectPointOrtho;
+    ProjectList = ProjectListOrtho;
+}
+
 void SetIsoProjection(S32 xcentre, S32 ycentre) {
     /*
 ;void	SetIsoProjection(xc, yc)

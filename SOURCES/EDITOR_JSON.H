@@ -10,7 +10,7 @@
 #define JSMN_PARENT_LINKS
 #include "../LIB386/jsmn.h"
 
-#define EDITOR_JSON_MAX_TOKENS 16384
+#define EDITOR_JSON_MAX_TOKENS 16384 * 64
 
 static S32 EditorJsonTokenEnd(const jsmntok_t *tokens, S32 count, S32 index) {
     S32 end;

@@ -1729,7 +1729,7 @@ restartloop:
                     RestoreTimer();
                 }
 
-                if (FollowCamera AND CubeMode == CUBE_EXTERIEUR) {
+                if (FollowCamera AND CubeMode == CUBE_EXTERIEUR AND !Editor_IsActive()) {
                     T_OBJ_3D *ptr3d = &ListObjet[NumObjFollow].Obj;
                     S32 manualPan = !Editor_IsActive() AND(CheckKey(K_LBRACKET) OR CheckKey(K_RBRACKET));
                     S32 heroMoving = (ptr3d->X != FollowCamPrevHeroX OR ptr3d->Z != FollowCamPrevHeroZ);
@@ -1942,7 +1942,7 @@ restartloop:
         /* affiche tout */
 
 #ifdef LBA2CC_EDITOR
-        if (CubeMode == CUBE_EXTERIEUR AND(ExtDecorEditorGetSelect() OR TerrainEditorGetSelect() OR TerrainTextureEditorGetSelect()))
+        if (CubeMode == CUBE_EXTERIEUR AND(ExtDecorEditorGetSelect() OR TerrainEditorGetSelect() OR TerrainTextureEditorGetSelect() OR TerrainRegionEditorGetSelect()))
             FirstTime = AFF_ALL_FLIP;
 #endif
 

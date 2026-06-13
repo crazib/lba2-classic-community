@@ -37,9 +37,21 @@ extern void ExtDecorEditorDeleteSelected(void);
 extern void ExtDecorEditorDuplicateSelected(void);
 extern void ExtDecorEditorPlacePaletteInDeletedSlot(void);
 extern void ExtDecorEditorPaletteNext(S32 dir);
+extern void ExtDecorEditorPaletteLibraryNext(S32 dir);
+extern S32 ExtDecorEditorGetPaletteLibrary(void);
+extern const char *ExtDecorEditorGetPaletteLibraryName(void);
 extern S32 ExtDecorEditorGetPaletteBody(void);
 extern void ExtDecorEditorPaletteDraw(S32 x0, S32 y0);
 extern S32 ExtDecorEditorSaveRuntimeEdits(const char *island_dir, S32 island);
+extern T_DECORS *ExtDecorEditorGetSelectedObject(void);
+extern S32 ExtDecorEditorSetSelectedField(S32 field, S32 value);
+
+#define EXT_DECOR_FIELD_BODY 0
+#define EXT_DECOR_FIELD_ROTATION 1
+#define EXT_DECOR_FIELD_X 2
+#define EXT_DECOR_FIELD_Y 3
+#define EXT_DECOR_FIELD_Z 4
+#define EXT_DECOR_FIELD_COUNT 5
 /*--------------------------------------------------------------------------*/
 #endif
 extern S32 TestZVDecors(S32 xw, S32 yw, S32 zw, T_DECORS *objet);

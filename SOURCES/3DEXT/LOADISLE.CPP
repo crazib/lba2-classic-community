@@ -1,6 +1,9 @@
 #include "DEFINES.H"
+#include <iostream>
 
 #include "../DIRECTORIES.H"
+
+#include <SYSTEM/LOG.H>
 
 // nom du HQR (citadele.hqr)
 
@@ -49,6 +52,7 @@ extern U32 MapPGroundMem;
 extern U32 ListTexDefMem;
 extern U32 MapSommetYMem;
 extern U32 MapIntensityMem;
+extern S32 Island;
 
 /*══════════════════════════════════════════════════════════════════════════*
 	     █     █▀▀▀█ █▀▀▀█ █▀▀▀▄        █    ██▀▀▀ █     █▀▀▀▀
@@ -69,7 +73,8 @@ extern void TerrainEditorLoadAuthoringEditsForCurrentIsland(void);
 extern void TerrainEditorSetLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainTextureEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 extern void TerrainTextureEditorClearRuntimeEdits(void);
-extern void TerrainTextureEditorSetTexDefCount(S32 count);
+extern void TerrainTextureEditorBuildCatalog(void);
+extern void TerrainTextureEditorSetTexDefs(T_HALF_TEX *defs, S32 count);
 extern void ZoneEditorClearRuntimeEdits(void);
 extern void ZoneEditorLoadAuthoringEditsForCurrentIsland(void);
 #endif
@@ -99,9 +104,16 @@ S32 InitExternalView() {
         TheEnd(NOT_ENOUGH_MEM, "PtrZvBuffer (3DExt)");
 #endif
 
-    HQR_Isle_Obj = HQR_Init_Ressource("", IsleObjMem, 200);
-    if (!HQR_Isle_Obj)
-        TheEnd(NOT_ENOUGH_MEM, "HQR_Isle_Obj (3DExt)");
+    for (int i = 0; i < MAX_ISLAND; i++) {
+        ObjTextures[i] = (U8 *)Malloc(256 * 256 + RECOVER_AREA);
+        if (!ObjTextures[i])
+            TheEnd(NOT_ENOUGH_MEM, "ObjTextures (3DExt)");
+    }
+
+    HQR_Isle_Objs[0] = HQR_Init_Ressource("", IsleObjMem, 200);
+    if (!HQR_Isle_Objs[0])
+        TheEnd(NOT_ENOUGH_MEM, "HQR_Isle_Objs (3DExt)");
+    HQR_Isle_Obj = HQR_Isle_Objs[0];
 
     HQR_CubeInfos = HQR_Init_Ressource("", CubeInfosMem, MAX_CUBES_PER_ISLE);
     if (!HQR_CubeInfos)
@@ -138,13 +150,55 @@ S32 InitExternalView() {
 /*──────────────────────────────────────────────────────────────────────────*/
 
 void ClearExternalView() {
-    HQR_Free_Ressource(HQR_Isle_Obj);
+    S32 i;
+
+    HQR_Free_Ressource(HQR_Isle_Objs[0]);
+    HQR_Isle_Objs[0] = NULL;
+    HQR_Isle_Obj = NULL;
+    for (i = 0; i < MAX_ISLAND; i++) {
+        if (i == 0)
+            continue;
+        if (HQR_Isle_Objs[i]) {
+            HQR_Free_Ressource(HQR_Isle_Objs[i]);
+            HQR_Isle_Objs[i] = NULL;
+        }
+    }
     HQR_Free_Ressource(HQR_CubeInfos);
     HQR_Free_Ressource(HQR_ListDecors);
     HQR_Free_Ressource(HQR_MapPGround);
     HQR_Free_Ressource(HQR_ListTexDef);
     HQR_Free_Ressource(HQR_MapSommetY);
     HQR_Free_Ressource(HQR_MapIntensity);
+}
+
+/*──────────────────────────────────────────────────────────────────────────*/
+
+T_HQR_HEADER *GetDecorLibraryHQR(S32 library) {
+    char islandFilename[ADELINE_MAX_PATH];
+    char islandFilePath[ADELINE_MAX_PATH];
+
+    if (library == 0 OR library == Island)
+        return HQR_Isle_Obj;
+    if (library < 0 OR library >= MAX_ISLAND)
+        return NULL;
+
+    if (HQR_Isle_Objs[library])
+        return HQR_Isle_Objs[library];
+
+    HQR_Isle_Objs[library] = HQR_Init_Ressource("", IsleObjMem, 200);
+    if (!HQR_Isle_Objs[library])
+        TheEnd(NOT_ENOUGH_MEM, "HQR_Isle_Objs (3DExt)");
+
+    snprintf(islandFilename, ADELINE_MAX_PATH, "%.*s.obl", (int)(ADELINE_MAX_PATH - 5), IleLst[library]);
+    GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
+    if (!HQR_Change_Ressource(HQR_Isle_Objs[library], islandFilePath)) {
+        Log_Warn("[editor] decor library %d unavailable: %s", (int)library, islandFilePath);
+        HQR_Free_Ressource(HQR_Isle_Objs[library]);
+        HQR_Isle_Objs[library] = NULL;
+        return NULL;
+    }
+
+    return HQR_Isle_Objs[library];
 }
 
 /*──────────────────────────────────────────────────────────────────────────*/
@@ -200,7 +254,19 @@ void LoadIsland() {
     if (!Load_HQR(islandFilePath, ObjTexture, HQR_TEX_OBJ))
         TheEndCheckFile(islandFilePath);
 
+    for (int i = 0; i < MAX_ISLAND; i++) {
+        if (i == 1) continue; // sendell.isl est une carte fantôme
+
+        snprintf(islandFilename, ADELINE_MAX_PATH, "%.*s.ile", (int)(ADELINE_MAX_PATH - 5), IleLst[i]);
+        GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
+        std::cout << islandFilename << std::endl;
+
+        if (!Load_HQR(islandFilePath, ObjTextures[i], HQR_TEX_OBJ))
+            TheEndCheckFile(islandFilePath);
+    }
+
 #ifdef LBA2CC_EDITOR
+    TerrainTextureEditorBuildCatalog();
     ExtDecorEditorLoadAuthoringEditsForCurrentIsland();
     TerrainEditorLoadAuthoringEditsForCurrentIsland();
     ZoneEditorLoadAuthoringEditsForCurrentIsland();
@@ -273,7 +339,7 @@ S32 LoadCube(S32 x, S32 y) {
 
 #ifdef LBA2CC_EDITOR
     ListTexDef = (T_HALF_TEX *)HQR_Get(HQR_ListTexDef, index + HQR_CUBE_TXD, &listTexDefSize);
-    TerrainTextureEditorSetTexDefCount(listTexDefSize / (S32)sizeof(T_HALF_TEX));
+    TerrainTextureEditorSetTexDefs(ListTexDef, listTexDefSize / (S32)sizeof(T_HALF_TEX));
 #else
     ListTexDef = (T_HALF_TEX *)HQR_Get(HQR_ListTexDef, index + HQR_CUBE_TXD);
 #endif
