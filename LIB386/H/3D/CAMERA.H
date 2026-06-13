@@ -41,6 +41,7 @@ extern S32 TypeProj;
 
 extern float FRatioX;
 extern float FRatioY;
+extern float OrthoScale;
 
 extern U64 MMX_DEMI;
 extern U64 MMX_DEMI2;

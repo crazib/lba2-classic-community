@@ -14,6 +14,7 @@ enum ProjectionType { TYPE_3D = 0,
 // -----------------------------------------------------------------------------
 extern void SetProjection(S32 xcentre, S32 ycentre, S32 clip, S32 factorx,
                           S32 factory);
+extern void SetOrthoProjection(S32 xcentre, S32 ycentre, S32 clip);
 extern void SetIsoProjection(S32 xcentre, S32 ycentre);
 
 // =============================================================================

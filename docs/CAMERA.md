@@ -114,6 +114,17 @@ Branch history tried heavier correction (terrain penetration along the boom, LOS
 
 See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu entry.
 
+## Editor camera
+
+The exterior editor tools use their own saved camera state. `FollowCamera` no longer overrides that state while an editor tool is active, so editor panning stays under direct control in [`../SOURCES/EDITOR.CPP`](../SOURCES/EDITOR.CPP) and the follow-camera branch in [`../SOURCES/PERSO.CPP`](../SOURCES/PERSO.CPP) stays out of the way.
+
+- `Alt + left-drag` pans the editor camera in exterior editor tools.
+- `1` or `numpad 1` snaps to a front view.
+- `3` or `numpad 3` snaps to a right view.
+- `7` or `numpad 7` snaps to a top view.
+- `5` or `numpad 5` toggles the editor orthographic projection.
+- `R` resets the editor camera to the current player-perspective camera.
+
 ### Future work
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
@@ -145,4 +156,3 @@ See [CONFIG.md](CONFIG.md) for persistence and [MENU.md](MENU.md) for the menu e
 - [MENU.md](MENU.md) — Advanced options menu entry
 - [GLOSSARY.md](GLOSSARY.md) — Zone type 1 = camera zone; `AllCameras`
 - [LIFECYCLES.md](LIFECYCLES.md) — Scene load phase 6: initialize camera; main loop step 7: `AffScene`
-

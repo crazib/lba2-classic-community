@@ -40,6 +40,22 @@ S32 ZBuffer = TRUE;
 
 S32 *ListCubeInfos; // size ok file stored in hqr
 
+const char *IleLst[] = {
+    "citadel",
+    "sendell",
+    "desert",
+    "emeraude",
+    "otringal",
+    "celebrat",
+    "platform",
+    "mosquibe",
+    "knartas",
+    "ilotcx",
+    "ascence",
+    "souscelb",
+    "proxima",
+};
+
 U8 *IsleMapIndex;
 
 T_HALF_POLY *MapPolyGround;
@@ -55,6 +71,7 @@ S32 PalLevel;
 
 U8 *SkySeaTexture;
 U8 *ObjTexture;
+U8 *ObjTextures[13]; // MAX_ISLAND
 U8 *GroundTexture;
 
 Struc_Point Tab_Points[8];
@@ -66,6 +83,7 @@ S32 NbObjDecors;
 T_DECORS *ListDecors;
 
 T_HQR_HEADER *HQR_Isle_Obj;
+T_HQR_HEADER *HQR_Isle_Objs[13]; // MAX_ISLAND
 T_HQR_HEADER *HQR_CubeInfos;
 T_HQR_HEADER *HQR_ListDecors;
 T_HQR_HEADER *HQR_MapPGround;

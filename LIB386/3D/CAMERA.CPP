@@ -47,6 +47,7 @@ S32 TypeProj = TYPE_3D;
 
 float FRatioX = 0.0f;
 float FRatioY = 0.0f;
+float OrthoScale = 1.0f / 32.0f;
 
 U64 MMX_DEMI = (8192LL << 32) | 8192LL;
 U64 MMX_DEMI2 = (4096LL << 32) | 4096LL;

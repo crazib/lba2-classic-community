@@ -24,6 +24,8 @@ extern void TerrainEditorBeginFrame(void);
 extern void TerrainEditorEndFrame(void);
 extern void TerrainTextureEditorBeginFrame(void);
 extern void TerrainTextureEditorEndFrame(void);
+extern void TerrainRegionEditorBeginFrame(void);
+extern void TerrainRegionEditorEndFrame(void);
 #endif
 
 extern S32 Nxw, Nyw, Nzw;
@@ -203,21 +205,6 @@ void InitGrilleExt(char *defpathname) {
 }
 #else
 
-const char *IleLst[] = {
-    "citadel",
-    "sendell",
-    "desert",
-    "emeraude",
-    "otringal",
-    "celebrat",
-    "platform",
-    "mosquibe",
-    "knartas",
-    "ilotcx",
-    "ascence",
-    "souscelb",
-};
-
 void InitGrilleExt(U32 numcube) {
     S32 numskysea;
     char tmpFilePath[ADELINE_MAX_PATH];
@@ -325,6 +312,7 @@ void AffGrilleExt() {
     ExtDecorEditorBeginFrame();
     TerrainEditorBeginFrame();
     TerrainTextureEditorBeginFrame();
+    TerrainRegionEditorBeginFrame();
 #endif
 
 #ifdef LBA_EDITOR
@@ -344,6 +332,7 @@ void AffGrilleExt() {
     ExtDecorEditorEndFrame();
     TerrainEditorEndFrame();
     TerrainTextureEditorEndFrame();
+    TerrainRegionEditorEndFrame();
 #endif
 
     ManageSystem(); // for streaming
@@ -1848,11 +1837,12 @@ void AffPalette() {
     RepMask = 0xFFFF;
 
     // Affiche page de texture
-    RestoreBlock(Log, PtrMap, 383, 223, 638, 478);
+    //RestoreBlock(Log, PtrMap, 383, 223, 638, 478);
+    RestoreBlock(Log, GroundTexture, 383, 223, 638, 478);
     Rect(382, 222, 639, 479, LBAWHITE);
 
     // Affiche page de texture SkySea
-    RestoreBlock(Log, GroundTexture, 5, 223, 260, 478);
+    RestoreBlock(Log, ObjTexture, 5, 223, 260, 478);
     Rect(4, 222, 261, 479, LBAWHITE);
 
     // Affiche Table de Fog

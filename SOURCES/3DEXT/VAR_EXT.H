@@ -34,6 +34,9 @@ extern S32 WorldLightBeta;
 //extern	S32		ListCubeInfos[] ;
 extern S32 *ListCubeInfos;
 
+#define MAX_ISLAND 13
+extern const char *IleLst[];
+
 extern U8 *IsleMapIndex;
 extern T_HALF_POLY *MapPolyGround;
 
@@ -62,6 +65,7 @@ extern S32 FogCoul;
 
 extern U8 *SkySeaTexture;
 extern U8 *ObjTexture;
+extern U8 *ObjTextures[13]; // MAX_ISLAND
 extern U8 *GroundTexture;
 
 extern Struc_Point Tab_Points[];
@@ -73,6 +77,7 @@ extern S32 NbObjDecors;
 extern T_DECORS *ListDecors;
 //extern	T_HQR_HEADER	*HQR_Isle ;
 extern T_HQR_HEADER *HQR_Isle_Obj;
+extern T_HQR_HEADER *HQR_Isle_Objs[13]; // MAX_ISLAND
 extern T_HQR_HEADER *HQR_CubeInfos;
 extern T_HQR_HEADER *HQR_ListDecors;
 extern T_HQR_HEADER *HQR_MapPGround;

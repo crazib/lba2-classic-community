@@ -35,3 +35,25 @@ S32 LongProjectPoint3D(S32 x, S32 y, S32 z) {
 }
 
 Func_LongProjectPoint *LongProjectPoint = LongProjectPoint3D;
+
+S32 LongProjectPointOrtho(S32 x, S32 y, S32 z) {
+    LIB386_TRACE_CPP("LongProjectPointOrtho", "1", "x=%d y=%d z=%d", x, y, z);
+    if (z > CameraZrClip) {
+        Xp = -2147483647 - 1;
+        Yp = -2147483647 - 1;
+
+        LIB386_TRACE_CPP("LongProjectPointOrtho", "2", "ret=%d Xp=%d Yp=%d", 0, Xp, Yp);
+        Projrec_LongProjectPointOrtho(x, y, z, 0, Xp, Yp);
+        return 0;
+    }
+
+    long double screenX = (long double)(x - CameraXr) * (long double)OrthoScale;
+    long double screenY = (long double)(y - CameraYr) * (long double)OrthoScale * (long double)FRatioY;
+
+    Xp = XCentre + (S32)lrintl(screenX);
+    Yp = YCentre + (S32)lrintl(screenY);
+
+    LIB386_TRACE_CPP("LongProjectPointOrtho", "2", "ret=%d Xp=%d Yp=%d", 1, Xp, Yp);
+    Projrec_LongProjectPointOrtho(x, y, z, 1, Xp, Yp);
+    return 1;
+}
