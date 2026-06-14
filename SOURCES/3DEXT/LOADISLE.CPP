@@ -1,5 +1,4 @@
 #include "DEFINES.H"
-#include <iostream>
 
 #include "../DIRECTORIES.H"
 
@@ -255,11 +254,11 @@ void LoadIsland() {
         TheEndCheckFile(islandFilePath);
 
     for (int i = 0; i < MAX_ISLAND; i++) {
-        if (i == 1) continue; // sendell.isl est une carte fantôme
+        if (i == 1)
+            continue; // sendell.isl est une carte fantôme
 
         snprintf(islandFilename, ADELINE_MAX_PATH, "%.*s.ile", (int)(ADELINE_MAX_PATH - 5), IleLst[i]);
         GetResPath(islandFilePath, ADELINE_MAX_PATH, islandFilename);
-        std::cout << islandFilename << std::endl;
 
         if (!Load_HQR(islandFilePath, ObjTextures[i], HQR_TEX_OBJ))
             TheEndCheckFile(islandFilePath);
@@ -302,6 +301,8 @@ S32 LoadCube(S32 x, S32 y) {
     AlphaLight = ListCubeInfos[INFO_ALPHA_LIGHT] & 0xFFFF;
     CubeBitField = (U16)(ListCubeInfos[INFO_ALPHA_LIGHT] >> 16);
     BetaLight = ListCubeInfos[INFO_BETA_LIGHT];
+    Log_Info("[LIGHT] island=%d (%s) cube=(%d,%d) alpha=%d beta=%d",
+             (int)Island, IslandName, (int)x, (int)y, (int)AlphaLight, (int)BetaLight);
     Sky_Y = ListCubeInfos[INFO_SKY_Y];
 
     ClipZFar = ListCubeInfos[INFO_CLIP_Z_FAR];
@@ -330,10 +331,10 @@ S32 LoadCube(S32 x, S32 y) {
 
     if (NbObjDecors != 0) {
         ListDecors = (T_DECORS *)HQR_Get(HQR_ListDecors, index + HQR_CUBE_DOB);
+    }
 #ifdef LBA2CC_EDITOR
         ExtDecorEditorApplyRuntimeEditsForLoadedCube(x, y);
 #endif
-    }
 
     MapPolyGround = (T_HALF_POLY *)HQR_Get(HQR_MapPGround, index + HQR_CUBE_GRD);
 

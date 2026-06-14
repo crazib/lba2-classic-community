@@ -22,6 +22,7 @@ extern void Editor_DrawOverlay(void);
 extern S32 Editor_IsActive(void);
 extern S32 Editor_IsCameraPanActive(void);
 extern S32 Editor_ResolveOutputDir(char *outPath, S32 pathMax);
+extern S32 Editor_FindExteriorScene(S32 cube_x, S32 cube_y);
 extern void Editor_SetStatus(const char *text);
 extern EditorTool Editor_GetTool(void);
 extern S32 Editor_ToolIs(EditorTool tool);
@@ -35,6 +36,7 @@ extern S32 Editor_InspectorConsumesInput(void);
 #define Editor_IsActive() (0)
 #define Editor_IsCameraPanActive() (0)
 #define Editor_ResolveOutputDir(outPath, pathMax) (0)
+#define Editor_FindExteriorScene(cube_x, cube_y) (0)
 #define Editor_SetStatus(text) ((void)0)
 #define Editor_GetTool() (0)
 #define Editor_ToolIs(tool) (0)

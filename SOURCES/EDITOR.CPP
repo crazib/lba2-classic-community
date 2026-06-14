@@ -2,8 +2,11 @@
 
 #ifdef LBA2CC_EDITOR
 
+#include "EDITOR_JSON.H"
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
+#include "DISKFUNC.H"
+#include "HQR_NAMES.H"
 #include "MESSAGE.H"
 #include "3DEXT/DECORS.H"
 #include "3DEXT/LOADISLE.H"
@@ -28,6 +31,7 @@ extern S32 CubeMode;
 extern S32 Island;
 extern S32 CurrentCubeX;
 extern S32 CurrentCubeY;
+extern U8 *PtrSce;
 extern void ZoneEditorClearAllSelected(void);
 
 static S32 EditorVisible = FALSE;
@@ -86,6 +90,7 @@ static T_EDITOR_CAMERA_STATE EditorCamera;
 static S32 EditorGameCubeX = 0;
 static S32 EditorGameCubeY = 0;
 static S32 EditorCameraOrtho = FALSE;
+static S32 EditorRememberedOrtho = FALSE;
 static S32 EditorHasGameCamera = FALSE;
 static S32 EditorHasCamera = FALSE;
 static S32 EditorLastViewFront = FALSE;
@@ -143,13 +148,22 @@ static const char *EditorInspectorDecorFieldNames[EXT_DECOR_FIELD_COUNT] = {
     "Body", "Rotation", "X", "Y", "Z"
 };
 
-static const char *EditorInspectorZoneFieldNames[ZONE_EDITOR_FIELD_COUNT + 1] = {
-    "Type", "Num", "Text", "X0", "Y0", "Z0", "X1", "Y1", "Z1"
+static const char *EditorInspectorZoneFieldNames[8] = {
+    "Type", "Num", "X0", "Y0", "Z0", "X1", "Y1", "Z1"
+};
+
+static const char *EditorInspectorMessageZoneFieldNames[ZONE_EDITOR_FIELD_COUNT + 1] = {
+    "Type", "Message ID", "Text", "Text Color", "Camera Zone", "Direction",
+    "X0", "Y0", "Z0", "X1", "Y1", "Z1"
 };
 
 static const char *EditorInspectorZoneTypeNames[10] = {
     "Change cube", "Camera", "Scenario", "GRM", "Giver",
     "Message", "Ladder", "Escalator", "Hit", "Rail"
+};
+
+static const char *EditorInspectorMessageDirectionNames[4] = {
+    "North", "South", "East", "West"
 };
 
 static const char *EditorInspectorRotationNames[4] = {
@@ -171,7 +185,6 @@ static const char *EditorInspectorTerrainRegionTypeNames[7] = {
 #define EDITOR_INSPECTOR_TERRAIN_REGION 4
 #define EDITOR_INSPECTOR_TERRAIN 5
 #define EDITOR_INSPECTOR_ZONE_TEXT_FIELD 2
-
 #define EDITOR_FRONT_ALPHA 0
 #define EDITOR_RIGHT_ALPHA 0
 #define EDITOR_TOP_ALPHA 1024
@@ -351,17 +364,24 @@ static void EditorRestoreEditorCamera(void) {
 
 static void EditorSetCameraPerspective(void) {
     EditorCameraOrtho = FALSE;
+    EditorRememberedOrtho = FALSE;
     SetProjection(XCentre, YCentre, NearClip, LFactorX, LFactorY);
     EditorApplyCurrentCamera();
 }
 
 static void EditorSetCameraOrtho(void) {
     EditorCameraOrtho = TRUE;
+    EditorRememberedOrtho = TRUE;
     SetOrthoProjection(XCentre, YCentre, NearClip);
     EditorApplyCurrentCamera();
 }
 
 static void EditorSetCameraPreset(S32 alpha, S32 beta) {
+    EditorCameraOrtho = EditorRememberedOrtho;
+    if (EditorCameraOrtho)
+        SetOrthoProjection(XCentre, YCentre, NearClip);
+    else
+        SetProjection(XCentre, YCentre, NearClip, LFactorX, LFactorY);
     AlphaCam = alpha;
     BetaCam = beta;
     GammaCam = 0;
@@ -395,6 +415,7 @@ static void EditorResetCameraToPlayer(void) {
         return;
 
     EditorCameraOrtho = FALSE;
+    EditorRememberedOrtho = FALSE;
     CurrentCubeX = EditorGameCubeX;
     CurrentCubeY = EditorGameCubeY;
     SetProjection(XCentre, YCentre, NearClip, LFactorX, LFactorY);
@@ -431,6 +452,47 @@ S32 Editor_ResolveOutputDir(char *outPath, S32 pathMax) {
     }
 
     return TRUE;
+}
+
+S32 Editor_FindExteriorScene(S32 cube_x, S32 cube_y) {
+    char path[ADELINE_MAX_PATH];
+    U8 *saved_ptr_sce;
+    U32 header_size;
+    U32 offset;
+    S32 scene_count;
+    S32 scene;
+    FILE *f;
+
+    GetResPath(path, sizeof(path), SCENE_HQR_NAME);
+    f = fopen(path, "rb");
+    if (!f)
+        return 0;
+    if (fread(&header_size, sizeof(header_size), 1, f) != 1
+            OR header_size < sizeof(U32) * 2
+            OR(header_size % sizeof(U32)) != 0) {
+        fclose(f);
+        return 0;
+    }
+
+    saved_ptr_sce = PtrSce;
+    scene_count = (S32)(header_size / sizeof(U32)) - 1;
+    for (scene = 1; scene < scene_count; scene++) {
+        S32 x;
+        S32 y;
+
+        if (fseek(f, (scene + 1) * sizeof(U32), SEEK_SET) != 0
+                OR fread(&offset, sizeof(offset), 1, f) != 1
+                OR !offset)
+            continue;
+        if (LoadSceneCubeXY(scene, &x, &y) AND x == cube_x AND y == cube_y) {
+            PtrSce = saved_ptr_sce;
+            fclose(f);
+            return scene;
+        }
+    }
+    PtrSce = saved_ptr_sce;
+    fclose(f);
+    return 0;
 }
 
 static void Editor_Save(void) {
@@ -662,15 +724,15 @@ static S32 EditorInspectorSupportsCurrentTool(void) {
            OR Editor_ToolIs(EDITOR_TOOL_TERRAIN_EDIT);
 }
 
-static S32 EditorInspectorZoneHasTextField(void) {
+static S32 EditorInspectorZoneIsMessage(void) {
     T_ZONE *zone = ZoneEditorGetSelectedZone();
     return zone AND zone->Type == 5;
 }
 
 static S32 EditorInspectorZoneModelField(S32 field) {
-    if (EditorInspectorZoneHasTextField() AND field > EDITOR_INSPECTOR_ZONE_TEXT_FIELD)
-        return field - 1;
-    return field;
+    if (EditorInspectorZoneIsMessage())
+        return field > EDITOR_INSPECTOR_ZONE_TEXT_FIELD ? field - 1 : field;
+    return field < ZONE_EDITOR_FIELD_INFO0 ? field : field + 3;
 }
 
 static S32 EditorInspectorFieldCount(S32 kind) {
@@ -679,7 +741,7 @@ static S32 EditorInspectorFieldCount(S32 kind) {
     if (kind == EDITOR_INSPECTOR_DECOR)
         return EXT_DECOR_FIELD_COUNT;
     if (kind == EDITOR_INSPECTOR_ZONE)
-        return ZONE_EDITOR_FIELD_COUNT + (EditorInspectorZoneHasTextField() ? 1 : 0);
+        return EditorInspectorZoneIsMessage() ? ZONE_EDITOR_FIELD_COUNT + 1 : 8;
     if (kind == EDITOR_INSPECTOR_TERRAIN_REGION)
         return TERRAIN_REGION_FIELD_COUNT;
     if (kind == EDITOR_INSPECTOR_TERRAIN)
@@ -696,14 +758,14 @@ static const char *EditorInspectorFieldName(S32 kind, S32 field) {
         return EditorInspectorTerrainRegionFieldNames[field];
     if (kind == EDITOR_INSPECTOR_TERRAIN)
         return EditorInspectorTerrainFieldNames[field];
-    if (EditorInspectorZoneHasTextField())
+    if (EditorInspectorZoneIsMessage())
+        return EditorInspectorMessageZoneFieldNames[field];
         return EditorInspectorZoneFieldNames[field];
-    return EditorInspectorZoneFieldNames[field < EDITOR_INSPECTOR_ZONE_TEXT_FIELD ? field : field + 1];
 }
 
 static S32 EditorInspectorFieldIsReadOnly(S32 kind, S32 field) {
     if (kind == EDITOR_INSPECTOR_ZONE
-            AND EditorInspectorZoneHasTextField()
+            AND EditorInspectorZoneIsMessage()
             AND field == EDITOR_INSPECTOR_ZONE_TEXT_FIELD)
         return TRUE;
     if (kind == EDITOR_INSPECTOR_TERRAIN_REGION
@@ -751,6 +813,9 @@ static S32 EditorInspectorFieldValue(S32 kind, S32 field) {
         switch (field) {
         case ZONE_EDITOR_FIELD_TYPE: return zone->Type;
         case ZONE_EDITOR_FIELD_NUM: return zone->Num;
+        case ZONE_EDITOR_FIELD_INFO0: return zone->Info0;
+        case ZONE_EDITOR_FIELD_INFO1: return zone->Info1;
+        case ZONE_EDITOR_FIELD_INFO2: return zone->Info2;
         case ZONE_EDITOR_FIELD_X0: return zone->X0;
         case ZONE_EDITOR_FIELD_Y0: return zone->Y0;
         case ZONE_EDITOR_FIELD_Z0: return zone->Z0;
@@ -782,7 +847,44 @@ static S32 EditorInspectorFieldIsEnum(S32 kind, S32 field) {
            OR(kind == EDITOR_INSPECTOR_TEXTURE AND field == TERRAIN_TEXTURE_FIELD_CODE_JEU)
            OR(kind == EDITOR_INSPECTOR_DECOR AND field == EXT_DECOR_FIELD_ROTATION)
            OR(kind == EDITOR_INSPECTOR_ZONE AND field == ZONE_EDITOR_FIELD_TYPE)
+           OR(kind == EDITOR_INSPECTOR_ZONE AND EditorInspectorZoneIsMessage() AND field == ZONE_EDITOR_FIELD_INFO2)
            OR(kind == EDITOR_INSPECTOR_TERRAIN_REGION AND field == TERRAIN_REGION_FIELD_TYPE);
+}
+
+static S32 EditorInspectorMessageDirectionIndex(S32 value) {
+    if (value == 1)
+        return 0;
+    if (value == 2)
+        return 1;
+    if (value == 4)
+        return 2;
+    if (value == 8)
+        return 3;
+    return -1;
+}
+
+static S32 EditorInspectorFieldWraps(S32 kind, S32 field);
+static S32 EditorInspectorFieldMax(S32 kind, S32 field);
+
+static S32 EditorInspectorStepValue(S32 kind, S32 field, S32 direction) {
+    S32 model_field = kind == EDITOR_INSPECTOR_ZONE ? EditorInspectorZoneModelField(field) : field;
+    S32 value = EditorInspectorFieldValue(kind, field);
+
+    if (kind == EDITOR_INSPECTOR_ZONE
+            AND EditorInspectorZoneIsMessage()
+            AND model_field == ZONE_EDITOR_FIELD_INFO2) {
+        S32 index = EditorInspectorMessageDirectionIndex(value);
+        if (index < 0)
+            return direction > 0 ? 1 : 8;
+        index = (index + direction + 4) % 4;
+        return 1 << index;
+    }
+    value += direction;
+    if (EditorInspectorFieldWraps(kind, field) AND value < 0)
+        value = EditorInspectorFieldMax(kind, field);
+    if (EditorInspectorFieldWraps(kind, field) AND value > EditorInspectorFieldMax(kind, field))
+        value = 0;
+    return value;
 }
 
 static S32 EditorInspectorFieldWraps(S32 kind, S32 field) {
@@ -992,16 +1094,10 @@ static S32 EditorUpdateInspectorInput(void) {
                 EditorInspectorRow = EditorInspectorNextEditableField(kind, EditorInspectorRow, 1, field_count);
             }
             if (!EditorInspectorFieldIsReadOnly(kind, EditorInspectorRow) AND left AND !EditorInspectorLastLeft) {
-                S32 value = EditorInspectorFieldValue(kind, EditorInspectorRow) - 1;
-                if (EditorInspectorFieldWraps(kind, EditorInspectorRow) AND value < 0)
-                    value = EditorInspectorFieldMax(kind, EditorInspectorRow);
-                EditorInspectorSetField(kind, EditorInspectorRow, value);
+                EditorInspectorSetField(kind, EditorInspectorRow, EditorInspectorStepValue(kind, EditorInspectorRow, -1));
             }
             if (!EditorInspectorFieldIsReadOnly(kind, EditorInspectorRow) AND right AND !EditorInspectorLastRight) {
-                S32 value = EditorInspectorFieldValue(kind, EditorInspectorRow) + 1;
-                if (EditorInspectorFieldWraps(kind, EditorInspectorRow) AND value > EditorInspectorFieldMax(kind, EditorInspectorRow))
-                    value = 0;
-                EditorInspectorSetField(kind, EditorInspectorRow, value);
+                EditorInspectorSetField(kind, EditorInspectorRow, EditorInspectorStepValue(kind, EditorInspectorRow, 1));
             }
             if (enter AND !EditorInspectorLastEnter AND EditorInspectorFieldIsAction(kind, EditorInspectorRow)) {
                 TerrainRegionEditorActivateField(EditorInspectorRow);
@@ -1445,6 +1541,12 @@ void Editor_DrawOverlay(void) {
                     snprintf(text, sizeof(text), "%s: %s", EditorInspectorFieldName(kind, i), EditorInspectorRotationNames[value]);
                 else if (kind == EDITOR_INSPECTOR_ZONE AND i == ZONE_EDITOR_FIELD_TYPE)
                     snprintf(text, sizeof(text), "%s: %s (%d)", EditorInspectorFieldName(kind, i), (value >= 0 AND value < 10) ? EditorInspectorZoneTypeNames[value] : "Unknown", (int)value);
+                else if (kind == EDITOR_INSPECTOR_ZONE
+                        AND EditorInspectorZoneIsMessage()
+                        AND EditorInspectorZoneModelField(i) == ZONE_EDITOR_FIELD_INFO2) {
+                    S32 direction = EditorInspectorMessageDirectionIndex(value);
+                    snprintf(text, sizeof(text), "%s: %s (%d)", EditorInspectorFieldName(kind, i), direction >= 0 ? EditorInspectorMessageDirectionNames[direction] : "Unknown", (int)value);
+                }
                 else if (kind == EDITOR_INSPECTOR_TERRAIN_REGION AND i == TERRAIN_REGION_FIELD_TYPE)
                     snprintf(text, sizeof(text), "%s: %s", EditorInspectorFieldName(kind, i), EditorInspectorTerrainRegionTypeNames[(value >= 0 AND value < 7) ? value : 0]);
                 else

@@ -87,7 +87,7 @@ When `DEBUG_TOOLS` and `LBA2CC_EDITOR` are enabled, the console exposes modern c
 | `zones off` | Disable the scene zone overlay. |
 | `zones status` | Show the current zone overlay state. |
 
-Press `.` and `,` to cycle through Editor Off, Select/Move, Decor Place, Terrain Edit, and Texture Select. `Esc` returns directly to Editor Off, and `Enter` deselects all editor selections. Tool changes briefly appear in the bottom-left. `D` toggles the decor overlay, `Z` toggles the zone overlay, and `I` switches overlay detail between boxes only and boxes plus ids. In Select/Move, arrow keys nudge selected decor and related zones by one meter (`512` world units); hold `Shift` to nudge five meters. `PageUp` and `PageDown` move selected decor vertically. In Decor Place, `[` and `]` change the current body id and left-click or `P` places it; placement reuses a deleted slot when available and appends a runtime object otherwise. `Delete` or `Backspace` deletes selected decor, and `Ctrl+D` duplicates selected decor into a deleted slot. `Ctrl+S` writes runtime editor edits to the current island's mod authoring folder.
+Press `.` and `,` to cycle through Editor Off, Select/Move, Decor Place, Terrain Edit, and Texture Select. `Esc` returns directly to Editor Off, and `Enter` deselects all editor selections. Tool changes briefly appear in the bottom-left. `D` toggles the decor overlay, `Z` toggles the zone overlay, and `I` switches overlay detail between boxes only and boxes plus ids. In Select/Move, arrow keys nudge selected decor and related zones by one meter (`512` world units); hold `Shift` to nudge five meters. `PageUp` and `PageDown` move selected decor vertically. In Decor Place, `[` and `]` change the current body id, left/right rotate the preview by 90 degrees, and left-click or `P` places it; placement reuses a deleted slot when available and appends a runtime object otherwise. In Terrain Edit, `T` creates and selects a `512`-thick Change Cube zone from terrain points selected along exactly one cube border; the tool remains Terrain Edit. In Texture Select, `[` and `]` change palette pages when the palette does not fit on one page. `Delete` or `Backspace` deletes selected decor, and `Ctrl+D` duplicates selected decor into a deleted slot. `Ctrl+S` writes runtime editor edits to the current island's mod authoring folder.
 
 ## File locations
 
@@ -128,6 +128,7 @@ Cheat codes are entered by typing the letters during normal gameplay — no spec
 | `CLOVER` | — | Fills clover leaves |
 | `BOX` | — | Adds a clover box |
 | `PINGOUIN` | — | Adds 5 meca-penguins |
+| `GOD` | — | Toggles god mode. Twinsen ignores combat damage; with `LBA2CC_EDITOR`, he also ignores deep-water drowning for terrain authoring. |
 
 The "Short Version" column shows the shorter codes used in DEBUG_TOOLS builds (e.g. `IFE` instead of `LIFE`). When a cheat activates, you'll see a confirmation message like "Life Found" on screen.
 

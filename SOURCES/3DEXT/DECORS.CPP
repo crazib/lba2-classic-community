@@ -89,6 +89,7 @@ static S32 ExtDecorEditorPlaceValid = FALSE;
 static S32 ExtDecorEditorPlaceX = 0;
 static S32 ExtDecorEditorPlaceY = 0;
 static S32 ExtDecorEditorPlaceZ = 0;
+static S32 ExtDecorEditorPlaceBeta = 0;
 static S32 ExtDecorEditorLoadedCubeX = 0;
 static S32 ExtDecorEditorLoadedCubeY = 0;
 static T_DECORS *ExtDecorEditorOwnedList = NULL;
@@ -681,11 +682,8 @@ void ExtDecorEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
     S32 i;
     T_DECORS *ptrobj;
 
-    if (!NbObjDecors OR !ListDecors)
-        return;
-
     ptrobj = ListDecors;
-    for (i = 0; i < NbObjDecors; i++, ptrobj++) {
+    for (i = 0; i < NbObjDecors AND ptrobj; i++, ptrobj++) {
         T_EXT_DECOR_EDITOR_EDIT *edit;
         S32 current_body;
 
@@ -988,9 +986,8 @@ S32 ExtDecorEditorSetSelectedField(S32 field, S32 value) {
     ExtDecorEditorApplyEditToObject(edit, obj);
     for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
         if (ExtDecorEditorSelList[i].Used
-                AND ExtDecorEditorSelList[i].CubeX == ExtDecorEditorLoadedCubeX
-                AND ExtDecorEditorSelList[i].CubeY == ExtDecorEditorLoadedCubeY
-                AND ExtDecorEditorSelList[i].Num == num)
+                AND ExtDecorEditorSelList[i]
+                    .CubeX == ExtDecorEditorLoadedCubeX AND ExtDecorEditorSelList[i].CubeY == ExtDecorEditorLoadedCubeY AND ExtDecorEditorSelList[i].Num == num)
             ExtDecorEditorSelList[i].Body = obj->Body & 0xFFFF;
     }
     return TRUE;
@@ -1076,7 +1073,7 @@ static S32 ExtDecorEditorResizeLoadedList(S32 new_count) {
     return TRUE;
 }
 
-static S32 ExtDecorEditorInitDefaultObject(T_DECORS *obj, S32 body, S32 x, S32 y, S32 z) {
+static S32 ExtDecorEditorInitDefaultObject(T_DECORS *obj, S32 body, S32 beta, S32 x, S32 y, S32 z) {
     S32 library;
     S32 body_index;
     S32 bounds_island;
@@ -1087,6 +1084,7 @@ static S32 ExtDecorEditorInitDefaultObject(T_DECORS *obj, S32 body, S32 x, S32 y
     obj->Xworld = x;
     obj->Yworld = y;
     obj->Zworld = z;
+    obj->Beta = beta & 4095;
     ExtDecorEditorDecodeBody(body, &library, &body_index);
     if (body_index < 0) {
         Editor_SetStatus("Decor place refused: invalid encoded body");
@@ -1107,7 +1105,7 @@ static S32 ExtDecorEditorInitDefaultObject(T_DECORS *obj, S32 body, S32 x, S32 y
     return TRUE;
 }
 
-static S32 ExtDecorEditorAppendObject(T_DECORS *src, S32 body, S32 x, S32 y, S32 z, S32 select) {
+static S32 ExtDecorEditorAppendObject(T_DECORS *src, S32 body, S32 beta, S32 x, S32 y, S32 z, S32 select) {
     S32 slot = NbObjDecors;
     T_EXT_DECOR_EDITOR_EDIT *edit;
 
@@ -1118,9 +1116,10 @@ static S32 ExtDecorEditorAppendObject(T_DECORS *src, S32 body, S32 x, S32 y, S32
         ListDecors[slot] = *src;
         ListDecors[slot].Body = (ListDecors[slot].Body & ~0xFFFF) | (body & 0xFFFF);
         ListDecors[slot].Body &= ~DEC_INVISIBLE;
+        ListDecors[slot].Beta = beta;
         ExtDecorEditorMoveObjectTo(&ListDecors[slot], x, y, z);
     } else {
-        if (!ExtDecorEditorInitDefaultObject(&ListDecors[slot], body, x, y, z)) {
+        if (!ExtDecorEditorInitDefaultObject(&ListDecors[slot], body, beta, x, y, z)) {
             NbObjDecors = slot;
             return -1;
         }
@@ -1145,6 +1144,7 @@ static S32 ExtDecorEditorAppendObjectFromEdit(T_EXT_DECOR_EDITOR_EDIT *edit) {
 
     slot = ExtDecorEditorAppendObject(NULL,
                                       edit->NewBody,
+                                      (edit->BaseBeta + edit->DBeta) & 0xFFFF,
                                       edit->BaseX + edit->Dx,
                                       edit->BaseY + edit->Dy,
                                       edit->BaseZ + edit->Dz,
@@ -1288,7 +1288,10 @@ static void ExtDecorEditorPlaceObjectInDeletedSlot(T_DECORS *src) {
             z = ExtDecorEditorPlaceZ;
         }
 
-        slot = ExtDecorEditorAppendObject(src, src ? (src->Body & 0xFFFF) : ExtDecorEditorCurrentPlaceBody(), x, y, z, TRUE);
+        slot = ExtDecorEditorAppendObject(src,
+                                          src ? (src->Body & 0xFFFF) : ExtDecorEditorCurrentPlaceBody(),
+                                          src ? src->Beta : ExtDecorEditorPlaceBeta,
+                                          x, y, z, TRUE);
         if (slot < 0)
             return;
         Editor_SetStatus("Decor appended");
@@ -1312,6 +1315,7 @@ static void ExtDecorEditorPlaceObjectInDeletedSlot(T_DECORS *src) {
     } else {
         if (!ExtDecorEditorInitDefaultObject(&ListDecors[slot],
                                              ExtDecorEditorCurrentPlaceBody(),
+                                             ExtDecorEditorPlaceBeta,
                                              ListDecors[slot].Xworld,
                                              ListDecors[slot].Yworld,
                                              ListDecors[slot].Zworld))
@@ -1328,7 +1332,7 @@ static void ExtDecorEditorPlaceObjectInDeletedSlot(T_DECORS *src) {
              (int)(ListDecors[slot].Body & 0xFFFF));
 }
 
-static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 x, S32 y, S32 z) {
+static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 beta, S32 x, S32 y, S32 z) {
     S32 slot;
 
     if (!ListDecors AND NbObjDecors > 0) {
@@ -1339,7 +1343,7 @@ static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 x, S32 y, S
 
     slot = ExtDecorEditorFirstDeletedSlot();
     if (slot < 0) {
-        slot = ExtDecorEditorAppendObject(src, body, x, y, z, TRUE);
+        slot = ExtDecorEditorAppendObject(src, body, beta, x, y, z, TRUE);
         if (slot < 0)
             return;
         Log_Info("[editor] decor appended at mouse in c%d,%d slot %d body %d pos [%d,%d,%d]",
@@ -1357,9 +1361,10 @@ static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 x, S32 y, S
         ListDecors[slot] = *src;
         ListDecors[slot].Body = (ListDecors[slot].Body & ~0xFFFF) | (body & 0xFFFF);
         ListDecors[slot].Body &= ~DEC_INVISIBLE;
+        ListDecors[slot].Beta = beta;
         ExtDecorEditorMoveObjectTo(&ListDecors[slot], x, y, z);
     } else {
-        if (!ExtDecorEditorInitDefaultObject(&ListDecors[slot], body, x, y, z))
+        if (!ExtDecorEditorInitDefaultObject(&ListDecors[slot], body, beta, x, y, z))
             return;
     }
 
@@ -1802,7 +1807,7 @@ static void ExtDecorEditorDrawPlacementPreview(void) {
                     ExtDecorEditorPlaceY,
                     ExtDecorEditorPlaceZ,
                     0,
-                    0,
+                    ExtDecorEditorPlaceBeta,
                     0,
                     body_ptr);
         ObjPtrMap = old_obj_ptr_map;
@@ -1841,7 +1846,7 @@ static void ExtDecorEditorPlaceAtPreview(void) {
 
     src = Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE) ? NULL : ExtDecorEditorAnySelectedObject();
     body = ExtDecorEditorCurrentPlaceBody();
-    ExtDecorEditorPlaceObjectAt(src, body, ExtDecorEditorPlaceX, ExtDecorEditorPlaceY, ExtDecorEditorPlaceZ);
+    ExtDecorEditorPlaceObjectAt(src, body, ExtDecorEditorPlaceBeta, ExtDecorEditorPlaceX, ExtDecorEditorPlaceY, ExtDecorEditorPlaceZ);
 }
 
 void ExtDecorEditorBeginFrame(void) {
@@ -1941,6 +1946,10 @@ void ExtDecorEditorBeginFrame(void) {
         ExtDecorEditorMoveAllSelected(-step, 0, 0);
     if (!camera_pan_keys AND Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND right AND !ExtDecorEditorLastRight)
         ExtDecorEditorMoveAllSelected(step, 0, 0);
+    if (!camera_pan_keys AND Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE) AND left AND !ExtDecorEditorLastLeft)
+        ExtDecorEditorPlaceBeta = (ExtDecorEditorPlaceBeta - EXT_DECOR_EDITOR_ROTATE_STEP) & 4095;
+    if (!camera_pan_keys AND Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE) AND right AND !ExtDecorEditorLastRight)
+        ExtDecorEditorPlaceBeta = (ExtDecorEditorPlaceBeta + EXT_DECOR_EDITOR_ROTATE_STEP) & 4095;
     ExtDecorEditorLastUp = up;
     ExtDecorEditorLastDown = down;
     ExtDecorEditorLastLeft = left;

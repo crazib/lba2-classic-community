@@ -7,6 +7,7 @@
 
 #ifdef LBA2CC_EDITOR
 extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
+extern void ZoneEditorReleaseOwnedZoneList(void);
 #endif
 
 U8 *PtrSce;
@@ -59,6 +60,10 @@ S32 LoadScene(S32 numscene) {
     U8 n;
     char tmpFilePath[ADELINE_MAX_PATH];
     //        U8	t ;
+
+#ifdef LBA2CC_EDITOR
+    ZoneEditorReleaseOwnedZoneList();
+#endif
 
     // numscene+1 car en 0 se trouve SizeCube.MAX (taille du plus gros .SCC)
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, SCENE_HQR_NAME);
