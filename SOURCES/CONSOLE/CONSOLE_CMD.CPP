@@ -13,6 +13,7 @@
 #include "../DISKFUNC.H"
 #include "../SAVEGAME.H"
 #include "../INPUT.H"
+#include "../EDITOR.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
 #include "../RES_SWITCH.H"

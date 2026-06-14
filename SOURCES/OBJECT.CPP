@@ -113,6 +113,7 @@ static S32 ZoneEditorLastLeft = 0;
 static S32 ZoneEditorLastRight = 0;
 static S32 ZoneEditorPickBestDist = 0;
 static S32 ZoneEditorPickBestIndex = -1;
+static T_ZONE *ZoneEditorOwnedList = NULL;
 
 #define ZONE_EDITOR_MAX_SELECTED 1024
 #define ZONE_EDITOR_MAX_EDITS 4096
@@ -130,6 +131,8 @@ typedef struct
     S32 HasExpectNum;
     S16 TargetNum;
     S32 HasTargetNum;
+    S32 TargetInfo[8];
+    S32 HasTargetInfo;
     S32 HasExpectBounds;
     S32 HasTargetBounds;
     S32 BaseX0;
@@ -147,6 +150,8 @@ typedef struct
     S32 Dx;
     S32 Dz;
     S32 SkipLogged;
+    S32 Added;
+    T_ZONE AddedZone;
 } T_ZONE_EDITOR_EDIT;
 
 static T_ZONE_EDITOR_EDIT ZoneEditorEdits[ZONE_EDITOR_MAX_EDITS];
@@ -252,6 +257,34 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorFindEdit(S32 cube, S32 index) {
     return NULL;
 }
 
+void ZoneEditorReleaseOwnedZoneList(void) {
+    if (!ZoneEditorOwnedList)
+        return;
+    if (ListZone == ZoneEditorOwnedList)
+        ListZone = NULL;
+    free(ZoneEditorOwnedList);
+    ZoneEditorOwnedList = NULL;
+}
+
+static S32 ZoneEditorResizeLoadedList(S32 count) {
+    T_ZONE *new_list;
+
+    if (count < 0 OR count > MAX_ZONES)
+        return FALSE;
+    new_list = (T_ZONE *)malloc(sizeof(T_ZONE) * count);
+    if (!new_list) {
+        Editor_SetStatus("Zone create refused: not enough memory");
+        return FALSE;
+    }
+    if (ListZone AND NbZones > 0)
+        memcpy(new_list, ListZone, sizeof(T_ZONE) * NbZones);
+    if (ZoneEditorOwnedList)
+        free(ZoneEditorOwnedList);
+    ZoneEditorOwnedList = new_list;
+    ListZone = new_list;
+    return TRUE;
+}
+
 static void ZoneEditorApplyEditToZone(T_ZONE_EDITOR_EDIT *edit, T_ZONE *ptrz) {
     if (edit->HasTargetBounds) {
         ptrz->X0 = edit->TargetX0;
@@ -272,6 +305,16 @@ static void ZoneEditorApplyEditToZone(T_ZONE_EDITOR_EDIT *edit, T_ZONE *ptrz) {
         ptrz->Type = edit->TargetType;
     if (edit->HasTargetNum)
         ptrz->Num = edit->TargetNum;
+    if (edit->HasTargetInfo) {
+        ptrz->Info0 = edit->TargetInfo[0];
+        ptrz->Info1 = edit->TargetInfo[1];
+        ptrz->Info2 = edit->TargetInfo[2];
+        ptrz->Info3 = edit->TargetInfo[3];
+        ptrz->Info4 = edit->TargetInfo[4];
+        ptrz->Info5 = edit->TargetInfo[5];
+        ptrz->Info6 = edit->TargetInfo[6];
+        ptrz->Info7 = edit->TargetInfo[7];
+    }
 }
 
 static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE *ptrz) {
@@ -296,6 +339,15 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE
             edit->HasExpectNum = TRUE;
             edit->TargetNum = ptrz->Num;
             edit->HasTargetNum = FALSE;
+            edit->TargetInfo[0] = ptrz->Info0;
+            edit->TargetInfo[1] = ptrz->Info1;
+            edit->TargetInfo[2] = ptrz->Info2;
+            edit->TargetInfo[3] = ptrz->Info3;
+            edit->TargetInfo[4] = ptrz->Info4;
+            edit->TargetInfo[5] = ptrz->Info5;
+            edit->TargetInfo[6] = ptrz->Info6;
+            edit->TargetInfo[7] = ptrz->Info7;
+            edit->HasTargetInfo = FALSE;
             edit->HasExpectBounds = TRUE;
             edit->HasTargetBounds = FALSE;
             edit->BaseX0 = ptrz->X0;
@@ -320,10 +372,24 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE
 }
 
 void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
+    S32 base_zones = NbZones;
+    S32 appended;
     S32 i;
 
-    if (!ListZone OR NbZones <= 0)
+    do {
+        appended = FALSE;
+        for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+            T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
+
+            if (!edit->Used OR !edit->Added OR edit->Cube != cube OR edit->Index != NbZones)
+                continue;
+            if (!ZoneEditorResizeLoadedList(NbZones + 1))
         return;
+            ListZone[NbZones] = edit->AddedZone;
+            NbZones++;
+            appended = TRUE;
+        }
+    } while (appended);
 
     for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
         T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
@@ -332,7 +398,7 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
 
         if (!edit->Used OR edit->Cube != cube)
             continue;
-        if (edit->Index < 0 OR edit->Index >= NbZones) {
+        if (edit->Index < 0 OR edit->Index >= NbZones OR(edit->Added AND edit->Index < base_zones)) {
             if (!edit->SkipLogged) {
                 Log_Warn("[editor] zone edit skipped scene %d z%d: zone index is out of range [0,%d)",
                          (int)cube,
@@ -376,6 +442,7 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
 
 void ZoneEditorClearRuntimeEdits(void) {
     memset(ZoneEditorEdits, 0, sizeof(ZoneEditorEdits));
+    ZoneEditorClearAllSelected();
 }
 
 static T_ZONE_EDITOR_EDIT *ZoneEditorImportedEdit(S32 scene, S32 index) {
@@ -414,6 +481,7 @@ static S32 ZoneEditorImportZone(const char *json,
     S32 target_type;
     S32 num;
     S32 target_num;
+    S32 info[8];
     S32 expect_bounds[6];
     S32 bounds[6];
     T_ZONE_EDITOR_EDIT *edit;
@@ -441,6 +509,9 @@ static S32 ZoneEditorImportZone(const char *json,
     edit->Num = (S16)(edit->HasExpectNum ? num : 0);
     edit->HasTargetNum = EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "num"), &target_num);
     edit->TargetNum = (S16)(edit->HasTargetNum ? target_num : edit->Num);
+    edit->HasTargetInfo = EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "info"), info, 8);
+    if (edit->HasTargetInfo)
+        memcpy(edit->TargetInfo, info, sizeof(info));
     edit->HasExpectBounds = EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "expect_bounds"), expect_bounds, 6);
     if (edit->HasExpectBounds) {
         edit->BaseX0 = expect_bounds[0];
@@ -467,6 +538,32 @@ static S32 ZoneEditorImportZone(const char *json,
     edit->TargetY1 = bounds[4];
     edit->TargetZ1 = bounds[5];
     edit->SkipLogged = FALSE;
+    {
+        S32 added = FALSE;
+        EditorJsonParseBool(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "add"), &added);
+        edit->Added = added;
+    }
+    if (edit->Added) {
+        memset(&edit->AddedZone, 0, sizeof(edit->AddedZone));
+        edit->AddedZone.X0 = bounds[0];
+        edit->AddedZone.Y0 = bounds[1];
+        edit->AddedZone.Z0 = bounds[2];
+        edit->AddedZone.X1 = bounds[3];
+        edit->AddedZone.Y1 = bounds[4];
+        edit->AddedZone.Z1 = bounds[5];
+        edit->AddedZone.Type = edit->TargetType;
+        edit->AddedZone.Num = edit->TargetNum;
+        if (edit->HasTargetInfo) {
+            edit->AddedZone.Info0 = info[0];
+            edit->AddedZone.Info1 = info[1];
+            edit->AddedZone.Info2 = info[2];
+            edit->AddedZone.Info3 = info[3];
+            edit->AddedZone.Info4 = info[4];
+            edit->AddedZone.Info5 = info[5];
+            edit->AddedZone.Info6 = info[6];
+            edit->AddedZone.Info7 = info[7];
+        }
+    }
     return TRUE;
 }
 
@@ -618,6 +715,8 @@ S32 ZoneEditorSaveRuntimeEdits(const char *island_dir, S32 island) {
         fprintf(f, "      \"zones\": [\n");
         fprintf(f, "        {\n");
         fprintf(f, "          \"zone\": %d,\n", (int)edit->Index);
+        if (edit->Added)
+            fprintf(f, "          \"add\": true,\n");
         if (edit->HasExpectType)
             fprintf(f, "          \"expect_type\": %d,\n", (int)edit->Type);
         if (edit->HasTargetType)
@@ -626,11 +725,20 @@ S32 ZoneEditorSaveRuntimeEdits(const char *island_dir, S32 island) {
             fprintf(f, "          \"expect_num\": %d,\n", (int)edit->Num);
         if (edit->HasTargetNum)
             fprintf(f, "          \"num\": %d,\n", (int)edit->TargetNum);
+        if (edit->HasExpectBounds)
         fprintf(f, "          \"expect_bounds\": [%d, %d, %d, %d, %d, %d],\n",
                 (int)edit->BaseX0, (int)edit->BaseY0, (int)edit->BaseZ0,
                 (int)edit->BaseX1, (int)edit->BaseY1, (int)edit->BaseZ1);
-        fprintf(f, "          \"bounds\": [%d, %d, %d, %d, %d, %d]\n",
-                (int)x0, (int)y0, (int)z0, (int)x1, (int)y1, (int)z1);
+        fprintf(f, "          \"bounds\": [%d, %d, %d, %d, %d, %d]%s\n",
+                (int)x0, (int)y0, (int)z0, (int)x1, (int)y1, (int)z1,
+                (edit->Added OR edit->HasTargetInfo) ? "," : "");
+        if (edit->Added OR edit->HasTargetInfo) {
+            fprintf(f, "          \"info\": [%d, %d, %d, %d, %d, %d, %d, %d]\n",
+                    (int)edit->TargetInfo[0], (int)edit->TargetInfo[1],
+                    (int)edit->TargetInfo[2], (int)edit->TargetInfo[3],
+                    (int)edit->TargetInfo[4], (int)edit->TargetInfo[5],
+                    (int)edit->TargetInfo[6], (int)edit->TargetInfo[7]);
+        }
         fprintf(f, "        }\n");
         fprintf(f, "      ]\n");
         fprintf(f, "    }");
@@ -659,6 +767,52 @@ T_ZONE *ZoneEditorGetSelectedZone(void) {
         selected = &ListZone[i];
     }
     return selected;
+}
+
+S32 ZoneEditorCreateZone(const T_ZONE *zone) {
+    T_ZONE_EDITOR_EDIT *edit;
+    S32 index;
+
+    if (!zone OR NbZones >= MAX_ZONES)
+        return -1;
+    index = NbZones;
+    if (!ZoneEditorResizeLoadedList(NbZones + 1))
+        return -1;
+    ListZone[index] = *zone;
+    NbZones++;
+
+    edit = ZoneEditorGetOrCreateEdit(NumCube, index, &ListZone[index]);
+    if (!edit) {
+        NbZones--;
+        return -1;
+    }
+    edit->Added = TRUE;
+    edit->AddedZone = *zone;
+    edit->HasExpectType = FALSE;
+    edit->HasExpectNum = FALSE;
+    edit->HasExpectBounds = FALSE;
+    edit->TargetType = zone->Type;
+    edit->HasTargetType = TRUE;
+    edit->TargetNum = zone->Num;
+    edit->HasTargetNum = TRUE;
+    edit->TargetInfo[0] = zone->Info0;
+    edit->TargetInfo[1] = zone->Info1;
+    edit->TargetInfo[2] = zone->Info2;
+    edit->TargetInfo[3] = zone->Info3;
+    edit->TargetInfo[4] = zone->Info4;
+    edit->TargetInfo[5] = zone->Info5;
+    edit->TargetInfo[6] = zone->Info6;
+    edit->TargetInfo[7] = zone->Info7;
+    edit->HasTargetInfo = TRUE;
+    edit->TargetX0 = zone->X0;
+    edit->TargetY0 = zone->Y0;
+    edit->TargetZ0 = zone->Z0;
+    edit->TargetX1 = zone->X1;
+    edit->TargetY1 = zone->Y1;
+    edit->TargetZ1 = zone->Z1;
+    edit->HasTargetBounds = TRUE;
+    ZoneEditorSelectOnly(index);
+    return index;
 }
 
 S32 ZoneEditorSetSelectedField(S32 field, S32 value) {
@@ -695,6 +849,18 @@ S32 ZoneEditorSetSelectedField(S32 field, S32 value) {
     case ZONE_EDITOR_FIELD_NUM:
         edit->TargetNum = (S16)value;
         edit->HasTargetNum = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_INFO0:
+        edit->TargetInfo[0] = value;
+        edit->HasTargetInfo = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_INFO1:
+        edit->TargetInfo[1] = value;
+        edit->HasTargetInfo = TRUE;
+        break;
+    case ZONE_EDITOR_FIELD_INFO2:
+        edit->TargetInfo[2] = value;
+        edit->HasTargetInfo = TRUE;
         break;
     case ZONE_EDITOR_FIELD_X0:
         edit->TargetX0 = value;
@@ -3940,11 +4106,17 @@ S32 GereCodesJeu(U8 numobj) {
         APtObj->Flags &= ~(OBJ_IN_WATER);
 
         switch (APtObj->CodeJeu >> 4) {
+        case CJ_WATER: // eau
+        case CJ_ANIMATED_WATER:
+#ifdef LBA2CC_EDITOR
+            if (numobj == NUM_PERSO AND GodMode)
+                break;
+#endif
+            /* fall through */
+
         case CJ_LAVE:  // Rajouter un effet ?
         case CJ_GAZ:   // Rajouter un effet ?
-        case CJ_WATER: // eau
         case CJ_ANIMATED_GAZ:
-        case CJ_ANIMATED_WATER:
         case CJ_ANIMATED_LAVE:
             switch (numobj) {
             case NUM_PERSO:

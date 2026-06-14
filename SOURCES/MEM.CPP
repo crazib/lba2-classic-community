@@ -135,6 +135,8 @@ void AdjustHQRMem(void) {
         ListDecorsMem = sizeinfo.MaxSizeListDecors;
     if (MapPGroundMem < MIN_MAP_PGROUND_MEM)
         MapPGroundMem = MIN_MAP_PGROUND_MEM;
+    if (ListTexDefMem < MIN_LIST_TEXDEF_MEM)
+        ListTexDefMem = MIN_LIST_TEXDEF_MEM;
     if (ListTexDefMem < sizeinfo.MaxSizeTexDef)
         ListTexDefMem = sizeinfo.MaxSizeTexDef;
     if (MapSommetYMem < MIN_MAP_SOMMETY_MEM)

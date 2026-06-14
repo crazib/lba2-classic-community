@@ -71,6 +71,37 @@ def rewrite_hqr_blobs(path, ents, data, replacements, min_slots=None):
     return len(data), len(out)
 
 
+def stored_hqr_blob(payload):
+    return struct.pack("<IIh", len(payload), len(payload), 0) + payload
+
+
+def encode_hqr_blobs(blobs):
+    table_size = len(blobs) * 4
+    offsets = []
+    pos = table_size
+
+    for blob in blobs:
+        if blob is None:
+            offsets.append(0)
+        else:
+            offsets.append(pos)
+            pos += len(blob)
+
+    out = bytearray()
+    for offset in offsets:
+        out.extend(struct.pack("<I", offset))
+    for blob in blobs:
+        if blob is not None:
+            out.extend(blob)
+
+    return bytes(out)
+
+
+def write_hqr_blobs(path, blobs):
+    with open(path, "wb") as f:
+        f.write(encode_hqr_blobs(blobs))
+
+
 def data_path(data_dir, relpath):
     if os.path.isabs(relpath):
         raise ValueError("mod manifest file paths must be relative to --data-dir")
@@ -128,6 +159,34 @@ def find_cube_slot(path, cube_x, cube_y):
         if (cube_x, cube_y) in cells:
             return slot
     raise ValueError("cube %d,%d is not present in %s" % (cube_x, cube_y, path))
+
+
+def build_island_texdef_catalog(path):
+    pair_size = 24
+    catalog = bytearray()
+    seen = set()
+
+    cube_map = ile_objects.entry_bytes(path, ile_objects.HQR_MAP_IDM)
+    if cube_map is None or len(cube_map) != ile_objects.SIZE_MAIN_MAP * ile_objects.SIZE_MAIN_MAP:
+        raise ValueError("source island has an invalid IDM map")
+    for map_value in cube_map:
+        slot = map_value & 0x7F
+        if not slot:
+            continue
+        entry_index = ile_objects.HQR_START_CUBE + ile_objects.HQR_STEP_CUBE * (slot - 1) + 3
+        raw = ile_objects.entry_bytes(path, entry_index)
+        if raw is None:
+            raise ValueError("source island cube slot %d is missing TXD data" % slot)
+        for offset in range(0, len(raw) - pair_size + 1, pair_size):
+            pair = raw[offset : offset + pair_size]
+            if pair in seen:
+                continue
+            seen.add(pair)
+            catalog.extend(pair)
+
+    if not catalog:
+        raise ValueError("source island has no paired TXD data")
+    return bytes(catalog)
 
 
 def op_set_ile_object(op, data_dir, write):
@@ -836,6 +895,107 @@ def op_copy_file(op, data_dir, write):
     return True
 
 
+def op_create_blank_island(op, data_dir, write):
+    source_path = data_path(data_dir, op["from"])
+    target_path = data_path(data_dir, op["to"])
+    layout_path = manifest_path(op.get("_manifest_dir", "."), op["layout"])
+    template_x, template_y = parse_cube(op.get("template_cube", [8, 8]))
+
+    print(
+        "create_blank_island %s -> %s from layout %s:"
+        % (op["from"], op["to"], op["layout"])
+    )
+    if not os.path.exists(source_path):
+        raise ValueError("source file %s is missing" % source_path)
+
+    with open(layout_path, "r") as f:
+        layout = json.load(f)
+    if not isinstance(layout, dict) or not isinstance(layout.get("cubes"), list):
+        raise ValueError("blank island layout must be an object with a cubes list")
+
+    cubes = []
+    seen = set()
+    for value in layout["cubes"]:
+        cube_x, cube_y = parse_cube(value)
+        if cube_x < 0 or cube_x >= ile_objects.SIZE_MAIN_MAP or cube_y < 0 or cube_y >= ile_objects.SIZE_MAIN_MAP:
+            raise ValueError("layout cube %d,%d is outside [0,15],[0,15]" % (cube_x, cube_y))
+        if (cube_x, cube_y) in seen:
+            raise ValueError("layout cube %d,%d is duplicated" % (cube_x, cube_y))
+        seen.add((cube_x, cube_y))
+        cubes.append((cube_x, cube_y))
+    if not cubes:
+        raise ValueError("blank island layout must allocate at least one cube")
+    if len(cubes) > 20:
+        raise ValueError("blank island layout has %d cubes; engine limit is 20" % len(cubes))
+
+    source_ents, source_data = hqr_inspect.entries(source_path)
+    template_slot = find_cube_slot(source_path, template_x, template_y)
+    template_base = ile_objects.HQR_START_CUBE + ile_objects.HQR_STEP_CUBE * (template_slot - 1)
+    info_raw = ile_objects.entry_bytes(source_path, template_base + ile_objects.HQR_CUBE_INF)
+    texdefs = build_island_texdef_catalog(source_path)
+    texdefs_blob = stored_hqr_blob(texdefs)
+    intensity_blob = hqr_entry_blob(source_ents, source_data, template_base + 5)
+    if info_raw is None or intensity_blob is None:
+        raise ValueError("template cube %d,%d is missing INF or LUM data" % (template_x, template_y))
+    if len(info_raw) != 40:
+        raise ValueError("template cube INF has unexpected size %d" % len(info_raw))
+
+    info = bytearray(info_raw)
+    alpha_light = struct.unpack_from("<I", info, 0)[0]
+    # CubeBitField is the upper half and selects the 4x4 coarse sea tiles.
+    struct.pack_into("<I", info, 0, alpha_light | 0xFFFF0000)
+    struct.pack_into("<i", info, 2 * 4, 0)
+    cube_map = bytearray(ile_objects.SIZE_MAIN_MAP * ile_objects.SIZE_MAIN_MAP)
+    for slot, (cube_x, cube_y) in enumerate(cubes, 1):
+        cube_map[cube_y * ile_objects.SIZE_MAIN_MAP + cube_x] = slot
+
+    water_poly = struct.pack("<I", 1 << 12)
+    blank_ground = water_poly * ile_terrain.POLY_COUNT
+    blank_heights = b"\0" * (ile_terrain.HEIGHT_COUNT * 2)
+    blobs = [
+        stored_hqr_blob(bytes(cube_map)),
+        hqr_entry_blob(source_ents, source_data, 1),
+        hqr_entry_blob(source_ents, source_data, 2),
+    ]
+    for _cube in cubes:
+        blobs.extend(
+            [
+                stored_hqr_blob(bytes(info)),
+                None,
+                stored_hqr_blob(blank_ground),
+                texdefs_blob,
+                stored_hqr_blob(blank_heights),
+                intensity_blob,
+            ]
+        )
+
+    if blobs[1] is None or blobs[2] is None:
+        raise ValueError("source island is missing ground or object texture entries")
+
+    target_raw = encode_hqr_blobs(blobs)
+    if os.path.exists(target_path):
+        with open(target_path, "rb") as f:
+            current_raw = f.read()
+        if current_raw == target_raw:
+            print("  already applied")
+            return False
+        raise ValueError("target file %s already exists and differs; rebuild from clean retail data" % target_path)
+
+    print("  allocated cubes: %s" % ", ".join("%d,%d" % cube for cube in cubes))
+    print("  blank terrain: zero-height water, no decor placements")
+    print("  terrain texture catalog: %d paired definitions" % (len(texdefs) // 24))
+    if write:
+        target_dir = os.path.dirname(target_path)
+        if target_dir and not os.path.isdir(target_dir):
+            os.makedirs(target_dir)
+        with open(target_path, "wb") as f:
+            f.write(target_raw)
+        print("  wrote blank island")
+    else:
+        print("  dry run only")
+    return True
+
+
 def op_clone_scene(op, data_dir, write):
     path = data_path(data_dir, op["file"])
     source_scene = int(op["from"])
@@ -1287,6 +1447,7 @@ OPERATIONS = {
     "apply_terrain_edits": op_apply_terrain_edits,
     "clone_scene": op_clone_scene,
     "copy_file": op_copy_file,
+    "create_blank_island": op_create_blank_island,
     "include_manifest": op_include_manifest,
     "set_ile_object": op_set_ile_object,
     "set_scene_zones": op_set_scene_zones,

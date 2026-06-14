@@ -125,6 +125,8 @@ The exterior editor tools use their own saved camera state. `FollowCamera` no lo
 - `5` or `numpad 5` toggles the editor orthographic projection.
 - `R` resets the editor camera to the current player-perspective camera.
 
+Entering the editor keeps the live player-perspective projection. The front, right, and top view shortcuts remember and restore the last editor projection, including across editor sessions. Pressing `R` resets that remembered projection to perspective.
+
 ### Future work
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.
