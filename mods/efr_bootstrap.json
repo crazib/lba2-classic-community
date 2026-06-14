@@ -1,11 +1,13 @@
 {
   "version": 1,
-  "description": "Temporary Extra Ferry Routes workspace bootstrap. Clones Citadel exterior scenes into Proxima scene ids for early authoring.",
+  "description": "Extra Ferry Routes Proxima authoring bootstrap. Builds a blank-water island and one starting exterior scene.",
   "operations": [
     {
-      "type": "copy_file",
+      "type": "create_blank_island",
       "from": "CITADEL.ILE",
-      "to": "PROXIMA.ILE"
+      "to": "PROXIMA.ILE",
+      "layout": "proxima/island_layout.json",
+      "template_cube": [8, 8]
     },
     {
       "type": "copy_file",
@@ -15,65 +17,16 @@
     {
       "type": "clone_scene",
       "file": "SCENE.HQR",
-      "from": 42,
+      "from": 94,
       "to": 223,
-      "patch": { "island": 12 }
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 8 }
     },
     {
       "type": "clone_scene",
       "file": "SCENE.HQR",
-      "from": 43,
+      "from": 94,
       "to": 224,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 44,
-      "to": 225,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 45,
-      "to": 226,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 46,
-      "to": 227,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 47,
-      "to": 228,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 48,
-      "to": 229,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 49,
-      "to": 230,
-      "patch": { "island": 12 }
-    },
-    {
-      "type": "clone_scene",
-      "file": "SCENE.HQR",
-      "from": 50,
-      "to": 231,
-      "patch": { "island": 12 }
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 7 }
     },
     {
       "type": "include_manifest",

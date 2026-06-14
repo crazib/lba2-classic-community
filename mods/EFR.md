@@ -19,15 +19,16 @@ Current manifests:
 | Manifest | Purpose |
 |----------|---------|
 | `mods/efr.json` | Top-level EFR recipe. Includes tomatoes and the current Proxima workspace bootstrap. |
-| `mods/efr_bootstrap.json` | Temporary workspace bootstrap for early additive-island work. It clones Citadel exterior scenes `42..50` into Proxima scene ids `223..231`, patches their scene island id to `12`, then includes Proxima edits. |
-| `mods/proxima_island.json` | Proxima's ongoing authoring recipe. It remaps cloned Citadel exterior zone links to the cloned Proxima scene range and applies Proxima edit-source files. |
-| `mods/proxima/*.json` | Editor-source files for Proxima terrain, decor, and zone edits. These start empty and are meant to be written by the in-game editor save/export path. |
+| `mods/efr_bootstrap.json` | Builds `PROXIMA.ILE` from the allocated cubes in `mods/proxima/island_layout.json`, copies the Citadel decor library for temporary reuse, and clones empty-water scene `94` into Proxima scene `223`. |
+| `mods/proxima_island.json` | Proxima's ongoing authoring recipe. Citadel-derived prototype edits are preserved but disabled while blank-island authoring starts. |
+| `mods/proxima/island_layout.json` | Explicit list of allocated Proxima terrain cube coordinates. The blank bootstrap starts with cube `8,8`. |
+| `mods/proxima/terrain_edits.json`, `decor_edits.json`, `zone_edits.json` | Editor-source files for Proxima terrain, decor, and zone edits. |
 
-While Proxima is still a Citadel-derived prototype, rebuild a working data directory from clean retail data by applying `mods/efr.json` or `mods/efr_bootstrap.json`. Once Proxima has real base assets, the bootstrap manifest should disappear and `mods/efr.json` should install those assets directly.
+The blank island builder reuses Citadel's ground and object texture HQR entries, deduplicates Citadel's island-wide terrain texture-definition pairs into each blank cube, and takes lighting metadata from the configured template cube. It generates zero-height water terrain and an empty decor-placement list for every allocated cube; no Citadel terrain geometry, decor placement, or zones are copied.
 
 ## Proxima authoring workflow
 
-The current Proxima workflow is intentionally additive:
+The current Proxima workflow is explicit and rebuild-based:
 
 1. Start from clean retail data.
 2. Run `scripts/dev/data_patch.py` with `mods/efr.json` or `mods/efr_bootstrap.json` to build a working data folder.
@@ -39,6 +40,8 @@ The editor treats `editor_output_dir.txt` as the root mods directory, not as an 
 
 With `LBA2CC_EDITOR` enabled, press `.` and `,` to cycle through Editor Off, Select/Move, Decor Place, Terrain Edit, and Texture Select. Tool changes briefly appear in the bottom-left. Press `D` to toggle the decor overlay, `Z` to toggle the zone overlay, and `I` to switch overlay detail between boxes only and boxes plus ids.
 
+In Terrain Edit, select points along exactly one edge of the current cube and press `T` to create a `512`-thick Change Cube zone to the adjacent allocated scene. The new zone is selected, but the active tool remains Terrain Edit.
+
 `Ctrl+S` is the intended editor save path. It validates `editor_output_dir.txt`, resolves island `12` to `mods/proxima/`, and writes runtime exterior decor and terrain edits to the island authoring JSON files. Island `0` resolves to `mods/citadel/`.
 
 Exterior decor authoring is currently runtime-only, enough to start shaping Proxima in-game:
@@ -46,7 +49,7 @@ Exterior decor authoring is currently runtime-only, enough to start shaping Prox
 - Cycle to Select/Move with `.` or `,` to select exterior decor and related zones.
 - Left-click an exterior decor object to select it in Select/Move.
 - Press `Delete` or `Backspace` to delete the selected decor object.
-- Switch to Decor Place, then press `[` or `]` to change the simple Decor picker body id.
+- Switch to Decor Place, press `[` or `]` to change the simple Decor picker body id, and use left/right to rotate the preview by 90 degrees.
 - Left-click or press `P` to place the picker body. `Insert` also works on keyboards that have it.
 - Press `Ctrl+D` to duplicate the selected object.
 
