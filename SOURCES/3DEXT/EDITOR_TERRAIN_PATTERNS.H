@@ -1,6 +1,8 @@
 #ifndef EDITOR_TERRAIN_PATTERNS_H
 #define EDITOR_TERRAIN_PATTERNS_H
 
+#include <SYSTEM/ADELINE_TYPES.H>
+
 #define TERRAIN_REGION_TYPE_GRASS 0
 #define TERRAIN_REGION_TYPE_PAVEMENT 1
 #define TERRAIN_REGION_TYPE_GRASS_INSET 2
@@ -8,7 +10,10 @@
 #define TERRAIN_REGION_TYPE_GRASS_PAVEMENT 4
 #define TERRAIN_REGION_TYPE_RIPRAP 5
 #define TERRAIN_REGION_TYPE_PAVEMENT_ALT 6
-#define TERRAIN_REGION_TYPE_COUNT 7
+#define TERRAIN_REGION_TYPE_ROCKS 7
+#define TERRAIN_REGION_TYPE_CLIFFSIDE 8
+#define TERRAIN_REGION_TYPE_DIRT 9
+#define TERRAIN_REGION_TYPE_COUNT 10
 
 typedef struct {
     S32 X0;
@@ -46,5 +51,11 @@ extern void EditorTerrainPatternAsphalt(const T_EDITOR_TERRAIN_PATTERN_REGION *r
                                         S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
 extern void EditorTerrainPatternGrassPavement(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
                                               S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
+extern void EditorTerrainPatternRocks(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                      S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
+extern void EditorTerrainPatternCliffside(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                          S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
+extern void EditorTerrainPatternDirt(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                     S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
 
 #endif

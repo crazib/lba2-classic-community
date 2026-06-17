@@ -9,9 +9,11 @@
 #include "HQR_NAMES.H"
 #include "MESSAGE.H"
 #include "3DEXT/DECORS.H"
+#include "3DEXT/EDITOR_TERRAIN_PATTERNS.H"
 #include "3DEXT/LOADISLE.H"
 #include "3DEXT/TERRAIN.H"
 
+#include <3D/LIGHT.H>
 #include <3D/ROT2D.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/DIRTYBOX.H>
@@ -31,6 +33,7 @@ extern S32 CubeMode;
 extern S32 Island;
 extern S32 CurrentCubeX;
 extern S32 CurrentCubeY;
+extern S32 *ListCubeInfos;
 extern U8 *PtrSce;
 extern void ZoneEditorClearAllSelected(void);
 
@@ -121,6 +124,10 @@ static const char *EditorInspectorTerrainFieldNames[TERRAIN_EDITOR_FIELD_COUNT] 
     "Cube X", "Cube Y", "X", "Z", "Height", "Intensity"
 };
 
+static const char *EditorInspectorSceneFieldNames[2] = {
+    "AlphaLight", "BetaLight"
+};
+
 static const char *EditorInspectorTexFlagNames[4] = {
     "None", "Sad", "Flat", "Gouraud"
 };
@@ -174,17 +181,29 @@ static const char *EditorInspectorTerrainRegionFieldNames[TERRAIN_REGION_FIELD_C
     "Bake", "Type", "Seed", "Patchiness", "Randomize Seed", "X0", "Z0", "X1", "Z1"
 };
 
-static const char *EditorInspectorTerrainRegionTypeNames[7] = {
-    "Grass Patch", "Pavement", "Grass Inset", "Asphalt", "Grass Pavement", "Riprap", "Pavement (Alt)"
+static const char *EditorInspectorTerrainRegionTypeNames[TERRAIN_REGION_TYPE_COUNT] = {
+    "Grass Patch", "Pavement", "Grass Inset", "Asphalt", "Grass Pavement", "Riprap", "Pavement (Alt)", "Rocks", "Cliffside", "Dirt"
 };
 
+typedef struct {
+    S32 Used;
+    S32 CubeX;
+    S32 CubeY;
+    S32 AlphaLight;
+    S32 BetaLight;
+} T_EDITOR_SCENE_EDIT;
+
+#define EDITOR_SCENE_MAX_EDITS 256
 #define EDITOR_INSPECTOR_NONE 0
 #define EDITOR_INSPECTOR_TEXTURE 1
 #define EDITOR_INSPECTOR_DECOR 2
 #define EDITOR_INSPECTOR_ZONE 3
 #define EDITOR_INSPECTOR_TERRAIN_REGION 4
 #define EDITOR_INSPECTOR_TERRAIN 5
+#define EDITOR_INSPECTOR_SCENE 6
 #define EDITOR_INSPECTOR_ZONE_TEXT_FIELD 2
+#define EDITOR_INSPECTOR_SCENE_ALPHA_LIGHT 0
+#define EDITOR_INSPECTOR_SCENE_BETA_LIGHT 1
 #define EDITOR_FRONT_ALPHA 0
 #define EDITOR_RIGHT_ALPHA 0
 #define EDITOR_TOP_ALPHA 1024
@@ -199,6 +218,8 @@ static const char *EditorInspectorTerrainRegionTypeNames[7] = {
 #define EDITOR_CUBE_BOUNDARY_COLOR 7
 #define EDITOR_ISLAND_MAP_SIZE 16
 #define EDITOR_RESTORE_SAVED_CAMERA FALSE
+
+static T_EDITOR_SCENE_EDIT EditorSceneEdits[EDITOR_SCENE_MAX_EDITS];
 
 static void EditorTrimLine(char *text) {
     size_t len;
@@ -495,6 +516,195 @@ S32 Editor_FindExteriorScene(S32 cube_x, S32 cube_y) {
     return 0;
 }
 
+void EditorSceneClearRuntimeEdits(void) {
+    memset(EditorSceneEdits, 0, sizeof(EditorSceneEdits));
+}
+
+static T_EDITOR_SCENE_EDIT *EditorSceneFindEdit(S32 cube_x, S32 cube_y) {
+    S32 i;
+
+    for (i = 0; i < EDITOR_SCENE_MAX_EDITS; i++) {
+        T_EDITOR_SCENE_EDIT *edit = &EditorSceneEdits[i];
+        if (edit->Used AND edit->CubeX == cube_x AND edit->CubeY == cube_y)
+            return edit;
+    }
+    return NULL;
+}
+
+static T_EDITOR_SCENE_EDIT *EditorSceneGetOrCreateEdit(S32 cube_x, S32 cube_y) {
+    S32 i;
+    T_EDITOR_SCENE_EDIT *edit;
+
+    edit = EditorSceneFindEdit(cube_x, cube_y);
+    if (edit)
+        return edit;
+
+    for (i = 0; i < EDITOR_SCENE_MAX_EDITS; i++) {
+        edit = &EditorSceneEdits[i];
+        if (!edit->Used) {
+            edit->Used = TRUE;
+            edit->CubeX = cube_x;
+            edit->CubeY = cube_y;
+            edit->AlphaLight = AlphaLight & 4095;
+            edit->BetaLight = BetaLight & 4095;
+            return edit;
+        }
+    }
+
+    Log_Warn("[editor] scene edit table is full; cannot track c%d,%d",
+             (int)cube_x,
+             (int)cube_y);
+    return NULL;
+}
+
+void EditorSceneApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
+    T_EDITOR_SCENE_EDIT *edit;
+
+    edit = EditorSceneFindEdit(cube_x, cube_y);
+    if (!edit)
+        return;
+
+    AlphaLight = edit->AlphaLight & 4095;
+    BetaLight = edit->BetaLight & 4095;
+    if (ListCubeInfos) {
+        ListCubeInfos[0] = (ListCubeInfos[0] & 0xFFFF0000) | (AlphaLight & 0xFFFF);
+        ListCubeInfos[1] = BetaLight;
+    }
+    SetLightVector(AlphaLight, BetaLight, 0);
+}
+
+void EditorSceneLoadAuthoringEditsForCurrentIsland(void) {
+    char dir[ADELINE_MAX_PATH];
+    char path[ADELINE_MAX_PATH];
+    char *json;
+    jsmntok_t *tokens;
+    S32 count;
+    S32 island_value;
+    S32 cubes;
+    S32 cube_index;
+    S32 loaded = 0;
+    S32 skipped = 0;
+
+    if (!Editor_ResolveOutputDir(dir, sizeof(dir)))
+        return;
+    snprintf(path, sizeof(path), "%s%sscene_edits.json", dir, ADELINE_PATH_SEP);
+    path[sizeof(path) - 1] = '\0';
+
+    if (!EditorJsonParseFile(path, &json, &tokens, &count)) {
+        if (EditorJsonFileExists(path))
+            Log_Warn("[editor] cannot load scene edits: invalid JSON: %s", path);
+        return;
+    }
+
+    if (EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, 0, "island"), &island_value)
+            AND island_value != Island) {
+        Log_Warn("[editor] scene edits ignored: %s is for island %d, current island is %d",
+                 path,
+                 (int)island_value,
+                 (int)Island);
+        free(tokens);
+        free(json);
+        return;
+    }
+
+    cubes = EditorJsonFindValue(json, tokens, count, 0, "cubes");
+    if (cubes >= 0 AND tokens[cubes].type == JSMN_ARRAY) {
+        S32 cubes_end = EditorJsonTokenEnd(tokens, count, cubes);
+        for (cube_index = cubes + 1; cube_index < cubes_end; cube_index = EditorJsonTokenEnd(tokens, count, cube_index)) {
+            S32 cube_xy[2];
+            S32 light;
+            S32 alpha;
+            S32 beta;
+            T_EDITOR_SCENE_EDIT *edit;
+
+            if (tokens[cube_index].parent != cubes)
+                continue;
+            if (tokens[cube_index].type != JSMN_OBJECT) {
+                skipped++;
+                continue;
+            }
+            if (!EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, cube_index, "cube"), cube_xy, 2)) {
+                skipped++;
+                continue;
+            }
+            light = EditorJsonFindValue(json, tokens, count, cube_index, "light");
+            if (light < 0 OR tokens[light].type != JSMN_OBJECT) {
+                skipped++;
+                continue;
+            }
+            if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, light, "alpha_light"), &alpha)
+                    OR !EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, light, "beta_light"), &beta)) {
+                skipped++;
+                continue;
+            }
+            edit = EditorSceneGetOrCreateEdit(cube_xy[0], cube_xy[1]);
+            if (!edit) {
+                skipped++;
+                continue;
+            }
+            edit->AlphaLight = alpha & 4095;
+            edit->BetaLight = beta & 4095;
+            loaded++;
+        }
+    }
+
+    Log_Info("[editor] loaded scene edits: %s (loaded=%d skipped=%d)", path, (int)loaded, (int)skipped);
+    free(tokens);
+    free(json);
+}
+
+static S32 EditorSceneSaveRuntimeEdits(const char *island_dir, S32 island) {
+    char path[ADELINE_MAX_PATH];
+    FILE *f;
+    S32 i;
+    S32 first = TRUE;
+    S32 count = 0;
+
+    if (!island_dir OR !island_dir[0])
+        return FALSE;
+
+    snprintf(path, sizeof(path), "%s%sscene_edits.json", island_dir, ADELINE_PATH_SEP);
+    path[sizeof(path) - 1] = '\0';
+
+    f = fopen(path, "wb");
+    if (!f) {
+        Editor_SetStatus("Scene save failed: cannot open scene_edits.json");
+        Log_Warn("[editor] cannot write scene edits: %s", path);
+        return FALSE;
+    }
+
+    fprintf(f, "{\n");
+    fprintf(f, "  \"island\": %d,\n", (int)island);
+    fprintf(f, "  \"description\": \"Authoring edits exported by the scene inspector.\",\n");
+    fprintf(f, "  \"cubes\": [\n");
+
+    for (i = 0; i < EDITOR_SCENE_MAX_EDITS; i++) {
+        T_EDITOR_SCENE_EDIT *edit = &EditorSceneEdits[i];
+
+        if (!edit->Used)
+            continue;
+
+        if (!first)
+            fprintf(f, ",\n");
+        first = FALSE;
+        count++;
+        fprintf(f,
+                "    {\"cube\": [%d, %d], \"light\": {\"alpha_light\": %d, \"beta_light\": %d}}",
+                (int)edit->CubeX,
+                (int)edit->CubeY,
+                (int)(edit->AlphaLight & 4095),
+                (int)(edit->BetaLight & 4095));
+    }
+
+    fprintf(f, "\n");
+    fprintf(f, "  ]\n");
+    fprintf(f, "}\n");
+    fclose(f);
+
+    Log_Info("[editor] saved %d scene edit(s) to %s", (int)count, path);
+    return TRUE;
+}
+
 static void Editor_Save(void) {
     char outPath[ADELINE_MAX_PATH];
     char status[260];
@@ -507,6 +717,8 @@ static void Editor_Save(void) {
     if (!TerrainEditorSaveRuntimeEdits(outPath, Island))
         return;
     if (!ZoneEditorSaveRuntimeEdits(outPath, Island))
+        return;
+    if (!EditorSceneSaveRuntimeEdits(outPath, Island))
         return;
 
     snprintf(status, sizeof(status), "Saved editor edits: %s", outPath);
@@ -709,6 +921,7 @@ static S32 EditorInspectorKind(void) {
             return EDITOR_INSPECTOR_DECOR;
         if (ZoneEditorGetSelectedZone())
             return EDITOR_INSPECTOR_ZONE;
+        return EDITOR_INSPECTOR_SCENE;
     }
     if (Editor_ToolIs(EDITOR_TOOL_TERRAIN_REGION) AND TerrainRegionEditorHasSelected())
         return EDITOR_INSPECTOR_TERRAIN_REGION;
@@ -746,6 +959,8 @@ static S32 EditorInspectorFieldCount(S32 kind) {
         return TERRAIN_REGION_FIELD_COUNT;
     if (kind == EDITOR_INSPECTOR_TERRAIN)
         return TERRAIN_EDITOR_FIELD_COUNT;
+    if (kind == EDITOR_INSPECTOR_SCENE)
+        return 2;
     return 0;
 }
 
@@ -758,6 +973,8 @@ static const char *EditorInspectorFieldName(S32 kind, S32 field) {
         return EditorInspectorTerrainRegionFieldNames[field];
     if (kind == EDITOR_INSPECTOR_TERRAIN)
         return EditorInspectorTerrainFieldNames[field];
+    if (kind == EDITOR_INSPECTOR_SCENE)
+        return EditorInspectorSceneFieldNames[field];
     if (EditorInspectorZoneIsMessage())
         return EditorInspectorMessageZoneFieldNames[field];
         return EditorInspectorZoneFieldNames[field];
@@ -827,6 +1044,11 @@ static S32 EditorInspectorFieldValue(S32 kind, S32 field) {
         return TerrainRegionEditorGetFieldValue(field);
     } else if (kind == EDITOR_INSPECTOR_TERRAIN) {
         return TerrainEditorGetSelectedFieldValue(field, NULL);
+    } else if (kind == EDITOR_INSPECTOR_SCENE) {
+        if (field == EDITOR_INSPECTOR_SCENE_ALPHA_LIGHT)
+            return AlphaLight;
+        if (field == EDITOR_INSPECTOR_SCENE_BETA_LIGHT)
+            return BetaLight;
     }
     return 0;
 }
@@ -888,7 +1110,7 @@ static S32 EditorInspectorStepValue(S32 kind, S32 field, S32 direction) {
 }
 
 static S32 EditorInspectorFieldWraps(S32 kind, S32 field) {
-    return kind == EDITOR_INSPECTOR_TEXTURE OR EditorInspectorFieldIsEnum(kind, field);
+    return kind == EDITOR_INSPECTOR_TEXTURE OR kind == EDITOR_INSPECTOR_SCENE OR EditorInspectorFieldIsEnum(kind, field);
 }
 
 static S32 EditorInspectorFieldMax(S32 kind, S32 field) {
@@ -903,7 +1125,29 @@ static S32 EditorInspectorFieldMax(S32 kind, S32 field) {
         return 6;
     if (kind == EDITOR_INSPECTOR_TERRAIN_REGION AND field == TERRAIN_REGION_FIELD_PATCHINESS)
         return 100;
+    if (kind == EDITOR_INSPECTOR_SCENE)
+        return 4095;
     return 0;
+}
+
+static S32 EditorInspectorSetSceneField(S32 field, S32 value) {
+    T_EDITOR_SCENE_EDIT *edit;
+
+    value &= 4095;
+    edit = EditorSceneGetOrCreateEdit(CurrentCubeX, CurrentCubeY);
+    if (!edit)
+        return FALSE;
+
+    if (field == EDITOR_INSPECTOR_SCENE_ALPHA_LIGHT) {
+        edit->AlphaLight = value;
+    } else if (field == EDITOR_INSPECTOR_SCENE_BETA_LIGHT) {
+        edit->BetaLight = value;
+    } else {
+        return FALSE;
+    }
+    EditorSceneApplyRuntimeEditsForLoadedCube(CurrentCubeX, CurrentCubeY);
+    FirstTime = AFF_ALL_FLIP;
+    return TRUE;
 }
 
 static S32 EditorInspectorSetField(S32 kind, S32 field, S32 value) {
@@ -919,6 +1163,8 @@ static S32 EditorInspectorSetField(S32 kind, S32 field, S32 value) {
         return TerrainRegionEditorSetFieldValue(field, value);
     if (kind == EDITOR_INSPECTOR_TERRAIN)
         return TerrainEditorSetSelectedField(field, value);
+    if (kind == EDITOR_INSPECTOR_SCENE)
+        return EditorInspectorSetSceneField(field, value);
     return FALSE;
 }
 
@@ -1468,7 +1714,7 @@ void Editor_DrawOverlay(void) {
         if (field_count > 0) {
             char text[128];
             S32 i;
-            S32 header_rows = (kind == EDITOR_INSPECTOR_TEXTURE OR kind == EDITOR_INSPECTOR_TERRAIN) ? 1 : 0;
+            S32 header_rows = (kind == EDITOR_INSPECTOR_TEXTURE OR kind == EDITOR_INSPECTOR_TERRAIN OR kind == EDITOR_INSPECTOR_SCENE) ? 1 : 0;
             S32 first_row = 0;
             S32 visible_rows;
             S32 panel_x0 = 8;
@@ -1506,6 +1752,9 @@ void Editor_DrawOverlay(void) {
                 GraphPrintf(FALSE, panel_x0 + 9, panel_y0 + 8, "%d point%s selected",
                             (int)selected_count,
                             selected_count == 1 ? "" : "s");
+            } else if (kind == EDITOR_INSPECTOR_SCENE) {
+                CoulText(LBAWHITE, -1);
+                GraphPrintf(FALSE, panel_x0 + 9, panel_y0 + 8, "Scene c%d,%d", (int)CurrentCubeX, (int)CurrentCubeY);
             }
 
             for (i = first_row; i < first_row + visible_rows; i++) {
@@ -1548,7 +1797,7 @@ void Editor_DrawOverlay(void) {
                     snprintf(text, sizeof(text), "%s: %s (%d)", EditorInspectorFieldName(kind, i), direction >= 0 ? EditorInspectorMessageDirectionNames[direction] : "Unknown", (int)value);
                 }
                 else if (kind == EDITOR_INSPECTOR_TERRAIN_REGION AND i == TERRAIN_REGION_FIELD_TYPE)
-                    snprintf(text, sizeof(text), "%s: %s", EditorInspectorFieldName(kind, i), EditorInspectorTerrainRegionTypeNames[(value >= 0 AND value < 7) ? value : 0]);
+                    snprintf(text, sizeof(text), "%s: %s", EditorInspectorFieldName(kind, i), EditorInspectorTerrainRegionTypeNames[(value >= 0 AND value < TERRAIN_REGION_TYPE_COUNT) ? value : 0]);
                 else
                     snprintf(text, sizeof(text), "%s: %d", EditorInspectorFieldName(kind, i), (int)value);
 

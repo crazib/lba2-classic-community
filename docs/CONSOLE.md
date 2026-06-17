@@ -58,6 +58,7 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **status** | Print island, cube, chapter, object/zone counts, FPS, timer, position. |
 | **screenshot** | Save the next frame as PNG in the shoot directory without the console visible (uses SavePNG). |
 | **give** &lt;item&gt; [count] | Grant an inventory item by name — run `give` with no args to list item names; a numeric index still works as a fallback. Writes possession, refreshes the inventory, and plays the “found object” cinematic for real inventory slots. `count` applies to countable items (darts, money, gem, penguin, clover). |
+| **setvar** &lt;index&gt; &lt;value&gt; | Set `ListVarGame[index]` to value. Index range is 0–255; value is clamped to `S16`. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
 | **playjingle** &lt;1-26&gt; | Play jingle by number. |

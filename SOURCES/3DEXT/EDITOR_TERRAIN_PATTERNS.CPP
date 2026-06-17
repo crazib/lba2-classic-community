@@ -1,4 +1,3 @@
-#include "DEFINES.H"
 #include "EDITOR_TERRAIN_PATTERNS.H"
 
 static void EditorTerrainPatternDefaults(T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
@@ -197,4 +196,59 @@ void EditorTerrainPatternGrassPavement(const T_EDITOR_TERRAIN_PATTERN_REGION *re
         if (x == region->X1)
             cell->Sens1 = 0;
     }
+}
+
+void EditorTerrainPatternRocks(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                               S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
+    static const S32 texture0[2][4] = {
+        {58, 45, 38, 56},
+        {53, 49, 40, 55}
+    };
+    static const S32 texture1[2][4] = {
+        {59, 46, 39, 57},
+        {54, 50, 41, 52}
+    };
+    S32 row = (z - region->AnchorZ) & 1;
+    S32 col = (x - region->AnchorX) & 3;
+
+    EditorTerrainPatternDefaults(cell);
+    cell->Texture0 = texture0[row][col];
+    cell->Texture1 = texture1[row][col];
+    cell->Footstep0 = 5;
+    cell->Footstep1 = 5;
+}
+
+void EditorTerrainPatternCliffside(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                   S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
+    static const S32 texture0[2][2] = {
+        {64, 67},
+        {60, 62}
+    };
+    static const S32 texture1[2][2] = {
+        {66, 65},
+        {61, 63}
+    };
+    S32 row = (z - region->AnchorZ) & 1;
+    S32 col = (x - region->AnchorX) & 1;
+
+    EditorTerrainPatternDefaults(cell);
+    cell->Texture0 = texture0[row][col];
+    cell->Texture1 = texture1[row][col];
+    cell->Sens1 = row ? 0 : 1;
+    cell->Footstep0 = 5;
+    cell->Footstep1 = 5;
+}
+
+void EditorTerrainPatternDirt(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                              S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
+    (void)region;
+    (void)x;
+    (void)z;
+
+    EditorTerrainPatternDefaults(cell);
+    cell->Texture0 = -1;
+    cell->Texture1 = -1;
+    cell->Sens1 = 0;
+    cell->Footstep0 = 0;
+    cell->Footstep1 = 0;
 }

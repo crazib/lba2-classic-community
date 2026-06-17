@@ -76,6 +76,9 @@ extern void TerrainTextureEditorBuildCatalog(void);
 extern void TerrainTextureEditorSetTexDefs(T_HALF_TEX *defs, S32 count);
 extern void ZoneEditorClearRuntimeEdits(void);
 extern void ZoneEditorLoadAuthoringEditsForCurrentIsland(void);
+extern void EditorSceneClearRuntimeEdits(void);
+extern void EditorSceneLoadAuthoringEditsForCurrentIsland(void);
+extern void EditorSceneApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y);
 #endif
 
 // MAX_OBJ_DECORS pour tous les cubes de toutes les iles
@@ -211,6 +214,7 @@ void LoadIsland() {
     TerrainEditorClearRuntimeEdits();
     TerrainTextureEditorClearRuntimeEdits();
     ZoneEditorClearRuntimeEdits();
+    EditorSceneClearRuntimeEdits();
 #endif
 
     // reinit ressources HQR
@@ -269,6 +273,7 @@ void LoadIsland() {
     ExtDecorEditorLoadAuthoringEditsForCurrentIsland();
     TerrainEditorLoadAuthoringEditsForCurrentIsland();
     ZoneEditorLoadAuthoringEditsForCurrentIsland();
+    EditorSceneLoadAuthoringEditsForCurrentIsland();
 #endif
 }
 
@@ -301,8 +306,11 @@ S32 LoadCube(S32 x, S32 y) {
     AlphaLight = ListCubeInfos[INFO_ALPHA_LIGHT] & 0xFFFF;
     CubeBitField = (U16)(ListCubeInfos[INFO_ALPHA_LIGHT] >> 16);
     BetaLight = ListCubeInfos[INFO_BETA_LIGHT];
-    Log_Info("[LIGHT] island=%d (%s) cube=(%d,%d) alpha=%d beta=%d",
-             (int)Island, IslandName, (int)x, (int)y, (int)AlphaLight, (int)BetaLight);
+#ifdef LBA2CC_EDITOR
+    EditorSceneApplyRuntimeEditsForLoadedCube(x, y);
+#endif
+    // Log_Info("[LIGHT] island=%d (%s) cube=(%d,%d) alpha=%d beta=%d",
+    //          (int)Island, IslandName, (int)x, (int)y, (int)AlphaLight, (int)BetaLight);
     Sky_Y = ListCubeInfos[INFO_SKY_Y];
 
     ClipZFar = ListCubeInfos[INFO_CLIP_Z_FAR];

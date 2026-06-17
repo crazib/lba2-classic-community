@@ -593,6 +593,38 @@ static void cmd_give(int argc, const char *argv[]) {
         Console_Print("Gave %s", Console_GiveItemName(index));
 }
 
+static void cmd_setvar(int argc, const char *argv[]) {
+    if (argc < 3) {
+        Console_Print("Usage: setvar <index> <value>");
+        return;
+    }
+
+    char *end = NULL;
+    long index = strtol(argv[1], &end, 0);
+    if (!end || *end != '\0' || argv[1][0] == '\0') {
+        Console_Print("setvar: bad index '%s'", argv[1]);
+        return;
+    }
+    if (index < 0 || index >= MAX_VARS_GAME) {
+        Console_Print("setvar: index out of range %ld (valid 0-%d)", index, MAX_VARS_GAME - 1);
+        return;
+    }
+
+    end = NULL;
+    long value = strtol(argv[2], &end, 0);
+    if (!end || *end != '\0' || argv[2][0] == '\0') {
+        Console_Print("setvar: bad value '%s'", argv[2]);
+        return;
+    }
+    if (value < MIN_S16)
+        value = MIN_S16;
+    if (value > MAX_S16)
+        value = MAX_S16;
+
+    ListVarGame[index] = (S16)value;
+    Console_Print("ListVarGame[%ld] = %d", index, (int)ListVarGame[index]);
+}
+
 static void cmd_playvideo(int argc, const char *argv[]) {
     if (argc < 2) {
         Console_Print("Usage: playvideo <name>");
@@ -1749,6 +1781,8 @@ void Console_RegisterAll(void) {
                               "give <item> [count]",
                               "Grants the item and plays the found-object cinematic. Count applies to "
                               "darts/money/gem/penguin/clover. Requires in-game loaded cube (not during video).");
+    Console_RegisterCommandEx("setvar", cmd_setvar, "Set ListVarGame[index] to value", "setvar <index> <value>",
+                              "Debug state mutation. Index range is 0-255; value is clamped to S16.");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
     Console_RegisterCommandEx("slide", cmd_slide, "Show a distributor or bumper slide",
