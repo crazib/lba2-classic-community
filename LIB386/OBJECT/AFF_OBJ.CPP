@@ -143,6 +143,34 @@ typedef struct
     U16 Rayon;
 } T_OBJ_SPHERE;
 
+static bool CalcSphereScreenRadius(const T_OBJ_SPHERE *sphere, S32 *out_radius) {
+    S32 radius = sphere->Rayon;
+
+    if (LongProjectPoint == LongProjectPointOrtho) {
+        radius = (S32)lrintl((long double)radius * (long double)OrthoScale);
+        *out_radius = -radius;
+        return true;
+    }
+
+    if (TypeProj != TYPE_3D) {
+        radius += radius + (radius << 5);
+        radius >>= 9;
+        *out_radius = ~radius;
+        return true;
+    }
+
+    S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
+    S32 denominator = z + PosZWr;
+    if (denominator == 0) {
+        return false;
+    }
+
+    radius *= LFactorX;
+    radius /= denominator;
+    *out_radius = radius;
+    return true;
+}
+
 typedef struct
 {
     U16 P1;
@@ -1053,17 +1081,9 @@ S32 Line(U32 typePoly, void *poly) {
 S32 Sphere(U32 typePoly, void *poly) {
     T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)poly;
 
-    S32 radius = sphere->Rayon;
-
-    if (TypeProj != TYPE_3D) {
-        radius += radius + (radius << 5);
-        radius >>= 9;
-        radius = ~radius;
-    } else {
-        // @@Radius_Proj:
-        S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
-        radius *= LFactorX;
-        radius /= z + PosZWr;
+    S32 radius;
+    if (!CalcSphereScreenRadius(sphere, &radius)) {
+        return 0;
     }
 
     // @@Return_Radius:
@@ -1108,16 +1128,9 @@ S32 Sphere(U32 typePoly, void *poly) {
 S32 Sphere_Transp(U32 typePoly, void *poly) {
     T_OBJ_SPHERE *sphere = (T_OBJ_SPHERE *)poly;
 
-    S32 radius = sphere->Rayon;
-
-    if (TypeProj != TYPE_3D) {
-        radius += radius + (radius << 5);
-        radius >>= 9;
-        radius = ~radius;
-    } else {
-        S16 z = Obj_ListRotatedPoints[sphere->P1].Z;
-        radius *= LFactorX;
-        radius /= z + PosZWr;
+    S32 radius;
+    if (!CalcSphereScreenRadius(sphere, &radius)) {
+        return 0;
     }
 
     TYPE_PT p1 = Obj_ListProjectedPoints[sphere->P1];

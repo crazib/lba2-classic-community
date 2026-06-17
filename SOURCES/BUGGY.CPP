@@ -11,7 +11,7 @@
 #define MAX_SAMPLE_PITCH 11000
 #define MIN_SAMPLE_PITCH2 5000
 #define MAX_SAMPLE_PITCH2 8500
-#define MAX_SPEED 3800
+#define MAX_SPEED 3800 * 2
 #define TEMPO_GEAR 1200 // tempo changement de vitesse
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
