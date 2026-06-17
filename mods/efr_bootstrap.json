@@ -19,14 +19,56 @@
       "file": "SCENE.HQR",
       "from": 94,
       "to": 223,
-      "patch": { "island": 12, "cube_x": 8, "cube_y": 8 }
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 8 },
+      "description": "Proxima Island Harbor"
     },
     {
       "type": "clone_scene",
       "file": "SCENE.HQR",
       "from": 94,
       "to": 224,
-      "patch": { "island": 12, "cube_x": 8, "cube_y": 7 }
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 7 },
+      "description": "Proxim-City, West"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 225,
+      "patch": { "island": 12, "cube_x": 7, "cube_y": 7 },
+      "description": "Near Inventor's House"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 226,
+      "patch": { "island": 12, "cube_x": 9, "cube_y": 7 },
+      "description": "Proxim-City, East"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 227,
+      "patch": { "island": 12, "cube_x": 9, "cube_y": 8 },
+      "description": "Proxim-City, South-East"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 228,
+      "patch": { "island": 12, "cube_x": 9, "cube_y": 6 },
+      "description": "Northern Runic Stone"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 229,
+      "patch": { "island": 12, "cube_x": 9, "cube_y": 9 },
+      "description": "Southern Runic Stone"
     },
     {
       "type": "include_manifest",

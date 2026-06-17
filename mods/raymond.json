@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "description": "Swap Joe for Raymond. Big thanks to Battler from the MBN for this one.",
+  "operations": [
+    {
+      "type": "replace_hqr_entry",
+      "file": "BODY.HQR",
+      "entry": 110,
+      "source": "raymond.lm2"
+    }
+  ]
+}

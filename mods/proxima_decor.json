@@ -6,7 +6,8 @@
       "type": "replace_hqr_entry",
       "file": "PROXIMA.OBL",
       "entry": 3,
-      "source": "proxima/proxima_ferry_office.lm2"
+      "source": "proxima/proxima_ferry_office.lm2",
+      "description": "A smaller version of the ferry office from Citadel Island."
     }
   ],
   "_operations": [

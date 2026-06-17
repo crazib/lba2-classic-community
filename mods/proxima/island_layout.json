@@ -2,7 +2,12 @@
   "island": 12,
   "description": "Allocated exterior terrain cubes for Proxima Island.",
   "cubes": [
+    [7, 7],
     [8, 7],
-    [8, 8]
+    [9, 7],
+    [8, 8],
+    [9, 8],
+    [9, 6],
+    [9, 9]
   ]
 }

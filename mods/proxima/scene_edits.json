@@ -1,0 +1,7 @@
+{
+  "island": 12,
+  "description": "Authoring edits exported by the scene inspector.",
+  "cubes": [
+    {"cube": [8, 8], "light": {"alpha_light": 309, "beta_light": 600}}
+  ]
+}
