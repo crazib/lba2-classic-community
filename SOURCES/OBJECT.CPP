@@ -5273,7 +5273,7 @@ void DoDir(U8 numobj) {
                     switch (Weapon) {
                     case FLAG_BALLE_MAGIQUE: // balle magique
                     case FLAG_TOMATOES:      // tomatoes (magic ball placeholder)
-                        if (MagicBallFlags & MAGIC_BALL_LACHEE) {
+                        if (MagicBallFlags & MAGIC_BALL_LACHEE && Weapon != FLAG_TOMATOES) {
                             // Si la balle est deja lancee et qu'on
                             // appuie sur la touche <ALT> apres l'avoir
                             // lachee, cela fait revenir la balle
