@@ -164,12 +164,12 @@ T_INV_OBJ InitTabInv[MAX_INVENTORY] =
         },
         {
             //	12: FLAG_PROTOPACK,
-            7,             //	S32 Box
-            0,             //	S32 BetaObj
-            0,             //	S32 PtMagie
-            0,             //	S32 FlagInv
-            0,             //	S32 IdObj3D
-            {12, 48, 0, 0} //	U8 TabObj3D[4]
+            7,              //	S32 Box
+            0,              //	S32 BetaObj
+            0,              //	S32 PtMagie
+            0,              //	S32 FlagInv
+            0,              //	S32 IdObj3D
+            {12, 48, 55, 0} //	U8 TabObj3D[4]
         },
         {
             //	13: FLAG_TICKET_FERRY,
@@ -1057,8 +1057,10 @@ void AffObjName(S32 num) {
 void CheckProtoPack(void) {
     T_MENU_COMP *ptrmcomp = &ListMenuComp[ListComportement[C_PROTOPACK].Menu];
 
-    // Magouille ProtoPack/SuperJetPack
-    if (TabInv[FLAG_PROTOPACK].IdObj3D == 1) {
+    // Magouille ProtoPack/SuperJetPack/HyperZipPack
+    if (TabInv[FLAG_PROTOPACK].IdObj3D == 2) {
+        ptrmcomp->NbComps = 3; // On a le HyperZipPack
+    } else if (TabInv[FLAG_PROTOPACK].IdObj3D == 1) {
         ptrmcomp->NbComps = 2; // On a le SuperJetPack
     } else {
         ptrmcomp->NbComps = 1; // On n'a pas le SuperJetPack
@@ -1106,7 +1108,7 @@ void MenuInventory(U32 tempo) {
     // au cas ou l'on soit appelé pendant un eclair
     Palette(PtrPal);
 
-    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK) {
+    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK OR Comportement == C_ZIPPACK) {
 #ifdef LBA_EDITOR
         HQ_StopOneSample(NUM_SAMPLE(COMMON_NUM_DEF, SAMPLE_PROTOPACK));
 #else

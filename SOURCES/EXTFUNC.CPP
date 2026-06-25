@@ -1568,10 +1568,11 @@ void DoAnimExt(U8 numobj) {
                 AND(APtObj->CarryBy == -1 OR APtObj->CarryBy & CARRY_BY_DECORS)
                     AND((Comportement != C_PROTOPACK) // on ne meurre pas en marche jetpack
                         AND(Comportement != C_JETPACK)
+                            AND(Comportement != C_ZIPPACK)
 #ifdef LBA_EDITOR
-                            OR strcasecmp(APtObj->StringAnim, GEN_ANIM_MARCHE)))
+                                OR strcasecmp(APtObj->StringAnim, GEN_ANIM_MARCHE)))
 #else
-                            OR APtObj->GenAnim != GEN_ANIM_MARCHE))
+                                OR APtObj->GenAnim != GEN_ANIM_MARCHE))
 #endif
     {
         S32 index;

@@ -828,8 +828,9 @@ typedef struct  {       S16    Num ;
 #define	C_SCAPH_EXT_SPOR       11	// Scaphandre Exterieur Sportif
 #define	C_BUGGY		       12	// Conduite du buggy
 #define	C_SKELETON	       13	// Squelette Electrique
+#define	C_ZIPPACK	       14	// HyperZipPack
 
-#define	MAX_COMPORTEMENTS      14
+#define	MAX_COMPORTEMENTS      15
 
 #define	START_TEXT_COMPORTEMENT	80
 

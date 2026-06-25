@@ -1192,7 +1192,7 @@ void HoloMap() {
         RepMask = 0xFFFF;
     }
 
-    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK) {
+    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK OR Comportement == C_ZIPPACK) {
         // pour pouvoir restaurer anim marche protopack
 #ifdef LBA_EDITOR
         if (!strcasecmp(ListObjet[NUM_PERSO].StringAnim, GEN_ANIM_MARCHE))

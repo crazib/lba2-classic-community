@@ -87,6 +87,7 @@ T_COMPORTEMENT ListComportement[MAX_COMPORTEMENTS] = {
     {6, -1, NULL, CF_COMPORTEMENT // Buggy
                       | CF_HOLOMAP | CF_WEAPON},
     {7, -1, NULL, CF_HOLOMAP}, // Squelette
+    {1, -1, NULL, CF_COMPORTEMENT | CF_INVENTORY | CF_WALK_ON_CODES_JEU | CF_WEAPON | CF_HOLOMAP | CF_SHIELD}, // Zippack
 };
 
 char DefSysText[4][20] = {
@@ -1621,11 +1622,17 @@ void LoadFicPerso() {
     // initialisé en mode Normal
 
     for (n = MAX_COMPORTEMENTS - 1; n >= 0; n--, ptrcomp--) {
+        if (n == C_ZIPPACK)
+            continue;
+
         ptrobj->PtrFile3D = LoadFile3D(n);
 
         ptrcomp->PtrFile3d = ptrobj->PtrFile3D;
         ptrcomp->AnimRien = SearchAnim(GEN_ANIM_RIEN, NUM_PERSO);
     }
+
+    ListComportement[C_ZIPPACK].PtrFile3d = ListComportement[C_JETPACK].PtrFile3d;
+    ListComportement[C_ZIPPACK].AnimRien = ListComportement[C_JETPACK].AnimRien;
 
     ptrobj->PtrAnimAction = SearchPtrAnimAction;
 }
@@ -1847,6 +1854,7 @@ void SetComportement(U8 comportement) {
     {
     case C_PROTOPACK:
     case C_JETPACK:
+    case C_ZIPPACK:
         if (IsSamplePlaying(SAMPLE_PROTOPACK)) {
             HQ_StopOneSample(SAMPLE_PROTOPACK);
             ptrobj->SampleAlways = 0;
@@ -1885,6 +1893,7 @@ void SetComportement(U8 comportement) {
 
     case C_PROTOPACK:
     case C_JETPACK:
+    case C_ZIPPACK:
         ptrobj->GenBody = GEN_BODY_TUNIQUE;
         // Toujours la Balle Magique en ProtoPack/JetPack
         Weapon = FLAG_BALLE_MAGIQUE;
@@ -4301,6 +4310,15 @@ void GereObjAnim(U8 numobj) {
         Nyw = APtObj->Obj.Y;
         Nzw = APtObj->Obj.Z;
 
+        // accélérez le zippack !!!!!
+        if (numobj == NUM_PERSO
+                AND Comportement == C_ZIPPACK
+                    AND APtObj->GenAnim == GEN_ANIM_MARCHE) {
+            Nxw = OldX + (Nxw - OldX) * 4;
+            Nyw = OldY + (Nyw - OldY) * 2;
+            Nzw = OldZ + (Nzw - OldZ) * 4;
+        }
+
         APtObj->Obj.X = OldX;
         APtObj->Obj.Y = OldY;
         APtObj->Obj.Z = OldZ;
@@ -4910,10 +4928,16 @@ findoanim:
 
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void ManualRealAngle(T_OBJET *ptrobj) {
+    S32 speed = 1024;
+
+    // accélérez la rotation du zippack !!!!!
+    if (ptrobj == &ListObjet[NUM_PERSO] AND Comportement == C_ZIPPACK)
+        speed *= 2;
+
     if (Input & I_LEFT)
-        ChangeSpeedMove(&ptrobj->BoundAngle.Move, 1024);
+        ChangeSpeedMove(&ptrobj->BoundAngle.Move, speed);
     else if (Input & I_RIGHT)
-        ChangeSpeedMove(&ptrobj->BoundAngle.Move, -1024);
+        ChangeSpeedMove(&ptrobj->BoundAngle.Move, -speed);
     else
         ChangeSpeedMove(&ptrobj->BoundAngle.Move, 0);
 
@@ -5058,6 +5082,9 @@ TRACK_ATTACK
 // Valeur récupérée dans Animit pour l'anim marche du SuperJetPack
 #define HEIGHT_JETPACK 543
 
+// Valeur récupérée dans Animit pour l'anim marche du HyperZipPack
+#define HEIGHT_ZIPPACK (543 * 2)
+
 //▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
 void DoDir(U8 numobj) {
     T_OBJET *ptrobj;
@@ -5185,9 +5212,11 @@ void DoDir(U8 numobj) {
 
             // ATTENTION: laisser le 'case C_JETPACK:' juste avant le 'default:'
             case C_JETPACK:
+            case C_ZIPPACK:
                 //			if( Input&I_UP )
                 {
                     S32 ydec = ShadowYHero;
+                    S32 height = Comportement == C_ZIPPACK ? HEIGHT_ZIPPACK : HEIGHT_JETPACK;
 
                     if (CubeMode == CUBE_EXTERIEUR) {
                         ydec = ReajustPosDecors(ptrobj->Obj.X + ptrobj->XMin,
@@ -5210,20 +5239,20 @@ void DoDir(U8 numobj) {
                                                            AND ptrobj->Obj.LastFrame +
                                                        1 >
                                                    4 - 1) {
-                            if (ydec - ShadowYHero <= HEIGHT_JETPACK
+                            if (ydec - ShadowYHero <= height
                                                           AND !ptrobj->Col) {
                                 // tester point de derrière
-                                if ((ptrobj->Obj.Y - ShadowYHero) > (HEIGHT_JETPACK + SIZE_BRICK_Y / 2)) {
+                                if ((ptrobj->Obj.Y - ShadowYHero) > (height + SIZE_BRICK_Y / 2)) {
                                     InitAnim(GEN_ANIM_ARRIMAGE, ANIM_REPEAT, numobj);
-                                } else if ((ptrobj->Obj.Y - ShadowYHero) > (HEIGHT_JETPACK - SIZE_BRICK_Y / 2)) {
-                                    ptrobj->Obj.Y = ShadowYHero + HEIGHT_JETPACK;
+                                } else if ((ptrobj->Obj.Y - ShadowYHero) > (height - SIZE_BRICK_Y / 2)) {
+                                    ptrobj->Obj.Y = ShadowYHero + height;
                                 }
                             }
                         } else if (ptrobj->GenAnim == GEN_ANIM_ARRIMAGE) {
-                            if ((ptrobj->Obj.Y - ShadowYHero) < (HEIGHT_JETPACK /*-SIZE_BRICK_Y/2*/)
+                            if ((ptrobj->Obj.Y - ShadowYHero) < (height /*-SIZE_BRICK_Y/2*/)
                                                                     OR ptrobj->Col) {
                                 if (!ptrobj->Col)
-                                    ptrobj->Obj.Y = ShadowYHero + HEIGHT_JETPACK;
+                                    ptrobj->Obj.Y = ShadowYHero + height;
                                 InitAnim(GEN_ANIM_MARCHE, ANIM_REPEAT, numobj);
                                 ObjectSetFrame(&(ptrobj->Obj), 3);
                             }
@@ -5264,7 +5293,7 @@ void DoDir(U8 numobj) {
 
             // lance balle magique ou autre arme
 
-            if ((Comportement != C_PROTOPACK AND Comportement != C_JETPACK)
+            if ((Comportement != C_PROTOPACK AND Comportement != C_JETPACK AND Comportement != C_ZIPPACK)
                     OR ptrobj->GenAnim != GEN_ANIM_MARCHE) {
                 if ((Input & I_THROW)
                         AND(PtrComportement->Flags & CF_WEAPON)) {

@@ -873,7 +873,7 @@ restartloop:
                     PauseMusic(FALSE);
                     EscTimer = TimerRefHR;
 
-                    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK) {
+                    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK OR Comportement == C_ZIPPACK) {
                         // pour pouvoir restaurer anim marche protopack
                         if (ptrobj->GenAnim == GEN_ANIM_MARCHE) {
                             TimerProto = EscTimer + TEMPO_PROTO_AUTO; // 1/2 s
@@ -1078,7 +1078,7 @@ restartloop:
             if (Input & I_PAUSE) {
                 SaveTimer();
 
-                if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK) {
+                if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK OR Comportement == C_ZIPPACK) {
                     // pour pouvoir restaurer anim marche protopack
                     if (ptrobj->GenAnim == GEN_ANIM_MARCHE) {
                         TimerProto = TimerRefHR + TEMPO_PROTO_AUTO; // 1/2 s
@@ -1143,7 +1143,9 @@ restartloop:
                 {
                     U8 comp;
 
-                    if (TabInv[FLAG_PROTOPACK].IdObj3D == 1)
+                    if (TabInv[FLAG_PROTOPACK].IdObj3D == 2)
+                        comp = C_ZIPPACK;
+                    else if (TabInv[FLAG_PROTOPACK].IdObj3D == 1)
                         comp = C_JETPACK;
                     else
                         comp = C_PROTOPACK;
@@ -1323,13 +1325,15 @@ restartloop:
                     InitWaitNoInput(I_WEAPON_7);
                 }
 
-                if (CheckKey(DefKeys[33].Key1) // ProtoPack/SuperJetPack
+                if (CheckKey(DefKeys[33].Key1) // ProtoPack/SuperJetPack/HyperZipPack
                     OR CheckKey(DefKeys[33].Key2)) {
                     if (!WaitNoKey33
                             AND ListVarGame[FLAG_PROTOPACK]) {
                         U8 comp;
 
-                        if (TabInv[FLAG_PROTOPACK].IdObj3D == 1)
+                        if (TabInv[FLAG_PROTOPACK].IdObj3D == 2)
+                            comp = C_ZIPPACK;
+                        else if (TabInv[FLAG_PROTOPACK].IdObj3D == 1)
                             comp = C_JETPACK;
                         else
                             comp = C_PROTOPACK;
@@ -1405,6 +1409,7 @@ restartloop:
                 case C_PROTOPACK:
                 case C_CONQUE:
                 case C_JETPACK:
+                case C_ZIPPACK:
                     SaveTimer();
 
                     if (Input & I_NORMAL)

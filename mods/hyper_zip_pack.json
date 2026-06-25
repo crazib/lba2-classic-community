@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "description": "Hyper Zip-Pack!!!!",
+  "operations": [
+    {
+      "type": "replace_hqr_entry",
+      "file": "OBJFIX.HQR",
+      "entry": 55,
+      "source": "hyper_zip_pack.lm2"
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 55,
+      "flag": 1,
+      "text": "Leo Pronto just gave you the hyper-zippack. It will allow you to blast across the islands."
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 155,
+      "flag": 1,
+      "text": "Hyper Zip-Pack"
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 255,
+      "flag": 65,
+      "text": "It was cobbled together by Leo Pronto. It allows now you to blast across the islands in a way that was impracticable with the super-jetpack."
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "sys",
+      "id": 94,
+      "flag": 1,
+      "text": "HyperZipPack"
+    }
+  ]
+}

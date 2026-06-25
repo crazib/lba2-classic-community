@@ -32,7 +32,7 @@ T_MENU_COMP ListMenuComp[MAX_MENUS_COMP] = {
      0, // Previous = NORMAL,SPORTIF,AGRESSIF,DISCRET
      3, // Next     = CONQUE
      1, // 1 seul au debut du jeu
-     {C_PROTOPACK, C_JETPACK, -1, -1}},
+     {C_PROTOPACK, C_JETPACK, C_ZIPPACK, -1}},
 
     {//*********** 2--> Double
      ALWAYS,
@@ -450,7 +450,7 @@ void MenuComportement(S32 affone) {
     bodyhero = ptrobj->Obj.Body.Num;
 
     // stop sample protopack
-    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK) {
+    if (Comportement == C_PROTOPACK OR Comportement == C_JETPACK OR Comportement == C_ZIPPACK) {
 #ifdef LBA_EDITOR
         HQ_StopOneSample(NUM_SAMPLE(COMMON_NUM_DEF, SAMPLE_PROTOPACK));
 #else

@@ -1,4 +1,5 @@
 #include "C_EXTERN.H"
+#include <SYSTEM/LOG.H>
 
 /*══════════════════════════════════════════════════════════════════════════*
 		      ██▀▀▀ █▀▀▀▀ █▀▀▀█  █    █▀▀▀█ ▀▀█▀▀
@@ -10,6 +11,7 @@
 S32 SearchBonusKey();
 
 U8 *SearchPtrAnimAction;
+static S32 LastZipPackFlow = -1;
 
 S16 M_XMin = -32000;
 S16 M_XMax, M_YMin, M_YMax, M_ZMin, M_ZMax;
@@ -765,6 +767,14 @@ void GereAnimAction(T_OBJET *ptrobj, U8 numobj) {
                 z = Z0 + ptrobj->Obj.Z;
 
                 sprite = GET_S8; // Numéro de flow
+                if (numobj == NUM_PERSO AND Comportement == C_ZIPPACK)
+                    sprite = 57;
+                if (numobj == NUM_PERSO
+                        AND Comportement == C_ZIPPACK
+                            AND sprite != LastZipPackFlow) {
+                    //Log_Info("[ZIPPACK] FLOW index: %d", (int)sprite);
+                    LastZipPackFlow = sprite;
+                }
                 CreateParticleFlow(0, numobj, 0,
                                    x, y, z,
                                    ptrobj->Obj.Beta,
