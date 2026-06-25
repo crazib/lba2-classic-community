@@ -3,6 +3,7 @@
   "description": "Swap Joe for Raymond. Big thanks to Battler from the MBN for this one.",
   "operations": [
     {
+      "TODO": "Add Raymond instead of replace Joe",
       "type": "replace_hqr_entry",
       "file": "BODY.HQR",
       "entry": 110,
