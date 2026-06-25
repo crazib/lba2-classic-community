@@ -1,0 +1,41 @@
+{
+  "island": 12,
+  "description": "Initial actor edits exported by the actor editor.",
+  "scenes": [
+    {
+      "scene": 223,
+      "actors": [
+        {
+          "actor": 2,
+          "added": true,
+          "model": 14,
+          "body": 0,
+          "animation": 0,
+          "x": 20480,
+          "y": 750,
+          "z": 8192,
+          "beta": 0,
+          "life": 255,
+          "armour": 0,
+          "move": 0,
+          "flags": 2051
+        },
+        {
+          "actor": 3,
+          "added": true,
+          "model": 108,
+          "body": 0,
+          "animation": 0,
+          "x": 7616,
+          "y": 686,
+          "z": 12096,
+          "beta": 0,
+          "life": 255,
+          "armour": 0,
+          "move": 0,
+          "flags": 2051
+        }
+      ]
+    }
+  ]
+}
