@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "description": "Swap 96 demo Tralü in.",
+  "operations": [
+    {
+      "type": "replace_hqr_entry",
+      "file": "BODY.HQR",
+      "entry": 33,
+      "source": "green_tralu.lm2"
+    }
+  ]
+}
