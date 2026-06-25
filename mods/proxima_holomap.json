@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "operations": [
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "gam",
+      "id": 620,
+      "flag": 17,
+      "text": "Proxima Island."
+    },
+    {
+      "type": "replace_holomap_arrow",
+      "file": "HOLOMAP.HQR",
+      "id": 12,
+      "index": 12,
+      "alpha": 2464,
+      "beta": 2176,
+      "altitude": 1047,
+      "message": 620,
+      "planet": 0,
+      "island": 12
+    },
+    {
+      "type": "add_image",
+      "file": "HOLOMAP.HQR",
+      "id": 46,
+      "source": "proxima_holomap.lim"
+    },
+    {
+      "type": "add_holomap_island_view",
+      "file": "HOLOMAP.HQR",
+      "id": 47,
+      "cube_x": 1,
+      "cube_z": 0,
+      "offset_x": 11357,
+      "offset_z": 24932,
+      "camera_alpha": 442,
+      "camera_beta": 3683,
+      "camera_distance": 83669,
+      "light_alpha": 309,
+      "light_beta": 600
+    }
+  ]
+}
