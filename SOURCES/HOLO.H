@@ -31,7 +31,7 @@
 #define SIZE_ALT_GLOBE 544
 #define DISTANCE_EXT (512 * 10) //	5 Metres
 
-#define MAX_ARROW (10 * 10) //	10 fleches par 10 iles
+#define MAX_ARROW (10 * 12) //	10 fleches par 12 iles
 #define SCE 32768           //	SizeXZ Cube Exterieur
 
 #define MAX_OBJECTIF 50

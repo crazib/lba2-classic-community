@@ -127,6 +127,12 @@ The exterior editor tools use their own saved camera state. `FollowCamera` no lo
 
 Entering the editor keeps the live player-perspective projection. The front, right, and top view shortcuts remember and restore the last editor projection, including across editor sessions. Pressing `R` resets that remembered projection to perspective.
 
+## Free camera
+
+The Select / Move editor tool provides a free camera. Press Shift+Backtick to enter it; the mouse controls the view, `W`/`A`/`S`/`D` move through the scene, and `Q`/`E` move down/up. `F` toggles the exterior fog/draw-distance limit for a wider island view. All other game and editor commands are suppressed while free camera is active.
+
+Press Shift+Backtick again to exit. The editor camera remains where it was placed. Entering and leaving the mode is briefly reported in the bottom-left editor status text. Plain Backtick retains its existing inspector toggle.
+
 ### Future work
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.

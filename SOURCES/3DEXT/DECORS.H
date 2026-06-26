@@ -23,8 +23,9 @@ extern S32 ExtDecorEditorGetSelect(void);
 extern S32 ExtDecorEditorHasSelection(void);
 extern void ExtDecorEditorClearSelection(void);
 extern S32 ExtDecorEditorGetPickPending(void);
-extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq);
+extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq);
 extern S32 ExtDecorEditorConsumesInput(void);
+extern S32 ExtDecorEditorGetPlacementPoint(S32 *x, S32 *y, S32 *z);
 extern void ExtDecorEditorClearRuntimeEdits(void);
 extern void ExtDecorEditorReleaseOwnedDecorList(void);
 extern void ExtDecorEditorLoadAuthoringEditsForCurrentIsland(void);
@@ -44,6 +45,7 @@ extern S32 ExtDecorEditorGetPaletteBody(void);
 extern void ExtDecorEditorPaletteDraw(S32 x0, S32 y0);
 extern S32 ExtDecorEditorSaveRuntimeEdits(const char *island_dir, S32 island);
 extern T_DECORS *ExtDecorEditorGetSelectedObject(void);
+extern S32 ExtDecorEditorLogSelected(void);
 extern S32 ExtDecorEditorSetSelectedField(S32 field, S32 value);
 
 #define EXT_DECOR_FIELD_BODY 0

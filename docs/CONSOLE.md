@@ -59,6 +59,8 @@ These mirror the classic key-sequence cheats; you can type their name directly a
 | **screenshot** | Save the next frame as PNG in the shoot directory without the console visible (uses SavePNG). |
 | **give** &lt;item&gt; [count] | Grant an inventory item by name — run `give` with no args to list item names; a numeric index still works as a fallback. Writes possession, refreshes the inventory, and plays the “found object” cinematic for real inventory slots. `count` applies to countable items (darts, money, gem, penguin, clover). |
 | **setvar** &lt;index&gt; &lt;value&gt; | Set `ListVarGame[index]` to value. Index range is 0–255; value is clamped to `S16`. |
+| **stateinv** &lt;index&gt; &lt;value&gt; | Set `TabInv[index].IdObj3D` to select an inventory item's current 3D-object state. Index range is 0–45 and value range is 0–3. For example, `stateinv 12 1` selects state 1 for the protopack slot, turning it into the super jetpack. This does not grant the item or change `ListVarGame`. |
+| **flow** &lt;index&gt; | Spawn the indexed `RESS.HQR` particle-flow definition above the hero's head. Requires a loaded in-game scene. |
 | **playvideo** &lt;name&gt; | Play ACF video by name. |
 | **listvideos** | List available ACF video names. |
 | **playjingle** &lt;1-26&gt; | Play jingle by number. |

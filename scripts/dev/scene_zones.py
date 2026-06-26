@@ -33,6 +33,106 @@ def read_u32(raw, pos):
     return struct.unpack_from("<I", raw, pos)[0], pos + 4
 
 
+def read_bytes(raw, pos, size):
+    if size < 0 or pos + size > len(raw):
+        raise ValueError("scene actor script runs past the end of the scene")
+    return bytes(raw[pos : pos + size]), pos + size
+
+
+def signed_byte(value):
+    value = int(value)
+    if value < -128 or value > 255:
+        raise ValueError("value %d does not fit in a scene byte" % value)
+    return value - 256 if value > 127 else value
+
+
+def signed_word(value):
+    value = int(value)
+    if value < -32768 or value > 65535:
+        raise ValueError("value %d does not fit in a scene word" % value)
+    return value - 65536 if value > 32767 else value
+
+
+def decode_actor(raw, pos, index):
+    start = pos
+    flags, pos = read_u32(raw, pos)
+    model, pos = read_s16(raw, pos)
+    body, pos = read_s8(raw, pos)
+    animation, pos = read_s16(raw, pos)
+    sprite, pos = read_s16(raw, pos)
+    x, pos = read_s16(raw, pos)
+    y, pos = read_s16(raw, pos)
+    z, pos = read_s16(raw, pos)
+    hit_force, pos = read_s8(raw, pos)
+    option_flags, pos = read_s16(raw, pos)
+    beta, pos = read_s16(raw, pos)
+    srot, pos = read_s16(raw, pos)
+    move, pos = read_s8(raw, pos)
+    info = []
+    for _i in range(4):
+        value, pos = read_s16(raw, pos)
+        info.append(value)
+    bonus, pos = read_s16(raw, pos)
+    color, pos = read_s8(raw, pos)
+    anim_3ds_num = None
+    anim_3ds_fps = None
+    if flags & ANIM_3DS:
+        anim_3ds_num, pos = read_u32(raw, pos)
+        anim_3ds_fps, pos = read_s16(raw, pos)
+    armour, pos = read_s8(raw, pos)
+    life, pos = read_s8(raw, pos)
+    track_size, pos = read_s16(raw, pos)
+    track, pos = read_bytes(raw, pos, track_size)
+    life_size, pos = read_s16(raw, pos)
+    life_script, pos = read_bytes(raw, pos, life_size)
+    return {
+        "index": index,
+        "offset": start,
+        "end": pos,
+        "flags": flags,
+        "model": model,
+        "body": body & 0xFF,
+        "animation": animation & 0xFFFF,
+        "sprite": sprite,
+        "x": x,
+        "y": y,
+        "z": z,
+        "hit_force": hit_force & 0xFF,
+        "option_flags": option_flags,
+        "beta": beta,
+        "srot": srot,
+        "move": move & 0xFF,
+        "info": info,
+        "bonus": bonus,
+        "color": color & 0xFF,
+        "anim_3ds_num": anim_3ds_num,
+        "anim_3ds_fps": anim_3ds_fps,
+        "armour": armour & 0xFF,
+        "life": life & 0xFF,
+        "track": track,
+        "life_script": life_script,
+    }, pos
+
+
+def encode_actor(actor):
+    out = bytearray()
+    out.extend(struct.pack("<Ihbhhhhhbhhhb", actor["flags"], actor["model"],
+                           signed_byte(actor["body"]), signed_word(actor["animation"]), actor["sprite"],
+                           actor["x"], actor["y"], actor["z"],
+                           signed_byte(actor["hit_force"]), actor["option_flags"],
+                           actor["beta"], actor["srot"], signed_byte(actor["move"])))
+    out.extend(struct.pack("<4h", *actor["info"]))
+    out.extend(struct.pack("<hb", actor["bonus"], signed_byte(actor["color"])))
+    if actor["flags"] & ANIM_3DS:
+        out.extend(struct.pack("<Ih", actor["anim_3ds_num"], actor["anim_3ds_fps"]))
+    out.extend(struct.pack("<bb", signed_byte(actor["armour"]), signed_byte(actor["life"])))
+    out.extend(struct.pack("<h", len(actor["track"])))
+    out.extend(actor["track"])
+    out.extend(struct.pack("<h", len(actor["life_script"])))
+    out.extend(actor["life_script"])
+    return bytes(out)
+
+
 def parse_int_list(text, optname):
     out = []
     try:
@@ -128,44 +228,17 @@ def parse_scene(raw, scene_num, entry_num):
     life_size, pos = read_s16(raw, pos)
     pos += life_size
 
+    objects_count_offset = pos
     nb_objects, pos = read_s16(raw, pos)
-    for _obj in range(1, nb_objects):
-        flags, pos = read_u32(raw, pos)
-        _index_file_3d, pos = read_s16(raw, pos)
+    actors_offset = pos
+    actors = []
+    for actor_index in range(1, nb_objects):
+        actor, pos = decode_actor(raw, pos, actor_index)
+        actors.append(actor)
 
-        _gen_body, pos = read_s8(raw, pos)
-        _gen_anim, pos = read_s16(raw, pos)
-        _sprite, pos = read_s16(raw, pos)
-
-        for _i in range(3):
-            _v, pos = read_s16(raw, pos)
-
-        _hit_force, pos = read_s8(raw, pos)
-        _option_flags, pos = read_s16(raw, pos)
-        _beta, pos = read_s16(raw, pos)
-        _srot, pos = read_s16(raw, pos)
-        _move, pos = read_s8(raw, pos)
-
-        for _i in range(4):
-            _v, pos = read_s16(raw, pos)
-
-        _nb_bonus, pos = read_s16(raw, pos)
-        _coul_obj, pos = read_s8(raw, pos)
-
-        if flags & ANIM_3DS:
-            _anim_3ds_num, pos = read_u32(raw, pos)
-            _nb_fps, pos = read_s16(raw, pos)
-
-        _armure, pos = read_s8(raw, pos)
-        _life_point, pos = read_s8(raw, pos)
-
-        track_size, pos = read_s16(raw, pos)
-        pos += track_size
-
-        life_size, pos = read_s16(raw, pos)
-        pos += life_size
-
+    checksum_offset = pos
     checksum, pos = read_u32(raw, pos)
+    zone_count_offset = pos
     nb_zones, pos = read_s16(raw, pos)
     zone_offset = pos
 
@@ -177,6 +250,20 @@ def parse_scene(raw, scene_num, entry_num):
     zones = []
     for index in range(nb_zones):
         zones.append(decode_zone(raw, zone_offset + index * T_ZONE_SIZE, index))
+    zone_end = zone_offset + nb_zones * T_ZONE_SIZE
+    pos = zone_end
+
+    track_count_offset = pos
+    track_count, pos = read_s16(raw, pos)
+    if track_count < 0:
+        raise ValueError("negative waypoint count in scene %d" % scene_num)
+    tracks_offset = pos
+    tracks = []
+    for index in range(track_count):
+        x, y, z = struct.unpack_from("<iii", raw, pos)
+        tracks.append({"index": index, "x": x, "y": y, "z": z})
+        pos += 12
+    tracks_end = pos
 
     return {
         "scene": scene_num,
@@ -192,9 +279,19 @@ def parse_scene(raw, scene_num, entry_num):
         "cube_start_y": cube_start_y,
         "cube_start_z": cube_start_z,
         "objects": nb_objects,
+        "objects_count_offset": objects_count_offset,
+        "actors_offset": actors_offset,
+        "actors_end": checksum_offset,
+        "actors": actors,
         "checksum": checksum,
+        "zone_count_offset": zone_count_offset,
         "zone_offset": zone_offset,
+        "zone_end": zone_end,
         "zones": zones,
+        "track_count_offset": track_count_offset,
+        "tracks_offset": tracks_offset,
+        "tracks_end": tracks_end,
+        "tracks": tracks,
     }
 
 

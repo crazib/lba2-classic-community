@@ -2,8 +2,10 @@
 
 #include "EDITOR_DECOR_BOUNDS.H"
 
+#include "../ACTOR_EDITOR.H"
 #include "../EDITOR_JSON.H"
 #include "../EDITOR.H"
+#include "../WAYPOINT_EDITOR.H"
 #include "LOADISLE.H"
 
 #include <SYSTEM/KEYBOARD.H>
@@ -52,6 +54,11 @@ extern void ZoneEditorBeginPick(void);
 extern void ZoneEditorClearAllSelected(void);
 extern void ZoneEditorSelectOnly(S32 index);
 extern void ZoneEditorToggleSelectedByIndex(S32 index);
+extern S32 ZoneEditorLogSelected(void);
+extern void ActorEditorClearSelection(void);
+extern void ActorEditorResolvePick(S32 index, S32 toggle);
+extern void WaypointEditorClearSelection(void);
+extern void WaypointEditorResolvePick(S32 index, S32 toggle);
 extern S32 ZoneEditorHasAnySelected(void);
 extern S32 Island;
 extern char IslandName[ADELINE_MAX_PATH];
@@ -83,6 +90,7 @@ static S32 ExtDecorEditorLastPalettePrev = FALSE;
 static S32 ExtDecorEditorLastPaletteNext = FALSE;
 static S32 ExtDecorEditorLastPageUp = FALSE;
 static S32 ExtDecorEditorLastPageDown = FALSE;
+static S32 ExtDecorEditorLastLog = FALSE;
 static S32 ExtDecorEditorPaletteLibrary = 0;
 static S32 ExtDecorEditorPaletteBody = 0;
 static S32 ExtDecorEditorPlaceValid = FALSE;
@@ -226,6 +234,8 @@ void ExtDecorEditorSetSelect(S32 select) {
         ZoneOverlaySet(FALSE, FALSE);
         memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
         ZoneEditorClearAllSelected();
+        ActorEditorClearSelection();
+        WaypointEditorClearSelection();
     }
     ExtDecorEditorLastClick = Click;
     ExtDecorEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
@@ -247,40 +257,63 @@ S32 ExtDecorEditorHasSelection(void) {
         if (ExtDecorEditorSelList[i].Used)
             return TRUE;
     }
-    return ZoneEditorHasAnySelected();
+    return ZoneEditorHasAnySelected()
+           OR ActorEditorGetSelectedIndex() >= 0
+           OR WaypointEditorGetSelectedIndex() >= 0;
 }
 
 void ExtDecorEditorClearSelection(void) {
     memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
     ZoneEditorClearAllSelected();
+    ActorEditorClearSelection();
+    WaypointEditorClearSelection();
 }
 
 S32 ExtDecorEditorGetPickPending(void) {
     return ExtDecorEditorPickPending;
 }
 
-void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq) {
+void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq) {
     S32 decor_hit;
     S32 zone_hit;
-    S32 decor_wins;
+    S32 actor_hit;
+    S32 waypoint_hit;
+    S32 winner;
 
     if (!ExtDecorEditorPickPending)
         return;
 
     decor_hit = ExtDecorEditorPickBestNum >= 0;
     zone_hit = zone_index >= 0;
+    actor_hit = actor_index >= 0;
+    waypoint_hit = waypoint_index >= 0;
 
-    if (!decor_hit AND !zone_hit) {
+    if (!decor_hit AND !zone_hit AND !actor_hit AND !waypoint_hit) {
         if (!ExtDecorEditorPickShift)
             ExtDecorEditorClearSelection();
         ExtDecorEditorPickPending = FALSE;
         return;
     }
 
-    decor_wins = decor_hit AND(!zone_hit OR ExtDecorEditorPickBestDist <= zone_dist_sq);
+    winner = 0;
+    if (decor_hit)
+        winner = 1;
+    if (zone_hit AND(!winner OR zone_dist_sq < ExtDecorEditorPickBestDist))
+        winner = 2;
+    if (actor_hit
+            AND(!winner
+                OR(winner == 1 AND actor_dist_sq < ExtDecorEditorPickBestDist)
+                OR(winner == 2 AND actor_dist_sq < zone_dist_sq)))
+        winner = 3;
+    if (waypoint_hit
+            AND(!winner
+                OR(winner == 1 AND waypoint_dist_sq < ExtDecorEditorPickBestDist)
+                OR(winner == 2 AND waypoint_dist_sq < zone_dist_sq)
+                OR(winner == 3 AND waypoint_dist_sq < actor_dist_sq)))
+        winner = 4;
 
     if (ExtDecorEditorPickShift) {
-        if (decor_wins) {
+        if (winner == 1) {
             S32 i;
             S32 found = FALSE;
 
@@ -309,20 +342,30 @@ void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq) {
                     break;
                 }
             }
-        } else {
+        } else if (winner == 2) {
             ZoneEditorToggleSelectedByIndex(zone_index);
+        } else if (winner == 3) {
+            ActorEditorResolvePick(actor_index, TRUE);
+        } else {
+            WaypointEditorResolvePick(waypoint_index, TRUE);
         }
     } else {
         memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
         ZoneEditorClearAllSelected();
-        if (decor_wins) {
+        ActorEditorClearSelection();
+        WaypointEditorClearSelection();
+        if (winner == 1) {
             ExtDecorEditorSelList[0].Used = TRUE;
             ExtDecorEditorSelList[0].CubeX = ExtDecorEditorPickBestCubeX;
             ExtDecorEditorSelList[0].CubeY = ExtDecorEditorPickBestCubeY;
             ExtDecorEditorSelList[0].Num = ExtDecorEditorPickBestNum;
             ExtDecorEditorSelList[0].Body = ExtDecorEditorPickBestBody;
-        } else {
+        } else if (winner == 2) {
             ZoneEditorSelectOnly(zone_index);
+        } else if (winner == 3) {
+            ActorEditorResolvePick(actor_index, FALSE);
+        } else {
+            WaypointEditorResolvePick(waypoint_index, FALSE);
         }
     }
 
@@ -944,6 +987,51 @@ T_DECORS *ExtDecorEditorGetSelectedObject(void) {
     return ExtDecorEditorSelectedObject();
 }
 
+S32 ExtDecorEditorLogSelected(void) {
+    S32 i;
+    S32 count = 0;
+
+    if (!ListDecors OR NbObjDecors <= 0)
+        return 0;
+
+    for (i = 0; i < EXT_DECOR_EDITOR_MAX_SELECTED; i++) {
+        T_EXT_DECOR_EDITOR_SEL *sel = &ExtDecorEditorSelList[i];
+        T_DECORS *obj;
+
+        if (!sel->Used)
+            continue;
+        if (sel->CubeX != ExtDecorEditorLoadedCubeX OR sel->CubeY != ExtDecorEditorLoadedCubeY)
+            continue;
+        if (sel->Num < 0 OR sel->Num >= NbObjDecors)
+            continue;
+
+        obj = &ListDecors[sel->Num];
+        if ((obj->Body & 0xFFFF) != sel->Body)
+            continue;
+
+        Log_Raw("[decor c%d,%d #%d] body=%d body_raw=%d code_jeu=%d beta=%d pos=[%d,%d,%d] zv=[%d,%d,%d,%d,%d,%d]",
+                (int)sel->CubeX,
+                (int)sel->CubeY,
+                (int)sel->Num,
+                (int)(obj->Body & 0xFFFF),
+                (int)obj->Body,
+                (int)obj->CodeJeu,
+                (int)obj->Beta,
+                (int)obj->Xworld,
+                (int)obj->Yworld,
+                (int)obj->Zworld,
+                (int)obj->XMin,
+                (int)obj->YMin,
+                (int)obj->ZMin,
+                (int)obj->XMax,
+                (int)obj->YMax,
+                (int)obj->ZMax);
+        count++;
+    }
+
+    return count;
+}
+
 S32 ExtDecorEditorSetSelectedField(S32 field, S32 value) {
     T_DECORS *obj = ExtDecorEditorSelectedObject();
     T_EXT_DECOR_EDITOR_EDIT *edit;
@@ -1182,6 +1270,8 @@ static void ExtDecorEditorSelectAll(void) {
 
     memset(ExtDecorEditorSelList, 0, sizeof(ExtDecorEditorSelList));
     ZoneEditorClearAllSelected();
+    ActorEditorClearSelection();
+    WaypointEditorClearSelection();
     if (!ListDecors OR NbObjDecors <= 0) {
         Editor_SetStatus("No exterior decor objects in cube");
         return;
@@ -1781,6 +1871,15 @@ static void ExtDecorEditorUpdatePlacementPreview(void) {
     ExtDecorEditorPlaceValid = found;
 }
 
+S32 ExtDecorEditorGetPlacementPoint(S32 *x, S32 *y, S32 *z) {
+    if (!ExtDecorEditorPlaceValid)
+        return FALSE;
+    *x = ExtDecorEditorPlaceX;
+    *y = ExtDecorEditorPlaceY;
+    *z = ExtDecorEditorPlaceZ;
+    return TRUE;
+}
+
 static void ExtDecorEditorDrawPlacementPreview(void) {
     S32 xs;
     S32 ys;
@@ -1864,6 +1963,7 @@ void ExtDecorEditorBeginFrame(void) {
     S32 pal_next;
     S32 page_up;
     S32 page_down;
+    S32 log;
     S32 shift;
     S32 alt;
     S32 camera_pan_keys;
@@ -1884,12 +1984,17 @@ void ExtDecorEditorBeginFrame(void) {
         ExtDecorEditorLastPaletteNext = CheckKey(K_RBRACKET) ? TRUE : FALSE;
         ExtDecorEditorLastPageUp = CheckKey(K_PAGE_UP) ? TRUE : FALSE;
         ExtDecorEditorLastPageDown = CheckKey(K_PAGE_DOWN) ? TRUE : FALSE;
+        ExtDecorEditorLastLog = CheckKey(K_L) ? TRUE : FALSE;
         return;
     }
 
     click = Click;
     ExtDecorEditorPickPending = FALSE;
-    if (Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE)) {
+    if (Editor_WorldPlacementActive()) {
+        ExtDecorEditorUpdatePlacementPreview();
+        if ((click & 1) AND !(ExtDecorEditorLastClick & 1) AND ExtDecorEditorPlaceValid)
+            Editor_PlaceAtWorld(ExtDecorEditorPlaceX, ExtDecorEditorPlaceY, ExtDecorEditorPlaceZ);
+    } else if (Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE)) {
         ExtDecorEditorUpdatePlacementPreview();
         if ((click & 1) AND !(ExtDecorEditorLastClick & 1))
             ExtDecorEditorPlaceAtPreview();
@@ -1919,6 +2024,7 @@ void ExtDecorEditorBeginFrame(void) {
         ExtDecorEditorLastPaletteNext = CheckKey(K_RBRACKET) ? TRUE : FALSE;
         ExtDecorEditorLastPageUp = CheckKey(K_PAGE_UP) ? TRUE : FALSE;
         ExtDecorEditorLastPageDown = CheckKey(K_PAGE_DOWN) ? TRUE : FALSE;
+        ExtDecorEditorLastLog = CheckKey(K_L) ? TRUE : FALSE;
         return;
     }
 
@@ -1970,6 +2076,7 @@ void ExtDecorEditorBeginFrame(void) {
     insert = (CheckKey(K_P) OR CheckKey(K_INSER)) ? TRUE : FALSE;
     pal_prev = CheckKey(K_LBRACKET) ? TRUE : FALSE;
     pal_next = CheckKey(K_RBRACKET) ? TRUE : FALSE;
+    log = CheckKey(K_L) ? TRUE : FALSE;
 
     if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND del AND !ExtDecorEditorLastDelete)
         ExtDecorEditorDeleteSelected();
@@ -1987,6 +2094,15 @@ void ExtDecorEditorBeginFrame(void) {
         ExtDecorEditorRotateAllSelected(-EXT_DECOR_EDITOR_ROTATE_STEP);
     if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND pal_next AND !ExtDecorEditorLastPaletteNext)
         ExtDecorEditorRotateAllSelected(EXT_DECOR_EDITOR_ROTATE_STEP);
+    if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND log AND !ExtDecorEditorLastLog) {
+        S32 zones = ZoneEditorLogSelected();
+        S32 decors = ExtDecorEditorLogSelected();
+
+        if (zones OR decors)
+            Editor_SetStatus("Logged selected zones and decor objects");
+        else
+            Editor_SetStatus("No selected zones or decor objects to log");
+    }
     if (Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE) AND pal_prev AND !ExtDecorEditorLastPalettePrev) {
         if (shift)
             ExtDecorEditorPaletteLibraryNext(-1);
@@ -2006,6 +2122,7 @@ void ExtDecorEditorBeginFrame(void) {
     ExtDecorEditorLastSelectAll = select_all;
     ExtDecorEditorLastPalettePrev = pal_prev;
     ExtDecorEditorLastPaletteNext = pal_next;
+    ExtDecorEditorLastLog = log;
 }
 
 void ExtDecorEditorEndFrame(void) {
@@ -2021,7 +2138,9 @@ void ExtDecorOverlayDraw(void) {
 
     UnsetClip();
 
-    if (Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE)) {
+    if (Editor_WorldPlacementActive()) {
+        ExtDecorEditorUpdatePlacementPreview();
+    } else if (Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE)) {
         ExtDecorEditorUpdatePlacementPreview();
     } else if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)) {
         ExtDecorEditorConsiderCurrentCubePick();

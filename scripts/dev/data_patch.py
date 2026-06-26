@@ -467,6 +467,350 @@ def op_set_scene_zones(op, data_dir, write):
     return True
 
 
+def zone_from_edit(spec, index):
+    bounds = as_bounds(spec["bounds"], "bounds")
+    info = spec.get("info", [0] * 8)
+    if not isinstance(info, list) or len(info) != 8:
+        raise ValueError("zone info must be an eight-item list")
+    return {
+        "index": index,
+        "x0": bounds[0],
+        "y0": bounds[1],
+        "z0": bounds[2],
+        "x1": bounds[3],
+        "y1": bounds[4],
+        "z1": bounds[5],
+        "info0": int(info[0]),
+        "info1": int(info[1]),
+        "info2": int(info[2]),
+        "info3": int(info[3]),
+        "info4": int(info[4]),
+        "info5": int(info[5]),
+        "info6": int(info[6]),
+        "info7": int(info[7]),
+        "type": int(spec.get("type", 0)),
+        "num": int(spec.get("num", 0)),
+    }
+
+
+def op_apply_zone_edits(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    source_path = manifest_path(op.get("_manifest_dir", "."), op["source"])
+    with open(source_path, "r") as f:
+        edits = json.load(f)
+    changed = False
+
+    print("apply_zone_edits %s <- %s:" % (op["file"], op["source"]))
+    for scene_edit in edits.get("scenes", []):
+        scene_num = int(scene_edit["scene"])
+        ents, data, raw, scene = scene_zones.load_scene(path, scene_num)
+        zones = [dict(zone) for zone in scene["zones"]]
+        dirty = False
+        for spec in scene_edit.get("zones", []):
+            index = int(spec["zone"])
+            if bool(spec.get("add", False)):
+                target = zone_from_edit(spec, index)
+                if index < len(zones):
+                    current = zones[index]
+                    if any(current[key] != target[key] for key in target if key != "index"):
+                        raise ValueError("scene %d zone %d already exists and differs" % (scene_num, index))
+                    continue
+                if index != len(zones):
+                    raise ValueError("scene %d added zone %d is not next index %d" % (scene_num, index, len(zones)))
+                zones.append(target)
+                dirty = True
+                continue
+            if index < 0 or index >= len(zones):
+                raise ValueError("scene %d zone %d is out of range" % (scene_num, index))
+            zone = zones[index]
+            if "bounds" in spec:
+                bounds = as_bounds(spec["bounds"], "bounds")
+                for key, value in zip(("x0", "y0", "z0", "x1", "y1", "z1"), bounds):
+                    if zone[key] != value:
+                        zone[key] = value
+                        dirty = True
+            if "type" in spec and zone["type"] != int(spec["type"]):
+                zone["type"] = int(spec["type"])
+                dirty = True
+            if "num" in spec and zone["num"] != int(spec["num"]):
+                zone["num"] = int(spec["num"])
+                dirty = True
+            if "info" in spec:
+                info = spec["info"]
+                for i in range(8):
+                    key = "info%d" % i
+                    if zone[key] != int(info[i]):
+                        zone[key] = int(info[i])
+                        dirty = True
+        if not dirty:
+            continue
+        rebuilt = bytearray(raw[: scene["zone_count_offset"]])
+        rebuilt.extend(struct.pack("<h", len(zones)))
+        for index, zone in enumerate(zones):
+            zone["index"] = index
+            zone["offset"] = len(rebuilt)
+            rebuilt.extend(b"\0" * scene_zones.T_ZONE_SIZE)
+            scene_zones.encode_zone(rebuilt, zone)
+        rebuilt.extend(raw[scene["zone_end"] :])
+        changed = True
+        if write:
+            scene_zones.rewrite_entry_stored(path, ents, data, scene["entry"], bytes(rebuilt))
+    if not changed:
+        print("  already applied")
+    return changed
+
+
+def op_apply_waypoint_edits(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    source_path = manifest_path(op.get("_manifest_dir", "."), op["source"])
+    with open(source_path, "r") as f:
+        edits = json.load(f)
+    changed = False
+
+    print("apply_waypoint_edits %s <- %s:" % (op["file"], op["source"]))
+    for scene_edit in edits.get("scenes", []):
+        scene_num = int(scene_edit["scene"])
+        ents, data, raw, scene = scene_zones.load_scene(path, scene_num)
+        tracks = [dict(track) for track in scene["tracks"]]
+        dirty = False
+        for spec in scene_edit.get("waypoints", []):
+            index = int(spec["waypoint"])
+            position = as_triplet(spec["position"], "position")
+            if bool(spec.get("added", False)):
+                if index < len(tracks):
+                    current = tracks[index]
+                    if [current["x"], current["y"], current["z"]] != position:
+                        raise ValueError("scene %d waypoint %d already exists and differs" % (scene_num, index))
+                    continue
+                if index != len(tracks):
+                    raise ValueError("scene %d added waypoint %d is not next index %d" % (scene_num, index, len(tracks)))
+                tracks.append({"index": index, "x": position[0], "y": position[1], "z": position[2]})
+                dirty = True
+                continue
+            if index < 0 or index >= len(tracks):
+                raise ValueError("scene %d waypoint %d is out of range" % (scene_num, index))
+            current = tracks[index]
+            if [current["x"], current["y"], current["z"]] != position:
+                current["x"], current["y"], current["z"] = position
+                dirty = True
+        if not dirty:
+            continue
+        rebuilt = bytearray(raw[: scene["track_count_offset"]])
+        rebuilt.extend(struct.pack("<h", len(tracks)))
+        for track in tracks:
+            rebuilt.extend(struct.pack("<iii", track["x"], track["y"], track["z"]))
+        rebuilt.extend(raw[scene["tracks_end"] :])
+        changed = True
+        if write:
+            scene_zones.rewrite_entry_stored(path, ents, data, scene["entry"], bytes(rebuilt))
+    if not changed:
+        print("  already applied")
+    return changed
+
+
+ACTOR_EDIT_FIELDS = (
+    "model",
+    "body",
+    "animation",
+    "x",
+    "y",
+    "z",
+    "beta",
+    "life",
+    "armour",
+    "move",
+    "flags",
+)
+ACTOR_INVISIBLE = 1 << 9
+
+
+def actor_from_edit(spec):
+    flags = int(spec["flags"]) & 0xFFFFFFFF
+    if flags & scene_zones.ANIM_3DS:
+        raise ValueError("new actors cannot use ANIM_3DS without 3DS record fields")
+    return {
+        "flags": flags,
+        "model": int(spec["model"]),
+        "body": int(spec["body"]),
+        "animation": int(spec["animation"]),
+        "sprite": -1,
+        "x": int(spec["x"]),
+        "y": int(spec["y"]),
+        "z": int(spec["z"]),
+        "hit_force": 0,
+        "option_flags": 0,
+        "beta": int(spec["beta"]),
+        "srot": 1280,
+        "move": int(spec["move"]),
+        "info": [0, 0, 0, 0],
+        "bonus": 0,
+        "color": 0,
+        "anim_3ds_num": None,
+        "anim_3ds_fps": None,
+        "armour": int(spec["armour"]),
+        "life": int(spec["life"]),
+        "track": b"\0",
+        "life_script": b"\0",
+    }
+
+
+def delete_actor_in_place(actor):
+    actor["body"] = 255
+    actor["animation"] = 0
+    actor["life"] = 0
+    actor["move"] = 0
+    actor["flags"] = (int(actor["flags"]) | ACTOR_INVISIBLE) & 0xFFFFFFFF
+    actor["track"] = b"\0"
+    actor["life_script"] = b"\0"
+
+
+def actor_patch_state(actor):
+    state = dict((field, actor[field]) for field in ACTOR_EDIT_FIELDS)
+    state["track"] = actor["track"]
+    state["life_script"] = actor["life_script"]
+    return state
+
+
+def actor_is_deleted(actor):
+    return (
+        actor["body"] == 255
+        and actor["life"] == 0
+        and actor["move"] == 0
+        and bool(actor["flags"] & ACTOR_INVISIBLE)
+        and actor["track"] == b"\0"
+        and actor["life_script"] == b"\0"
+    )
+
+
+def apply_actor_spec(actor, spec, scene_num, actor_index):
+    dirty = False
+    for field in ACTOR_EDIT_FIELDS:
+        if field not in spec:
+            continue
+        target = int(spec[field])
+        current = actor[field]
+        if field == "flags":
+            target &= 0xFFFFFFFF
+            if (target ^ current) & scene_zones.ANIM_3DS:
+                raise ValueError(
+                    "scene %d actor %d cannot change the ANIM_3DS record-layout flag"
+                    % (scene_num, actor_index)
+                )
+        expect_key = "expect_" + field
+        expected = int(spec[expect_key]) if expect_key in spec else None
+        if field == "flags" and expected is not None:
+            expected &= 0xFFFFFFFF
+        state = check_current_or_expected(
+            "scene %d actor %d %s" % (scene_num, actor_index, field),
+            current,
+            target,
+            expected,
+        )
+        if state != "already":
+            actor[field] = target
+            dirty = True
+    return dirty
+
+
+def op_apply_actor_edits(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    source_path = manifest_path(op.get("_manifest_dir", "."), op["source"])
+    with open(source_path, "r") as f:
+        edits = json.load(f)
+    if not isinstance(edits, dict):
+        raise ValueError("actor edit source must be an object")
+
+    print("apply_actor_edits %s <- %s:" % (op["file"], op["source"]))
+    changed = False
+    for scene_edit in edits.get("scenes", []):
+        scene_num = int(scene_edit["scene"])
+        actor_specs = scene_edit.get("actors", [])
+        if not actor_specs:
+            continue
+        by_index = {}
+        order = []
+        for spec in actor_specs:
+            actor_index = int(spec["actor"])
+            if actor_index not in by_index:
+                order.append(actor_index)
+            by_index[actor_index] = spec
+        actor_specs = [by_index[actor_index] for actor_index in order]
+        ents, data, raw, scene = scene_zones.load_scene(path, scene_num)
+        actors = [dict(actor) for actor in scene["actors"]]
+        dirty = False
+
+        for spec in actor_specs:
+            actor_index = int(spec["actor"])
+            if bool(spec.get("added", False)):
+                expected_index = len(actors) + 1
+                target_actor = actor_from_edit(spec)
+                if bool(spec.get("deleted", False)):
+                    delete_actor_in_place(target_actor)
+                if actor_index < expected_index:
+                    actor = actors[actor_index - 1]
+                    if actor_patch_state(actor) != actor_patch_state(target_actor):
+                        raise ValueError(
+                            "scene %d actor %d already exists but does not match the added actor"
+                            % (scene_num, actor_index)
+                        )
+                    continue
+                if actor_index != expected_index:
+                    raise ValueError(
+                        "scene %d added actor index %d is not the next index %d"
+                        % (scene_num, actor_index, expected_index)
+                    )
+                actor = target_actor
+                actor["index"] = actor_index
+                actors.append(actor)
+                dirty = True
+                print("  scene %d actor %d added" % (scene_num, actor_index))
+                continue
+
+            if actor_index <= 0 or actor_index > len(actors):
+                raise ValueError(
+                    "scene %d actor index %d is out of range [1,%d]"
+                    % (scene_num, actor_index, len(actors))
+                )
+            actor = actors[actor_index - 1]
+            if bool(spec.get("deleted", False)) and actor_is_deleted(actor):
+                continue
+            actor_changed = apply_actor_spec(actor, spec, scene_num, actor_index)
+            if bool(spec.get("deleted", False)):
+                before_delete = actor_patch_state(actor)
+                delete_actor_in_place(actor)
+                actor_changed = actor_changed or actor_patch_state(actor) != before_delete
+            if actor_changed:
+                dirty = True
+                print(
+                    "  scene %d actor %d %s"
+                    % (
+                        scene_num,
+                        actor_index,
+                        "deleted" if bool(spec.get("deleted", False)) else "updated",
+                    )
+                )
+
+        if not dirty:
+            continue
+        rebuilt = bytearray(raw[: scene["objects_count_offset"]])
+        rebuilt.extend(struct.pack("<h", len(actors) + 1))
+        for actor in actors:
+            rebuilt.extend(scene_zones.encode_actor(actor))
+        rebuilt.extend(raw[scene["actors_end"] :])
+        changed = True
+        if write:
+            scene_zones.rewrite_entry_stored(
+                path, ents, data, scene["entry"], bytes(rebuilt)
+            )
+            print("  wrote scene entry %d" % scene["entry"])
+        else:
+            print("  dry run only")
+
+    if not changed:
+        print("  already applied")
+    return changed
+
+
 def patch_scene_header(raw, patch):
     fields = {
         "island": 0,
@@ -861,6 +1205,187 @@ def op_copy_hqr_entry(op, data_dir, write):
     else:
         print("  dry run only")
 
+    return True
+
+
+HOLOMAP_ARROW_FORMAT = "<7i4B"
+HOLOMAP_ARROW_SIZE = struct.calcsize(HOLOMAP_ARROW_FORMAT)
+HOLOMAP_ISLAND_VIEW_FORMAT = "<9i"
+HOLOMAP_ISLAND_VIEW_SIZE = struct.calcsize(HOLOMAP_ISLAND_VIEW_FORMAT)
+
+
+def holomap_arrow_values(op):
+    values = (
+        0,
+        0,
+        0,
+        int(op["alpha"]),
+        int(op["beta"]),
+        int(op["altitude"]),
+        int(op["message"]),
+        0xFF,
+        0,
+        int(op["planet"]),
+        int(op["island"]),
+    )
+    for name, value in zip(
+        ("x", "y", "z", "alpha", "beta", "altitude", "message"),
+        values[:7],
+    ):
+        if value < -0x80000000 or value > 0x7FFFFFFF:
+            raise ValueError("%s must fit in a signed 32-bit integer" % name)
+    for name, value in zip(("objfix", "flag_holo", "planet", "island"), values[7:]):
+        if value < 0 or value > 0xFF:
+            raise ValueError("%s must fit in an unsigned byte" % name)
+    return values
+
+
+def op_replace_holomap_arrow(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    entry_index = int(op["id"])
+    arrow_index = int(op["index"])
+    ents, data = hqr_inspect.entries(path)
+
+    if entry_index < 0 or entry_index >= len(ents):
+        raise ValueError("entry %d is out of range [0,%d)" % (entry_index, len(ents)))
+    entry = ents[entry_index]
+    if entry[2] is None:
+        raise ValueError("holomap arrow entry %d is empty" % entry_index)
+
+    raw = bytearray(
+        hqr_inspect.decompress_entry(data, entry[1], entry[2], entry[3], entry[4])
+    )
+    if len(raw) % HOLOMAP_ARROW_SIZE != 0:
+        raise ValueError(
+            "holomap arrow entry %d has invalid size %d (record size is %d)"
+            % (entry_index, len(raw), HOLOMAP_ARROW_SIZE)
+        )
+
+    arrow_count = len(raw) // HOLOMAP_ARROW_SIZE
+    if arrow_index < 0 or arrow_index >= arrow_count:
+        raise ValueError("arrow index %d is out of range [0,%d)" % (arrow_index, arrow_count))
+
+    target = struct.pack(HOLOMAP_ARROW_FORMAT, *holomap_arrow_values(op))
+    offset = arrow_index * HOLOMAP_ARROW_SIZE
+    current = bytes(raw[offset : offset + HOLOMAP_ARROW_SIZE])
+
+    print(
+        "replace_holomap_arrow %s entry %d arrow %d:"
+        % (op["file"], entry_index, arrow_index)
+    )
+    if current == target:
+        print("  already applied")
+        return False
+
+    raw[offset : offset + HOLOMAP_ARROW_SIZE] = target
+    if write:
+        rewrite_hqr_blobs(
+            path,
+            ents,
+            data,
+            {entry_index: stored_hqr_blob(bytes(raw))},
+        )
+        print("  wrote holomap arrow entry")
+    else:
+        print("  dry run only")
+    return True
+
+
+def op_add_holomap_island_view(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    entry_index = int(op["id"])
+    names = (
+        "cube_x",
+        "cube_z",
+        "offset_x",
+        "offset_z",
+        "camera_alpha",
+        "camera_beta",
+        "camera_distance",
+        "light_alpha",
+        "light_beta",
+    )
+    values = tuple(int(op[name]) for name in names)
+    for name, value in zip(names, values):
+        if value < -0x80000000 or value > 0x7FFFFFFF:
+            raise ValueError("%s must fit in a signed 32-bit integer" % name)
+    target = struct.pack(HOLOMAP_ISLAND_VIEW_FORMAT, *values)
+    ents, data = hqr_inspect.entries(path)
+
+    if entry_index < 0:
+        raise ValueError("entry %d is out of range" % entry_index)
+
+    current = None
+    if entry_index < len(ents) and ents[entry_index][2] is not None:
+        entry = ents[entry_index]
+        current = hqr_inspect.decompress_entry(data, entry[1], entry[2], entry[3], entry[4])
+        if len(current) != HOLOMAP_ISLAND_VIEW_SIZE:
+            raise ValueError(
+                "holomap island view entry %d has size %d, expected %d"
+                % (entry_index, len(current), HOLOMAP_ISLAND_VIEW_SIZE)
+            )
+
+    print("add_holomap_island_view %s entry %d:" % (op["file"], entry_index))
+    if current == target:
+        print("  already applied")
+        return False
+
+    if write:
+        rewrite_hqr_blobs(
+            path,
+            ents,
+            data,
+            {entry_index: stored_hqr_blob(target)},
+            entry_index + 1,
+        )
+        print("  wrote holomap island view entry")
+    else:
+        print("  dry run only")
+    return True
+
+
+def op_add_image(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    source_path = manifest_path(op.get("_manifest_dir", "."), op["source"])
+    entry_index = int(op["id"])
+
+    if entry_index < 0:
+        raise ValueError("entry %d is out of range" % entry_index)
+    with open(source_path, "rb") as f:
+        target = f.read()
+    if not target:
+        raise ValueError("image source %s is empty" % op["source"])
+
+    ents, data = hqr_inspect.entries(path)
+    current = None
+    if entry_index < len(ents) and ents[entry_index][2] is not None:
+        entry = ents[entry_index]
+        current = hqr_inspect.decompress_entry(data, entry[1], entry[2], entry[3], entry[4])
+
+    print(
+        "add_image %s entry %d <- %s (%d bytes):"
+        % (op["file"], entry_index, op["source"], len(target))
+    )
+    if current == target:
+        print("  already applied")
+        return False
+    if current is not None and not bool(op.get("overwrite", False)):
+        raise ValueError(
+            "target entry %d is not empty and differs from image source; "
+            "set overwrite=true to replace it" % entry_index
+        )
+
+    if write:
+        rewrite_hqr_blobs(
+            path,
+            ents,
+            data,
+            {entry_index: stored_hqr_blob(target)},
+            entry_index + 1,
+        )
+        print("  %s image entry" % ("overwrote" if current is not None else "wrote"))
+    else:
+        print("  dry run only")
     return True
 
 
@@ -1443,8 +1968,11 @@ def op_include_manifest(op, data_dir, write):
 
 
 OPERATIONS = {
+    "apply_actor_edits": op_apply_actor_edits,
     "apply_decor_edits": op_apply_decor_edits,
     "apply_terrain_edits": op_apply_terrain_edits,
+    "apply_waypoint_edits": op_apply_waypoint_edits,
+    "apply_zone_edits": op_apply_zone_edits,
     "clone_scene": op_clone_scene,
     "copy_file": op_copy_file,
     "create_blank_island": op_create_blank_island,
@@ -1458,6 +1986,9 @@ OPERATIONS = {
     "add_voice": op_add_voice,
     "replace_voice": op_replace_voice,
     "copy_hqr_entry": op_copy_hqr_entry,
+    "add_image": op_add_image,
+    "add_holomap_island_view": op_add_holomap_island_view,
+    "replace_holomap_arrow": op_replace_holomap_arrow,
     "replace_hqr_entry": op_replace_hqr_entry,
     "add_hqr_entry": op_add_hqr_entry,
     "set_terrain_heights": op_set_terrain_heights,

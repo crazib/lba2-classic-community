@@ -1,5 +1,7 @@
 #include "C_EXTERN.H"
+#include "ACTOR_EDITOR.H"
 #include "DIRECTORIES.H"
+#include "WAYPOINT_EDITOR.H"
 
 #include <SYSTEM/ADELINE.H>
 
@@ -229,6 +231,8 @@ S32 LoadScene(S32 numscene) {
         PtrSce = PtrSce + sizetoload;
     }
 
+    ActorEditorOnSceneLoaded(numscene);
+
     Checksum = GET_U32;
 
     // zone declechement: ZONE
@@ -288,6 +292,7 @@ S32 LoadScene(S32 numscene) {
     NbBrickTrack = GET_S16;
     ListBrickTrack = (T_TRACK *)PtrSce;
     PtrSce += NbBrickTrack * sizeof(T_TRACK);
+    WaypointEditorOnSceneLoaded(numscene);
 
     //--------- PATCHES ----------
     NbPatches = GET_U32;
