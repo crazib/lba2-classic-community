@@ -1,8 +1,10 @@
 #include "C_EXTERN.H"
 
+#include "ACTOR_EDITOR.H"
 #include "DEMO_SEED.H"
 #include "EDITOR_JSON.H"
 #include "EDITOR.H"
+#include "FREECAM.H"
 #include "SAVEGAME.H"
 
 #include <stdio.h>
@@ -172,7 +174,7 @@ static S32 ZoneEditorSelected[ZONE_EDITOR_MAX_SELECTED];
 
 extern S32 ExtDecorEditorGetSelect(void);
 extern S32 ExtDecorEditorGetPickPending(void);
-extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq);
+extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq);
 
 void ZoneOverlaySet(S32 ids, S32 boxes) {
     ZoneOverlayIds = ids ? TRUE : FALSE;
@@ -769,6 +771,45 @@ T_ZONE *ZoneEditorGetSelectedZone(void) {
     return selected;
 }
 
+S32 ZoneEditorLogSelected(void) {
+    S32 i;
+    S32 count = 0;
+
+    if (!ListZone OR NbZones <= 0)
+        return 0;
+
+    for (i = 0; i < NbZones AND i < ZONE_EDITOR_MAX_SELECTED; i++) {
+        T_ZONE *zone;
+
+        if (!ZoneEditorSelected[i])
+            continue;
+
+        zone = &ListZone[i];
+        Log_Raw("[zone s%d #%d] type=%d num=%d bounds=[%d,%d,%d,%d,%d,%d] info=[%d,%d,%d,%d,%d,%d,%d,%d]",
+                (int)NumCube,
+                (int)i,
+                (int)zone->Type,
+                (int)zone->Num,
+                (int)zone->X0,
+                (int)zone->Y0,
+                (int)zone->Z0,
+                (int)zone->X1,
+                (int)zone->Y1,
+                (int)zone->Z1,
+                (int)zone->Info0,
+                (int)zone->Info1,
+                (int)zone->Info2,
+                (int)zone->Info3,
+                (int)zone->Info4,
+                (int)zone->Info5,
+                (int)zone->Info6,
+                (int)zone->Info7);
+        count++;
+    }
+
+    return count;
+}
+
 S32 ZoneEditorCreateZone(const T_ZONE *zone) {
     T_ZONE_EDITOR_EDIT *edit;
     S32 index;
@@ -972,9 +1013,16 @@ static void ZoneEditorConsiderPickPoint(S32 zone_index, S32 xs, S32 ys) {
 }
 
 static void ZoneEditorEndFrame(void) {
+    S32 actor_dist_sq;
+    S32 actor_index;
+    S32 waypoint_dist_sq;
+    S32 waypoint_index;
+
     if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE))
         return;
-    ExtDecorEditorResolveClickPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist);
+    actor_index = ActorEditorFindPick(&actor_dist_sq);
+    waypoint_index = WaypointEditorFindPick(&waypoint_dist_sq);
+    ExtDecorEditorResolveClickPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist, actor_index, actor_dist_sq, waypoint_index, waypoint_dist_sq);
 }
 #endif
 
@@ -2429,6 +2477,9 @@ void ChangeCube() {
                     (int)flagload, (int)NumCube);
             fflush(stdout);
         }
+
+        if (flagload != LOADGAME_ERR_CONTEXT)
+            ActorEditorRestoreAddedActorsAfterSaveLoad();
 
         if (flagload == LOADGAME_ERR_CONTEXT) {
             /* LoadContexte failed mid-stream; ListObjet may be partial — InitLoadedGame would SIGSEGV. */
@@ -6518,6 +6569,8 @@ startaffscene:
     /*------------------------------------------------------------------------*/
     for (n = 0; n < NbObjets; n++, ptrobj++) {
         ptrobj->WorkFlags &= ~WAS_DRAWN;
+        if (FreeCam_HideActors())
+            continue;
 
         if ((ptrobj->Flags & OBJ_BACKGROUND)
                 AND((flagflip == AFF_OBJETS_FLIP)

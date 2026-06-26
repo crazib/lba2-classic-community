@@ -36,18 +36,23 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `V` | Teleport to magic ball | Moves Twinsen to the magic ball's current position |
 | `M` | Show palette | Displays the current color palette |
 | `K` | Spawn bonus | Spawns a bonus item above the player |
-| `A` | Play test video | Plays `bu` (test ACF video) and reinitializes the scene |
+| `A` | Play test video | Plays `bu` outside the editor and reinitializes the scene |
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
 | `.` / `,` | Cycle editor tool | Includes Editor Off; requires LBA2CC_EDITOR |
+| `A` | Toggle actor overlay | Decor / Zone / Actor editor; `Ctrl+A` remains select all |
+| `W` | Toggle waypoint overlay | Shows scene track points in the Decor / Zone / Actor editor |
 | `Esc` | Editor Off | Requires an active LBA2CC_EDITOR tool |
-| `Enter` / numpad `Enter` | Deselect all | Clears decor, terrain, texture, and zone selections |
+| `Enter` / numpad `Enter` | Deselect all | Clears decor, zone, actor, waypoint, terrain, and texture selections |
+| `Shift+Backtick` | Toggle free camera | Select / Move only; WASD moves, Q/E moves vertically, the mouse controls the view, and F toggles fog |
 | `D` | Toggle decor overlay | Requires an active LBA2CC_EDITOR tool |
 | `Z` | Toggle zone overlay | Requires an active LBA2CC_EDITOR tool |
 | `I` | Toggle overlay detail | Switches boxes only vs boxes plus ids |
+| Arrow keys / Page Up / Page Down | Nudge selection | Moves selected decor, zones, actors, or waypoints; `Shift` uses 256-unit steps and `Alt` uses 1-unit steps |
+| `N` | Open New menu | Select / Move only; choose Actor, Waypoint, or Zone with arrows plus Enter, or the `A`, `W`, and `Z` shortcuts |
 | `Ctrl+S` | Save editor authoring JSON | Requires LBA2CC_EDITOR and an active editor UI/tool |
-| `Delete` / `Backspace` | Delete selected exterior decor | Requires LBA2CC_EDITOR Select/Move tool |
+| `Delete` / `Backspace` | Delete selected actor or exterior decor | Actors use an index-preserving tombstone so scene script references do not shift |
 | `P` / `Insert` | Place selected decor body | Requires LBA2CC_EDITOR Select/Move or Decor Place tool |
 | `[` / `]` | Change selected decor body | Requires LBA2CC_EDITOR Decor Place tool |
 | `Ctrl+D` | Duplicate selected exterior decor | Requires LBA2CC_EDITOR Select/Move tool and a deleted decor slot |
@@ -87,7 +92,9 @@ When `DEBUG_TOOLS` and `LBA2CC_EDITOR` are enabled, the console exposes modern c
 | `zones off` | Disable the scene zone overlay. |
 | `zones status` | Show the current zone overlay state. |
 
-Press `.` and `,` to cycle through Editor Off, Select/Move, Decor Place, Terrain Edit, and Texture Select. `Esc` returns directly to Editor Off, and `Enter` deselects all editor selections. Tool changes briefly appear in the bottom-left. `D` toggles the decor overlay, `Z` toggles the zone overlay, and `I` switches overlay detail between boxes only and boxes plus ids. In Select/Move, arrow keys nudge selected decor and related zones by one meter (`512` world units); hold `Shift` to nudge five meters. `PageUp` and `PageDown` move selected decor vertically. In Decor Place, `[` and `]` change the current body id, left/right rotate the preview by 90 degrees, and left-click or `P` places it; placement reuses a deleted slot when available and appends a runtime object otherwise. In Terrain Edit, `T` creates and selects a `512`-thick Change Cube zone from terrain points selected along exactly one cube border; the tool remains Terrain Edit. In Texture Select, `[` and `]` change palette pages when the palette does not fit on one page. `Delete` or `Backspace` deletes selected decor, and `Ctrl+D` duplicates selected decor into a deleted slot. `Ctrl+S` writes runtime editor edits to the current island's mod authoring folder.
+Press `.` and `,` to cycle through Editor Off, Select/Move, Decor Place, Terrain Edit, and Texture Select. `Esc` returns directly to Editor Off, and `Enter` deselects all editor selections. Tool changes briefly appear in the bottom-left. `D` toggles the decor overlay, `Z` toggles the zone overlay, and `I` switches overlay detail between boxes only and boxes plus ids. In Select/Move, Shift+Backtick toggles free camera; while active, all other editor commands are disabled until Shift+Backtick is pressed again. Arrow keys nudge selected decor and related zones by one meter (`512` world units); hold `Shift` to nudge five meters. `PageUp` and `PageDown` move selected decor vertically. `N` opens the centered New menu and temporarily consumes all other editor input. Choose Actor, Waypoint, or Zone with Up/Down plus Enter, or press `A`, `W`, or `Z`; Escape cancels. Each choice enters world-crosshair placement and selects the created item. New Actor uses the selected non-sprite actor as the visual template or the first available non-hero actor as a fallback. New Zone creates a `512×512×512` scenario zone ready for inspector editing. The actor inspector displays and edits scene-start values rather than streaming simulation state. It exposes both the raw flags value and named On/Off rows; the record-layout flags `3D sprite` and `3DS animation` are read-only. Only explicitly changed fields and newly added actors are written to `actor_edits.json`; selecting an actor never records its live position. Waypoint changes are written to `waypoint_edits.json`, while zones continue to use `zone_edits.json`. `Delete` or `Backspace` deletes the selected actor using an invisible, inert tombstone that preserves its scene index, or deletes selected exterior decor when no actor is selected. In Decor Place, `[` and `]` change the current body id, left/right rotate the preview by 90 degrees, and left-click or `P` places it; placement reuses a deleted slot when available and appends a runtime object otherwise. In Terrain Edit, `T` creates and selects a `512`-thick Change Cube zone from terrain points selected along exactly one cube border; the tool remains Terrain Edit. In Texture Select, `[` and `]` change palette pages when the palette does not fit on one page. `Ctrl+D` duplicates selected decor into a deleted slot. `Ctrl+S` writes runtime editor edits to the current island's mod authoring folder.
+
+Apply exported scene-authoring files with `apply_actor_edits`, `apply_waypoint_edits`, and `apply_zone_edits` operations targeting `SCENE.HQR`. Existing actor scripts are preserved unless the actor is deleted; newly added actors receive inert `END` track and life scripts. Deleted actors remain as invisible, inert records so later actor indexes do not change.
 
 ## File locations
 

@@ -2,12 +2,16 @@
 
 #ifdef LBA2CC_EDITOR
 
+#include "ACTOR_EDITOR.H"
 #include "EDITOR_JSON.H"
+#include "WAYPOINT_EDITOR.H"
 #include "C_EXTERN.H"
 #include "DIRECTORIES.H"
 #include "DISKFUNC.H"
+#include "FREECAM.H"
 #include "HQR_NAMES.H"
 #include "MESSAGE.H"
+#include "OBJECT.H"
 #include "3DEXT/DECORS.H"
 #include "3DEXT/EDITOR_TERRAIN_PATTERNS.H"
 #include "3DEXT/LOADISLE.H"
@@ -39,10 +43,14 @@ extern void ZoneEditorClearAllSelected(void);
 
 static S32 EditorVisible = FALSE;
 static S32 EditorLastSave = FALSE;
+static S32 EditorLastNew = FALSE;
+static S32 EditorLastDeleteActor = FALSE;
 static S32 EditorLastNextTool = FALSE;
 static S32 EditorLastPrevTool = FALSE;
 static S32 EditorLastDecorOverlay = FALSE;
 static S32 EditorLastZoneOverlay = FALSE;
+static S32 EditorLastActorOverlay = FALSE;
+static S32 EditorLastWaypointOverlay = FALSE;
 static S32 EditorLastOverlayDetail = FALSE;
 static S32 EditorLastCubeBoundaryOverlay = FALSE;
 static S32 EditorLastEscape = FALSE;
@@ -70,9 +78,31 @@ static S32 EditorInspectorLastBackspace = FALSE;
 static S32 EditorInspectorEscapeConsumedUntilRelease = FALSE;
 static char EditorInspectorAsciiText[16] = "";
 static EditorTool EditorActiveTool = EDITOR_TOOL_SELECT_MOVE;
-static S32 EditorOverlayFlags = EDITOR_OVERLAY_DECOR | EDITOR_OVERLAY_ZONES;
+static S32 EditorOverlayFlags = EDITOR_OVERLAY_DECOR | EDITOR_OVERLAY_ZONES | EDITOR_OVERLAY_ACTORS | EDITOR_OVERLAY_WAYPOINTS;
 static S32 EditorOverlayDetailIds = FALSE;
 static S32 EditorCubeBoundaryOverlay = FALSE;
+static S32 EditorNewMenuActive = FALSE;
+static S32 EditorNewMenuRow = 0;
+static S32 EditorNewMenuLastUp = FALSE;
+static S32 EditorNewMenuLastDown = FALSE;
+static S32 EditorNewMenuLastEnter = FALSE;
+static S32 EditorNewMenuLastEscape = FALSE;
+static S32 EditorNewMenuLastActor = FALSE;
+static S32 EditorNewMenuLastWaypoint = FALSE;
+static S32 EditorNewMenuLastZone = FALSE;
+static S32 EditorNewPlacement = 0;
+static S32 ActorEditorLastUp = FALSE;
+static S32 ActorEditorLastDown = FALSE;
+static S32 ActorEditorLastLeft = FALSE;
+static S32 ActorEditorLastRight = FALSE;
+static S32 ActorEditorLastPageUp = FALSE;
+static S32 ActorEditorLastPageDown = FALSE;
+static S32 WaypointEditorLastUp = FALSE;
+static S32 WaypointEditorLastDown = FALSE;
+static S32 WaypointEditorLastLeft = FALSE;
+static S32 WaypointEditorLastRight = FALSE;
+static S32 WaypointEditorLastPageUp = FALSE;
+static S32 WaypointEditorLastPageDown = FALSE;
 static U32 EditorStatusTimerEnd = 0;
 static char EditorStatus[220] = "";
 
@@ -155,6 +185,21 @@ static const char *EditorInspectorDecorFieldNames[EXT_DECOR_FIELD_COUNT] = {
     "Body", "Rotation", "X", "Y", "Z"
 };
 
+static const char *EditorInspectorActorFieldNames[] = {
+    "Index", "Model", "Body", "Animation", "X", "Y", "Z", "Beta",
+    "Life", "Armour", "Move", "Raw flags",
+    "Object collision", "Brick collision", "Zone checks", "Sprite clipping",
+    "Pushable", "Low collision", "Game-code checks", "Floor-only collision",
+    "Unused flag 8", "Invisible", "3D sprite", "Fallable", "No shadow",
+    "Background object", "Carrier", "Minimum ZV", "Invalid position",
+    "No hit reaction", "3DS animation", "No pre-clip",
+    "Exterior Z-buffer", "In-water Z-buffer"
+};
+
+static const char *EditorInspectorWaypointFieldNames[] = {
+    "Index", "X", "Y", "Z"
+};
+
 static const char *EditorInspectorZoneFieldNames[8] = {
     "Type", "Num", "X0", "Y0", "Z0", "X1", "Y1", "Z1"
 };
@@ -165,8 +210,8 @@ static const char *EditorInspectorMessageZoneFieldNames[ZONE_EDITOR_FIELD_COUNT 
 };
 
 static const char *EditorInspectorZoneTypeNames[10] = {
-    "Change cube", "Camera", "Scenario", "GRM", "Giver",
-    "Message", "Ladder", "Escalator", "Hit", "Rail"
+    "Teleport", "Camera", "Sceneric", "Fragment", "Bonus",
+    "Text", "Ladder", "Conveyor", "Spike", "Rail"
 };
 
 static const char *EditorInspectorMessageDirectionNames[4] = {
@@ -201,6 +246,13 @@ typedef struct {
 #define EDITOR_INSPECTOR_TERRAIN_REGION 4
 #define EDITOR_INSPECTOR_TERRAIN 5
 #define EDITOR_INSPECTOR_SCENE 6
+#define EDITOR_INSPECTOR_ACTOR 7
+#define EDITOR_INSPECTOR_WAYPOINT 8
+#define EDITOR_WAYPOINT_FIELD_INDEX 0
+#define EDITOR_WAYPOINT_FIELD_X 1
+#define EDITOR_WAYPOINT_FIELD_Y 2
+#define EDITOR_WAYPOINT_FIELD_Z 3
+#define EDITOR_WAYPOINT_FIELD_COUNT 4
 #define EDITOR_INSPECTOR_ZONE_TEXT_FIELD 2
 #define EDITOR_INSPECTOR_SCENE_ALPHA_LIGHT 0
 #define EDITOR_INSPECTOR_SCENE_BETA_LIGHT 1
@@ -216,8 +268,25 @@ typedef struct {
 #define EDITOR_ORTHO_SCALE_MIN (1.0f / 512.0f)
 #define EDITOR_ORTHO_SCALE_MAX (1.0f / 4.0f)
 #define EDITOR_CUBE_BOUNDARY_COLOR 7
+#define EDITOR_ACTOR_BOX_COLOR 10
+#define EDITOR_ACTOR_BOX_AXIS_COLOR 14
+#define EDITOR_ACTOR_TEXT_COLOR 10
+#define EDITOR_ACTOR_TEXT_BACK -1
+#define EDITOR_ACTOR_FALLBACK_HALF_WIDTH 128
+#define EDITOR_ACTOR_FALLBACK_HEIGHT 512
+#define EDITOR_ACTOR_PICK_RADIUS 12
+#define EDITOR_ACTOR_NUDGE 64
+#define EDITOR_ACTOR_NUDGE_SHIFT 256
+#define EDITOR_ACTOR_NUDGE_ALT 1
+#define EDITOR_WAYPOINT_COLOR 11
+#define EDITOR_WAYPOINT_AXIS_COLOR 13
+#define EDITOR_WAYPOINT_HALF_SIZE 96
 #define EDITOR_ISLAND_MAP_SIZE 16
 #define EDITOR_RESTORE_SAVED_CAMERA FALSE
+#define EDITOR_NEW_NONE 0
+#define EDITOR_NEW_ACTOR 1
+#define EDITOR_NEW_WAYPOINT 2
+#define EDITOR_NEW_ZONE 3
 
 static T_EDITOR_SCENE_EDIT EditorSceneEdits[EDITOR_SCENE_MAX_EDITS];
 
@@ -720,6 +789,10 @@ static void Editor_Save(void) {
         return;
     if (!EditorSceneSaveRuntimeEdits(outPath, Island))
         return;
+    if (!ActorEditorSaveRuntimeEdits(outPath, Island))
+        return;
+    if (!WaypointEditorSaveRuntimeEdits(outPath, Island))
+        return;
 
     snprintf(status, sizeof(status), "Saved editor edits: %s", outPath);
     Editor_SetStatus(status);
@@ -765,7 +838,7 @@ static void Editor_SetDefaultOverlaysForTool(void) {
     }
 
     if (EditorActiveTool == EDITOR_TOOL_SELECT_MOVE)
-        EditorOverlayFlags = EDITOR_OVERLAY_DECOR | EDITOR_OVERLAY_ZONES;
+        EditorOverlayFlags = EDITOR_OVERLAY_DECOR | EDITOR_OVERLAY_ZONES | EDITOR_OVERLAY_ACTORS | EDITOR_OVERLAY_WAYPOINTS;
     else if (EditorActiveTool == EDITOR_TOOL_DECOR_PLACE)
         EditorOverlayFlags = EDITOR_OVERLAY_DECOR;
     else
@@ -888,6 +961,10 @@ static void Editor_ToggleOverlay(S32 overlay) {
         Editor_SetStatus((EditorOverlayFlags & EDITOR_OVERLAY_DECOR) ? "Decor overlay enabled" : "Decor overlay disabled");
     else if (overlay == EDITOR_OVERLAY_ZONES)
         Editor_SetStatus((EditorOverlayFlags & EDITOR_OVERLAY_ZONES) ? "Zone overlay enabled" : "Zone overlay disabled");
+    else if (overlay == EDITOR_OVERLAY_ACTORS)
+        Editor_SetStatus((EditorOverlayFlags & EDITOR_OVERLAY_ACTORS) ? "Actor overlay enabled" : "Actor overlay disabled");
+    else if (overlay == EDITOR_OVERLAY_WAYPOINTS)
+        Editor_SetStatus((EditorOverlayFlags & EDITOR_OVERLAY_WAYPOINTS) ? "Waypoint overlay enabled" : "Waypoint overlay disabled");
     FirstTime = AFF_ALL_FLIP;
 }
 
@@ -907,6 +984,99 @@ static void Editor_ClearAllSelection(void) {
     FirstTime = AFF_ALL_FLIP;
 }
 
+static void Editor_ConsumeCurrentFrameInput(void);
+
+static void EditorBeginNewPlacement(S32 type) {
+    EditorNewMenuActive = FALSE;
+    EditorNewPlacement = type;
+    ExtDecorEditorClearSelection();
+    if (type == EDITOR_NEW_ACTOR) {
+        ActorEditorBeginPlace();
+        if (!ActorEditorIsPlacing())
+            EditorNewPlacement = EDITOR_NEW_NONE;
+    } else if (type == EDITOR_NEW_WAYPOINT) {
+        Editor_SetStatus("New Waypoint: click a world position");
+    } else if (type == EDITOR_NEW_ZONE) {
+        Editor_SetStatus("New Zone: click a world position");
+    }
+    FirstTime = AFF_ALL_FLIP;
+}
+
+static S32 EditorUpdateNewMenuInput(void) {
+    S32 up = CheckKey(K_UP) ? TRUE : FALSE;
+    S32 down = CheckKey(K_DOWN) ? TRUE : FALSE;
+    S32 enter = (CheckKey(K_ENTER) OR CheckKey(K_NUMPAD_ENTER)) ? TRUE : FALSE;
+    S32 escape = CheckKey(K_ESC) ? TRUE : FALSE;
+    S32 actor = CheckKey(K_A) ? TRUE : FALSE;
+    S32 waypoint = CheckKey(K_W) ? TRUE : FALSE;
+    S32 zone = CheckKey(K_Z) ? TRUE : FALSE;
+    S32 choice = EDITOR_NEW_NONE;
+
+    if (up AND !EditorNewMenuLastUp)
+        EditorNewMenuRow = (EditorNewMenuRow + 2) % 3;
+    if (down AND !EditorNewMenuLastDown)
+        EditorNewMenuRow = (EditorNewMenuRow + 1) % 3;
+    if (actor AND !EditorNewMenuLastActor)
+        choice = EDITOR_NEW_ACTOR;
+    else if (waypoint AND !EditorNewMenuLastWaypoint)
+        choice = EDITOR_NEW_WAYPOINT;
+    else if (zone AND !EditorNewMenuLastZone)
+        choice = EDITOR_NEW_ZONE;
+    else if (enter AND !EditorNewMenuLastEnter)
+        choice = EditorNewMenuRow + 1;
+    if (escape AND !EditorNewMenuLastEscape) {
+        EditorNewMenuActive = FALSE;
+        EditorSuppressEscapeUntilRelease = TRUE;
+        EditorLastEscape = TRUE;
+        Editor_SetStatus("New cancelled");
+        FirstTime = AFF_ALL_FLIP;
+    } else if (choice != EDITOR_NEW_NONE) {
+        EditorBeginNewPlacement(choice);
+    }
+
+    EditorNewMenuLastUp = up;
+    EditorNewMenuLastDown = down;
+    EditorNewMenuLastEnter = enter;
+    EditorNewMenuLastEscape = escape;
+    EditorNewMenuLastActor = actor;
+    EditorNewMenuLastWaypoint = waypoint;
+    EditorNewMenuLastZone = zone;
+    EditorLastActorOverlay = actor;
+    EditorLastWaypointOverlay = waypoint;
+    EditorLastZoneOverlay = zone;
+    Editor_ConsumeCurrentFrameInput();
+    return TRUE;
+}
+
+S32 Editor_WorldPlacementActive(void) {
+    return EditorNewPlacement != EDITOR_NEW_NONE;
+}
+
+void Editor_PlaceAtWorld(S32 x, S32 y, S32 z) {
+    if (EditorNewPlacement == EDITOR_NEW_ACTOR) {
+        ActorEditorPlaceAt(x, y, z);
+    } else if (EditorNewPlacement == EDITOR_NEW_WAYPOINT) {
+        if (WaypointEditorCreateAt(x, y, z) >= 0)
+            Editor_SetStatus("New waypoint added and selected");
+    } else if (EditorNewPlacement == EDITOR_NEW_ZONE) {
+        T_ZONE zone;
+        memset(&zone, 0, sizeof(zone));
+        zone.X0 = x - 256;
+        zone.Y0 = y;
+        zone.Z0 = z - 256;
+        zone.X1 = x + 256;
+        zone.Y1 = y + 512;
+        zone.Z1 = z + 256;
+        zone.Type = 2;
+        zone.Num = 0;
+        if (ZoneEditorCreateZone(&zone) >= 0)
+            Editor_SetStatus("New zone added and selected");
+    }
+    if (!ActorEditorIsPlacing())
+        EditorNewPlacement = EDITOR_NEW_NONE;
+    FirstTime = AFF_ALL_FLIP;
+}
+
 static void Editor_ConsumeCurrentFrameInput(void) {
     Key = 0;
     MyKey = 0;
@@ -917,6 +1087,10 @@ static S32 EditorInspectorKind(void) {
     if (Editor_ToolIs(EDITOR_TOOL_TEXTURE_SELECT) AND TerrainTextureEditorGetSelectedHalfPoly())
         return EDITOR_INSPECTOR_TEXTURE;
     if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)) {
+        if (WaypointEditorGetSelectedIndex() >= 0)
+            return EDITOR_INSPECTOR_WAYPOINT;
+        if (ActorEditorGetSelectedIndex() >= 0)
+            return EDITOR_INSPECTOR_ACTOR;
         if (ExtDecorEditorGetSelectedObject())
             return EDITOR_INSPECTOR_DECOR;
         if (ZoneEditorGetSelectedZone())
@@ -953,6 +1127,10 @@ static S32 EditorInspectorFieldCount(S32 kind) {
         return TERRAIN_TEXTURE_FIELD_COUNT;
     if (kind == EDITOR_INSPECTOR_DECOR)
         return EXT_DECOR_FIELD_COUNT;
+    if (kind == EDITOR_INSPECTOR_ACTOR)
+        return ACTOR_EDITOR_FIELD_COUNT;
+    if (kind == EDITOR_INSPECTOR_WAYPOINT)
+        return EDITOR_WAYPOINT_FIELD_COUNT;
     if (kind == EDITOR_INSPECTOR_ZONE)
         return EditorInspectorZoneIsMessage() ? ZONE_EDITOR_FIELD_COUNT + 1 : 8;
     if (kind == EDITOR_INSPECTOR_TERRAIN_REGION)
@@ -969,6 +1147,10 @@ static const char *EditorInspectorFieldName(S32 kind, S32 field) {
         return EditorInspectorTextureFieldNames[field];
     if (kind == EDITOR_INSPECTOR_DECOR)
         return EditorInspectorDecorFieldNames[field];
+    if (kind == EDITOR_INSPECTOR_ACTOR)
+        return EditorInspectorActorFieldNames[field];
+    if (kind == EDITOR_INSPECTOR_WAYPOINT)
+        return EditorInspectorWaypointFieldNames[field];
     if (kind == EDITOR_INSPECTOR_TERRAIN_REGION)
         return EditorInspectorTerrainRegionFieldNames[field];
     if (kind == EDITOR_INSPECTOR_TERRAIN)
@@ -981,6 +1163,14 @@ static const char *EditorInspectorFieldName(S32 kind, S32 field) {
 }
 
 static S32 EditorInspectorFieldIsReadOnly(S32 kind, S32 field) {
+    if (kind == EDITOR_INSPECTOR_ACTOR AND field == ACTOR_EDITOR_FIELD_INDEX)
+        return TRUE;
+    if (kind == EDITOR_INSPECTOR_ACTOR
+            AND(field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 10
+                OR field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 18))
+        return TRUE;
+    if (kind == EDITOR_INSPECTOR_WAYPOINT AND field == EDITOR_WAYPOINT_FIELD_INDEX)
+        return TRUE;
     if (kind == EDITOR_INSPECTOR_ZONE
             AND EditorInspectorZoneIsMessage()
             AND field == EDITOR_INSPECTOR_ZONE_TEXT_FIELD)
@@ -1040,6 +1230,10 @@ static S32 EditorInspectorFieldValue(S32 kind, S32 field) {
         case ZONE_EDITOR_FIELD_Y1: return zone->Y1;
         case ZONE_EDITOR_FIELD_Z1: return zone->Z1;
         }
+    } else if (kind == EDITOR_INSPECTOR_ACTOR) {
+        return ActorEditorGetFieldValue(field);
+    } else if (kind == EDITOR_INSPECTOR_WAYPOINT) {
+        return WaypointEditorGetFieldValue(field);
     } else if (kind == EDITOR_INSPECTOR_TERRAIN_REGION) {
         return TerrainRegionEditorGetFieldValue(field);
     } else if (kind == EDITOR_INSPECTOR_TERRAIN) {
@@ -1065,7 +1259,10 @@ static S32 EditorInspectorFieldMixed(S32 kind, S32 field) {
 
 static S32 EditorInspectorFieldIsEnum(S32 kind, S32 field) {
     field = kind == EDITOR_INSPECTOR_ZONE ? EditorInspectorZoneModelField(field) : field;
-    return (kind == EDITOR_INSPECTOR_TEXTURE AND field == TERRAIN_TEXTURE_FIELD_TEX_FLAG)
+    return (kind == EDITOR_INSPECTOR_ACTOR
+            AND field >= ACTOR_EDITOR_FIELD_FLAG_FIRST
+            AND field <= ACTOR_EDITOR_FIELD_FLAG_LAST)
+           OR(kind == EDITOR_INSPECTOR_TEXTURE AND field == TERRAIN_TEXTURE_FIELD_TEX_FLAG)
            OR(kind == EDITOR_INSPECTOR_TEXTURE AND field == TERRAIN_TEXTURE_FIELD_CODE_JEU)
            OR(kind == EDITOR_INSPECTOR_DECOR AND field == EXT_DECOR_FIELD_ROTATION)
            OR(kind == EDITOR_INSPECTOR_ZONE AND field == ZONE_EDITOR_FIELD_TYPE)
@@ -1117,6 +1314,10 @@ static S32 EditorInspectorFieldMax(S32 kind, S32 field) {
     field = kind == EDITOR_INSPECTOR_ZONE ? EditorInspectorZoneModelField(field) : field;
     if (kind == EDITOR_INSPECTOR_TEXTURE)
         return EditorInspectorTextureFieldMax[field];
+    if (kind == EDITOR_INSPECTOR_ACTOR
+            AND field >= ACTOR_EDITOR_FIELD_FLAG_FIRST
+            AND field <= ACTOR_EDITOR_FIELD_FLAG_LAST)
+        return 1;
     if (kind == EDITOR_INSPECTOR_DECOR AND field == EXT_DECOR_FIELD_ROTATION)
         return 3;
     if (kind == EDITOR_INSPECTOR_ZONE AND field == ZONE_EDITOR_FIELD_TYPE)
@@ -1157,6 +1358,12 @@ static S32 EditorInspectorSetField(S32 kind, S32 field, S32 value) {
         return TerrainTextureEditorSetSelectedField(field, value);
     if (kind == EDITOR_INSPECTOR_DECOR)
         return ExtDecorEditorSetSelectedField(field, value);
+    if (kind == EDITOR_INSPECTOR_ACTOR) {
+        return ActorEditorSetFieldValue(field, value);
+    }
+    if (kind == EDITOR_INSPECTOR_WAYPOINT) {
+        return WaypointEditorSetFieldValue(field, value);
+    }
     if (kind == EDITOR_INSPECTOR_ZONE)
         return ZoneEditorSetSelectedField(EditorInspectorZoneModelField(field), value);
     if (kind == EDITOR_INSPECTOR_TERRAIN_REGION)
@@ -1239,11 +1446,14 @@ static S32 EditorUpdateInspectorInput(void) {
     S32 right;
     S32 enter;
     S32 backspace;
+    S32 delete_key;
     S32 escape;
     S32 kind;
     S32 field_count;
+    S32 shift;
 
-    toggle = CheckKey(K_CARRE) ? TRUE : FALSE;
+    shift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+    toggle = (CheckKey(K_CARRE) AND !shift) ? TRUE : FALSE;
     tab = CheckKey(K_TAB) ? TRUE : FALSE;
     up = CheckKey(K_UP) ? TRUE : FALSE;
     down = CheckKey(K_DOWN) ? TRUE : FALSE;
@@ -1251,6 +1461,7 @@ static S32 EditorUpdateInspectorInput(void) {
     right = CheckKey(K_RIGHT) ? TRUE : FALSE;
     enter = (CheckKey(K_ENTER) OR CheckKey(K_NUMPAD_ENTER)) ? TRUE : FALSE;
     backspace = CheckKey(K_BACKSPACE) ? TRUE : FALSE;
+    delete_key = (backspace OR CheckKey(K_SUPPR)) ? TRUE : FALSE;
     escape = CheckKey(K_ESC) ? TRUE : FALSE;
 
     if (!EditorInspectorSupportsCurrentTool()) {
@@ -1333,7 +1544,12 @@ static S32 EditorUpdateInspectorInput(void) {
                 }
             }
         } else {
-            if (up AND !EditorInspectorLastUp) {
+            if (kind == EDITOR_INSPECTOR_ACTOR
+                    AND delete_key
+                    AND !EditorInspectorLastBackspace) {
+                ActorEditorDeleteSelected();
+                EditorInspectorFocused = FALSE;
+            } else if (up AND !EditorInspectorLastUp) {
                 EditorInspectorRow = EditorInspectorNextEditableField(kind, EditorInspectorRow, -1, field_count);
             }
             if (down AND !EditorInspectorLastDown) {
@@ -1363,9 +1579,126 @@ static S32 EditorUpdateInspectorInput(void) {
     EditorInspectorLastLeft = left;
     EditorInspectorLastRight = right;
     EditorInspectorLastEnter = enter;
-    EditorInspectorLastBackspace = backspace;
+    EditorInspectorLastBackspace = delete_key;
 
     return (EditorInspectorVisible AND EditorInspectorFocused) OR EditorInspectorEscapeConsumedUntilRelease;
+}
+
+static void ActorEditorRememberMovementKeys(void) {
+    ActorEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
+    ActorEditorLastDown = CheckKey(K_DOWN) ? TRUE : FALSE;
+    ActorEditorLastLeft = CheckKey(K_LEFT) ? TRUE : FALSE;
+    ActorEditorLastRight = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    ActorEditorLastPageUp = CheckKey(K_PAGE_UP) ? TRUE : FALSE;
+    ActorEditorLastPageDown = CheckKey(K_PAGE_DOWN) ? TRUE : FALSE;
+}
+
+static void WaypointEditorRememberMovementKeys(void) {
+    WaypointEditorLastUp = CheckKey(K_UP) ? TRUE : FALSE;
+    WaypointEditorLastDown = CheckKey(K_DOWN) ? TRUE : FALSE;
+    WaypointEditorLastLeft = CheckKey(K_LEFT) ? TRUE : FALSE;
+    WaypointEditorLastRight = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    WaypointEditorLastPageUp = CheckKey(K_PAGE_UP) ? TRUE : FALSE;
+    WaypointEditorLastPageDown = CheckKey(K_PAGE_DOWN) ? TRUE : FALSE;
+}
+
+static void ActorEditorUpdateMovement(void) {
+    S32 up;
+    S32 down;
+    S32 left;
+    S32 right;
+    S32 page_up;
+    S32 page_down;
+    S32 step;
+    S32 shift;
+    S32 alt;
+
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR ActorEditorGetSelectedIndex() < 0
+            OR Editor_IsCameraPanActive()) {
+        ActorEditorRememberMovementKeys();
+        return;
+    }
+
+    up = CheckKey(K_UP) ? TRUE : FALSE;
+    down = CheckKey(K_DOWN) ? TRUE : FALSE;
+    left = CheckKey(K_LEFT) ? TRUE : FALSE;
+    right = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    page_up = CheckKey(K_PAGE_UP) ? TRUE : FALSE;
+    page_down = CheckKey(K_PAGE_DOWN) ? TRUE : FALSE;
+    shift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+    alt = (CheckKey(K_ALT) OR CheckKey(K_ALT_LEFT) OR CheckKey(K_ALT_RIGHT)) ? TRUE : FALSE;
+    step = alt ? EDITOR_ACTOR_NUDGE_ALT : (shift ? EDITOR_ACTOR_NUDGE_SHIFT : EDITOR_ACTOR_NUDGE);
+
+    if (up AND !ActorEditorLastUp)
+        ActorEditorNudgeSelected(0, 0, -step);
+    if (down AND !ActorEditorLastDown)
+        ActorEditorNudgeSelected(0, 0, step);
+    if (left AND !ActorEditorLastLeft)
+        ActorEditorNudgeSelected(-step, 0, 0);
+    if (right AND !ActorEditorLastRight)
+        ActorEditorNudgeSelected(step, 0, 0);
+    if (page_up AND !ActorEditorLastPageUp)
+        ActorEditorNudgeSelected(0, step, 0);
+    if (page_down AND !ActorEditorLastPageDown)
+        ActorEditorNudgeSelected(0, -step, 0);
+
+    ActorEditorLastUp = up;
+    ActorEditorLastDown = down;
+    ActorEditorLastLeft = left;
+    ActorEditorLastRight = right;
+    ActorEditorLastPageUp = page_up;
+    ActorEditorLastPageDown = page_down;
+}
+
+static void WaypointEditorUpdateMovement(void) {
+    S32 up;
+    S32 down;
+    S32 left;
+    S32 right;
+    S32 page_up;
+    S32 page_down;
+    S32 step;
+    S32 shift;
+    S32 alt;
+
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR !ListBrickTrack
+            OR WaypointEditorGetSelectedIndex() < 0
+            OR Editor_IsCameraPanActive()) {
+        WaypointEditorRememberMovementKeys();
+        return;
+    }
+
+    up = CheckKey(K_UP) ? TRUE : FALSE;
+    down = CheckKey(K_DOWN) ? TRUE : FALSE;
+    left = CheckKey(K_LEFT) ? TRUE : FALSE;
+    right = CheckKey(K_RIGHT) ? TRUE : FALSE;
+    page_up = CheckKey(K_PAGE_UP) ? TRUE : FALSE;
+    page_down = CheckKey(K_PAGE_DOWN) ? TRUE : FALSE;
+    shift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+    alt = (CheckKey(K_ALT) OR CheckKey(K_ALT_LEFT) OR CheckKey(K_ALT_RIGHT)) ? TRUE : FALSE;
+    step = alt ? EDITOR_ACTOR_NUDGE_ALT : (shift ? EDITOR_ACTOR_NUDGE_SHIFT : EDITOR_ACTOR_NUDGE);
+
+    if (up AND !WaypointEditorLastUp)
+        WaypointEditorNudgeSelected(0, 0, -step);
+    if (down AND !WaypointEditorLastDown)
+        WaypointEditorNudgeSelected(0, 0, step);
+    if (left AND !WaypointEditorLastLeft)
+        WaypointEditorNudgeSelected(-step, 0, 0);
+    if (right AND !WaypointEditorLastRight)
+        WaypointEditorNudgeSelected(step, 0, 0);
+    if (page_up AND !WaypointEditorLastPageUp)
+        WaypointEditorNudgeSelected(0, step, 0);
+    if (page_down AND !WaypointEditorLastPageDown)
+        WaypointEditorNudgeSelected(0, -step, 0);
+
+    WaypointEditorLastUp = up;
+    WaypointEditorLastDown = down;
+    WaypointEditorLastLeft = left;
+    WaypointEditorLastRight = right;
+    WaypointEditorLastPageUp = page_up;
+    WaypointEditorLastPageDown = page_down;
 }
 
 S32 Editor_IsActive(void) {
@@ -1376,15 +1709,51 @@ S32 Editor_IsActive(void) {
 }
 
 S32 Editor_InspectorConsumesInput(void) {
-    return EditorInspectorVisible AND EditorInspectorFocused;
+    return EditorNewMenuActive
+           OR FreeCam_IsActive()
+           OR(EditorInspectorVisible AND EditorInspectorFocused);
+}
+
+void Editor_UpdateFreeCam(void) {
+    S32 event;
+
+    if (EditorNewMenuActive)
+        return;
+    event = FreeCam_UpdateEditor(Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE));
+    if (event == FREECAM_EVENT_ENTERED)
+        Editor_SetStatus("Free camera enabled");
+    else if (event == FREECAM_EVENT_EXITED)
+        Editor_SetStatus("Free camera disabled");
+    else if (event == FREECAM_EVENT_FOG_DISABLED)
+        Editor_SetStatus("Free camera fog disabled");
+    else if (event == FREECAM_EVENT_FOG_ENABLED)
+        Editor_SetStatus("Free camera fog enabled");
+    else if (event == FREECAM_EVENT_ACTORS_HIDDEN)
+        Editor_SetStatus("Free camera actors hidden");
+    else if (event == FREECAM_EVENT_ACTORS_SHOWN)
+        Editor_SetStatus("Free camera actors shown");
+    // else if (event == FREECAM_EVENT_SCREENSHOT)
+        // Editor_SetStatus("Free camera screenshot saved");
+
+    if (FreeCam_IsActive()) {
+        ShowMouse(false);
+        EditorMouseShown = FALSE;
+    } else if (event == FREECAM_EVENT_EXITED) {
+        ShowMouse(true);
+        EditorMouseShown = TRUE;
+    }
 }
 
 void Editor_UpdateInput(void) {
     S32 save;
+    S32 new_item;
+    S32 delete_actor;
     S32 next_tool;
     S32 prev_tool;
     S32 decor_overlay;
     S32 zone_overlay;
+    S32 actor_overlay;
+    S32 waypoint_overlay;
     S32 overlay_detail;
     S32 cube_boundary_overlay;
     S32 escape;
@@ -1402,8 +1771,44 @@ void Editor_UpdateInput(void) {
     S32 view_top;
     S32 view_ortho;
     S32 view_reset;
+    new_item = CheckKey(K_N) ? TRUE : FALSE;
+    if (EditorNewMenuActive) {
+        EditorUpdateNewMenuInput();
+        EditorLastNew = new_item;
+        return;
+    }
+    if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            AND new_item
+            AND !EditorLastNew
+            AND !(EditorInspectorVisible AND EditorInspectorFocused)
+            AND !Editor_WorldPlacementActive()) {
+        EditorNewMenuActive = TRUE;
+        EditorNewMenuRow = 0;
+        EditorNewMenuLastUp = CheckKey(K_UP) ? TRUE : FALSE;
+        EditorNewMenuLastDown = CheckKey(K_DOWN) ? TRUE : FALSE;
+        EditorNewMenuLastEnter = (CheckKey(K_ENTER) OR CheckKey(K_NUMPAD_ENTER)) ? TRUE : FALSE;
+        EditorNewMenuLastEscape = CheckKey(K_ESC) ? TRUE : FALSE;
+        EditorNewMenuLastActor = CheckKey(K_A) ? TRUE : FALSE;
+        EditorNewMenuLastWaypoint = CheckKey(K_W) ? TRUE : FALSE;
+        EditorNewMenuLastZone = CheckKey(K_Z) ? TRUE : FALSE;
+        Editor_SetStatus("New...");
+        Editor_ConsumeCurrentFrameInput();
+        EditorLastNew = new_item;
+        FirstTime = AFF_ALL_FLIP;
+        return;
+    }
+    EditorLastNew = new_item;
+
+    if (FreeCam_IsActive()) {
+        ActorEditorRememberMovementKeys();
+        WaypointEditorRememberMovementKeys();
+        Editor_ConsumeCurrentFrameInput();
+        return;
+    }
 
     if (EditorUpdateInspectorInput()) {
+        ActorEditorRememberMovementKeys();
+        WaypointEditorRememberMovementKeys();
         Editor_ConsumeCurrentFrameInput();
         return;
     }
@@ -1422,6 +1827,8 @@ void Editor_UpdateInput(void) {
     shift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
     decor_overlay = CheckKey(K_D) ? TRUE : FALSE;
     zone_overlay = CheckKey(K_Z) ? TRUE : FALSE;
+    actor_overlay = CheckKey(K_A) ? TRUE : FALSE;
+    waypoint_overlay = CheckKey(K_W) ? TRUE : FALSE;
     overlay_detail = CheckKey(K_I) ? TRUE : FALSE;
     cube_boundary_overlay = CheckKey(K_C) ? TRUE : FALSE;
 
@@ -1429,6 +1836,14 @@ void Editor_UpdateInput(void) {
         Editor_ToggleOverlay(EDITOR_OVERLAY_DECOR);
     if (EditorVisible AND zone_overlay AND !EditorLastZoneOverlay)
         Editor_ToggleOverlay(EDITOR_OVERLAY_ZONES);
+    if (EditorVisible AND !ctrl AND actor_overlay AND !EditorLastActorOverlay)
+        Editor_ToggleOverlay(EDITOR_OVERLAY_ACTORS);
+    if (EditorVisible AND actor_overlay)
+        Editor_ConsumeCurrentFrameInput();
+    if (EditorVisible AND waypoint_overlay AND !EditorLastWaypointOverlay)
+        Editor_ToggleOverlay(EDITOR_OVERLAY_WAYPOINTS);
+    if (EditorVisible AND waypoint_overlay)
+        Editor_ConsumeCurrentFrameInput();
     if (EditorVisible AND overlay_detail AND !EditorLastOverlayDetail)
         Editor_ToggleOverlayDetail();
     if (EditorVisible AND !ctrl AND cube_boundary_overlay AND !EditorLastCubeBoundaryOverlay) {
@@ -1438,13 +1853,25 @@ void Editor_UpdateInput(void) {
     }
     EditorLastDecorOverlay = decor_overlay;
     EditorLastZoneOverlay = zone_overlay;
+    EditorLastActorOverlay = actor_overlay;
+    EditorLastWaypointOverlay = waypoint_overlay;
     EditorLastOverlayDetail = overlay_detail;
     EditorLastCubeBoundaryOverlay = cube_boundary_overlay;
 
     escape = CheckKey(K_ESC) ? TRUE : FALSE;
-    if (Editor_IsActive() AND escape AND !EditorLastEscape) {
-        Editor_SetOff();
+    if (Editor_WorldPlacementActive() AND escape AND !EditorLastEscape) {
+        ActorEditorCancelPlace();
+        EditorNewPlacement = EDITOR_NEW_NONE;
+        Editor_SetStatus("New placement cancelled");
         EditorSuppressEscapeUntilRelease = TRUE;
+        Editor_ConsumeCurrentFrameInput();
+        FirstTime = AFF_ALL_FLIP;
+    }
+    if (Editor_IsActive() AND escape AND !EditorLastEscape) {
+        if (!EditorSuppressEscapeUntilRelease) {
+            Editor_SetOff();
+            EditorSuppressEscapeUntilRelease = TRUE;
+        }
     }
     if (escape AND EditorSuppressEscapeUntilRelease)
         Editor_ConsumeCurrentFrameInput();
@@ -1467,6 +1894,14 @@ void Editor_UpdateInput(void) {
     if (save AND !EditorLastSave AND Editor_IsActive())
         Editor_Save();
     EditorLastSave = save;
+
+    delete_actor = (CheckKey(K_SUPPR) OR CheckKey(K_BACKSPACE)) ? TRUE : FALSE;
+    if (delete_actor
+            AND !EditorLastDeleteActor
+            AND Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            AND ActorEditorGetSelectedIndex() >= 0)
+        ActorEditorDeleteSelected();
+    EditorLastDeleteActor = delete_actor;
 
     view_front = (CheckKey(K_1) OR CheckKey(K_NUMPAD_1)) ? TRUE : FALSE;
     view_right = (CheckKey(K_3) OR CheckKey(K_NUMPAD_3)) ? TRUE : FALSE;
@@ -1609,6 +2044,9 @@ void Editor_UpdateInput(void) {
         Editor_ConsumeCurrentFrameInput();
     }
 
+    ActorEditorUpdateMovement();
+    WaypointEditorUpdateMovement();
+
     if (Editor_IsActive()) {
         ShowMouse(true);
         EditorMouseShown = TRUE;
@@ -1660,6 +2098,22 @@ static void EditorDrawCubeBoundarySegment(S32 x0, S32 z0, S32 x1, S32 z1) {
     Line(screen_x0, screen_y0, screen_x1, screen_y1, EDITOR_CUBE_BOUNDARY_COLOR);
 }
 
+static void EditorDrawCubeBoundaryLabel(S32 cube_x, S32 cube_y, S32 x, S32 z) {
+    S32 screen_x;
+    S32 screen_y;
+
+    LongWorldRotatePoint(x, 0, z);
+    if (!LongProjectPoint(X0, Y0, Z0))
+        return;
+    screen_x = Xp;
+    screen_y = Yp;
+    if (screen_x < 0 OR screen_x >= (S32)ModeDesiredX
+            OR screen_y < 0 OR screen_y >= (S32)ModeDesiredY)
+        return;
+    CoulText(EDITOR_CUBE_BOUNDARY_COLOR, -1);
+    GraphPrintf(FALSE, screen_x, screen_y, "c%d,%d", (int)cube_x, (int)cube_y);
+}
+
 static void EditorDrawCubeBoundaries(void) {
     S32 cube_x;
     S32 cube_y;
@@ -1690,7 +2144,248 @@ static void EditorDrawCubeBoundaries(void) {
                 EditorDrawCubeBoundarySegment(x0, z1, x1, z1);
             if (!EditorIslandHasCube(cube_x + 1, cube_y))
                 EditorDrawCubeBoundarySegment(x1, z0, x1, z1);
+            if (EditorOverlayDetailIds)
+                EditorDrawCubeBoundaryLabel(cube_x, cube_y, x0 + cube_size / 2, z0 + cube_size / 2);
         }
+    }
+}
+
+static S32 EditorProjectPoint(S32 x, S32 y, S32 z, S32 *screen_x, S32 *screen_y) {
+    LongWorldRotatePoint(x, y, z);
+    if (!LongProjectPoint(X0, Y0, Z0))
+        return FALSE;
+    *screen_x = Xp;
+    *screen_y = Yp;
+    return TRUE;
+}
+
+static void EditorDrawActorBox(T_OBJET *actor, S32 selected) {
+    S32 x0 = actor->Obj.X + actor->XMin;
+    S32 x1 = actor->Obj.X + actor->XMax;
+    S32 y0 = actor->Obj.Y + actor->YMin;
+    S32 y1 = actor->Obj.Y + actor->YMax;
+    S32 z0 = actor->Obj.Z + actor->ZMin;
+    S32 z1 = actor->Obj.Z + actor->ZMax;
+    S32 sx[8];
+    S32 sy[8];
+
+    if (x0 == x1 AND y0 == y1 AND z0 == z1) {
+        x0 = actor->Obj.X - EDITOR_ACTOR_FALLBACK_HALF_WIDTH;
+        x1 = actor->Obj.X + EDITOR_ACTOR_FALLBACK_HALF_WIDTH;
+        y0 = actor->Obj.Y;
+        y1 = actor->Obj.Y + EDITOR_ACTOR_FALLBACK_HEIGHT;
+        z0 = actor->Obj.Z - EDITOR_ACTOR_FALLBACK_HALF_WIDTH;
+        z1 = actor->Obj.Z + EDITOR_ACTOR_FALLBACK_HALF_WIDTH;
+    }
+
+    if (!EditorProjectPoint(x0, y0, z0, &sx[0], &sy[0])
+            OR !EditorProjectPoint(x1, y0, z0, &sx[1], &sy[1])
+            OR !EditorProjectPoint(x1, y0, z1, &sx[2], &sy[2])
+            OR !EditorProjectPoint(x0, y0, z1, &sx[3], &sy[3])
+            OR !EditorProjectPoint(x0, y1, z0, &sx[4], &sy[4])
+            OR !EditorProjectPoint(x1, y1, z0, &sx[5], &sy[5])
+            OR !EditorProjectPoint(x1, y1, z1, &sx[6], &sy[6])
+            OR !EditorProjectPoint(x0, y1, z1, &sx[7], &sy[7]))
+        return;
+
+    Line(sx[0], sy[0], sx[1], sy[1], selected ? 12 : EDITOR_ACTOR_BOX_COLOR);
+    Line(sx[1], sy[1], sx[2], sy[2], selected ? 12 : EDITOR_ACTOR_BOX_COLOR);
+    Line(sx[2], sy[2], sx[3], sy[3], selected ? 12 : EDITOR_ACTOR_BOX_COLOR);
+    Line(sx[3], sy[3], sx[0], sy[0], selected ? 12 : EDITOR_ACTOR_BOX_COLOR);
+    Line(sx[0], sy[0], sx[4], sy[4], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[1], sy[1], sx[5], sy[5], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[2], sy[2], sx[6], sy[6], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[3], sy[3], sx[7], sy[7], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[4], sy[4], sx[5], sy[5], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[5], sy[5], sx[6], sy[6], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[6], sy[6], sx[7], sy[7], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+    Line(sx[7], sy[7], sx[4], sy[4], selected ? 15 : EDITOR_ACTOR_BOX_AXIS_COLOR);
+}
+
+S32 ActorEditorFindPick(S32 *dist_sq) {
+    S32 i;
+    S32 best_index = -1;
+    S32 best_dist = EDITOR_ACTOR_PICK_RADIUS * EDITOR_ACTOR_PICK_RADIUS;
+
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR !Editor_HasOverlay(EDITOR_OVERLAY_ACTORS)
+            OR !ExtDecorEditorGetPickPending()) {
+        *dist_sq = best_dist;
+        return -1;
+    }
+
+    for (i = 1; i < NbObjets; i++) {
+        T_OBJET *actor = &ListObjet[i];
+        S32 screen_x;
+        S32 screen_y;
+        S32 dx;
+        S32 dy;
+        S32 dist;
+
+        if (ActorEditorIsDeleted(i))
+            continue;
+        if (!EditorProjectPoint(actor->Obj.X, actor->Obj.Y + (actor->YMin + actor->YMax) / 2, actor->Obj.Z, &screen_x, &screen_y))
+            continue;
+        dx = screen_x - (S32)MouseX;
+        dy = screen_y - (S32)MouseY;
+        dist = dx * dx + dy * dy;
+        if (dist <= best_dist) {
+            best_dist = dist;
+            best_index = i;
+        }
+    }
+
+    *dist_sq = best_dist;
+    return best_index;
+}
+
+S32 WaypointEditorFindPick(S32 *dist_sq) {
+    S32 i;
+    S32 best_index = -1;
+    S32 best_dist = EDITOR_ACTOR_PICK_RADIUS * EDITOR_ACTOR_PICK_RADIUS;
+
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR !Editor_HasOverlay(EDITOR_OVERLAY_WAYPOINTS)
+            OR !ExtDecorEditorGetPickPending()
+            OR !ListBrickTrack) {
+        *dist_sq = best_dist;
+        return -1;
+    }
+
+    for (i = 0; i < NbBrickTrack; i++) {
+        T_TRACK *waypoint = &ListBrickTrack[i];
+        S32 screen_x;
+        S32 screen_y;
+        S32 dx;
+        S32 dy;
+        S32 dist;
+
+        if (!EditorProjectPoint(waypoint->X, waypoint->Y, waypoint->Z, &screen_x, &screen_y))
+            continue;
+        dx = screen_x - (S32)MouseX;
+        dy = screen_y - (S32)MouseY;
+        dist = dx * dx + dy * dy;
+        if (dist <= best_dist) {
+            best_dist = dist;
+            best_index = i;
+        }
+    }
+
+    *dist_sq = best_dist;
+    return best_index;
+}
+
+static void EditorDrawActors(void) {
+    S32 i;
+
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR !Editor_HasOverlay(EDITOR_OVERLAY_ACTORS)
+            OR NbObjets <= 0)
+        return;
+
+    for (i = 1; i < NbObjets; i++) {
+        T_OBJET *actor = &ListObjet[i];
+        S32 screen_x;
+        S32 screen_y;
+
+        if (ActorEditorIsDeleted(i))
+            continue;
+        EditorDrawActorBox(actor, i == ActorEditorGetSelectedIndex());
+        if (!EditorOverlayDetailIds)
+            continue;
+        if (!EditorProjectPoint(actor->Obj.X, actor->Obj.Y + actor->YMax, actor->Obj.Z, &screen_x, &screen_y))
+            continue;
+        CoulText(i == ActorEditorGetSelectedIndex() ? 12 : EDITOR_ACTOR_TEXT_COLOR, EDITOR_ACTOR_TEXT_BACK);
+        GraphPrintf(FALSE, screen_x, screen_y - 12, "a%d", (int)i);
+    }
+}
+
+static void EditorDrawWaypoints(void) {
+    S32 i;
+
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR !Editor_HasOverlay(EDITOR_OVERLAY_WAYPOINTS)
+            OR !ListBrickTrack
+            OR NbBrickTrack <= 0)
+        return;
+
+    for (i = 0; i < NbBrickTrack; i++) {
+        T_TRACK *waypoint = &ListBrickTrack[i];
+        S32 selected = i == WaypointEditorGetSelectedIndex();
+        S32 center_x;
+        S32 center_y;
+        S32 x0;
+        S32 y0;
+        S32 x1;
+        S32 y1;
+
+        if (!EditorProjectPoint(waypoint->X, waypoint->Y, waypoint->Z, &center_x, &center_y))
+            continue;
+
+        if (EditorProjectPoint(waypoint->X - EDITOR_WAYPOINT_HALF_SIZE, waypoint->Y, waypoint->Z, &x0, &y0)
+                AND EditorProjectPoint(waypoint->X + EDITOR_WAYPOINT_HALF_SIZE, waypoint->Y, waypoint->Z, &x1, &y1))
+            Line(x0, y0, x1, y1, selected ? 12 : EDITOR_WAYPOINT_COLOR);
+        if (EditorProjectPoint(waypoint->X, waypoint->Y - EDITOR_WAYPOINT_HALF_SIZE, waypoint->Z, &x0, &y0)
+                AND EditorProjectPoint(waypoint->X, waypoint->Y + EDITOR_WAYPOINT_HALF_SIZE, waypoint->Z, &x1, &y1))
+            Line(x0, y0, x1, y1, selected ? 15 : EDITOR_WAYPOINT_AXIS_COLOR);
+        if (EditorProjectPoint(waypoint->X, waypoint->Y, waypoint->Z - EDITOR_WAYPOINT_HALF_SIZE, &x0, &y0)
+                AND EditorProjectPoint(waypoint->X, waypoint->Y, waypoint->Z + EDITOR_WAYPOINT_HALF_SIZE, &x1, &y1))
+            Line(x0, y0, x1, y1, selected ? 12 : EDITOR_WAYPOINT_COLOR);
+
+        Rect(center_x - 2, center_y - 2, center_x + 2, center_y + 2, selected ? 15 : EDITOR_WAYPOINT_AXIS_COLOR);
+        if (EditorOverlayDetailIds) {
+            CoulText(selected ? 12 : EDITOR_WAYPOINT_COLOR, -1);
+            GraphPrintf(FALSE, center_x, center_y - 12, "w%d", (int)i);
+        }
+    }
+}
+
+static void EditorDrawWorldPlacement(void) {
+    S32 x;
+    S32 y;
+    S32 z;
+    S32 screen_x;
+    S32 screen_y;
+
+    if (!Editor_WorldPlacementActive()
+            OR !ExtDecorEditorGetPlacementPoint(&x, &y, &z)
+            OR !EditorProjectPoint(x, y, z, &screen_x, &screen_y))
+        return;
+    Line(screen_x - 8, screen_y, screen_x - 2, screen_y, 12);
+    Line(screen_x + 2, screen_y, screen_x + 8, screen_y, 12);
+    Line(screen_x, screen_y - 8, screen_x, screen_y - 2, 12);
+    Line(screen_x, screen_y + 2, screen_x, screen_y + 8, 12);
+    Rect(screen_x - 3, screen_y - 3, screen_x + 3, screen_y + 3, 14);
+}
+
+static void EditorDrawNewMenu(void) {
+    static const char *items[] = {"Actor", "Waypoint", "Zone"};
+    S32 width = 220;
+    S32 height = 94;
+    S32 x0 = ((S32)ModeDesiredX - width) / 2;
+    S32 y0 = ((S32)ModeDesiredY - height) / 2;
+    S32 x1 = x0 + width;
+    S32 y1 = y0 + height;
+    S32 i;
+
+    if (!EditorNewMenuActive)
+        return;
+    BackupAngles(x0, y0, x1, y1);
+    ShadeBoxBlk(x0, y0, x1, y1, MENU_SHADE_LVL);
+    DrawCadre(x0, y0, x1, y1, ALL_ANGLES | CADRE_RED);
+    RestoreAngles(x0, y0, x1, y1);
+    CoulText(LBAWHITE, -1);
+    GraphPrintf(FALSE, x0 + 12, y0 + 10, "New...");
+    for (i = 0; i < 3; i++) {
+        S32 row_y = y0 + 32 + i * 18;
+        if (i == EditorNewMenuRow) {
+            BackupAngles(x0 + 8, row_y - 3, x1 - 8, row_y + 12);
+            DrawFireBar(x0 + 8, row_y - 3, x1 - 8, row_y + 12, FIRE_SELECT_MENU);
+            DrawCadre(x0 + 8, row_y - 3, x1 - 8, row_y + 12, ALL_ANGLES);
+            RestoreAngles(x0 + 8, row_y - 3, x1 - 8, row_y + 12);
+        }
+        CoulText(LBAWHITE, -1);
+        GraphPrintf(FALSE, x0 + 16, row_y, "%s", items[i]);
     }
 }
 
@@ -1699,6 +2394,9 @@ void Editor_DrawOverlay(void) {
 
     UnsetClip();
     EditorDrawCubeBoundaries();
+    EditorDrawActors();
+    EditorDrawWaypoints();
+    EditorDrawWorldPlacement();
 
     if (Editor_ToolIs(EDITOR_TOOL_DECOR_PLACE)) {
         EditorFillRect(8, 8, 120, 40, 0);
@@ -1714,7 +2412,12 @@ void Editor_DrawOverlay(void) {
         if (field_count > 0) {
             char text[128];
             S32 i;
-            S32 header_rows = (kind == EDITOR_INSPECTOR_TEXTURE OR kind == EDITOR_INSPECTOR_TERRAIN OR kind == EDITOR_INSPECTOR_SCENE) ? 1 : 0;
+            S32 header_rows = (kind == EDITOR_INSPECTOR_TEXTURE
+                               OR kind == EDITOR_INSPECTOR_TERRAIN
+                               OR kind == EDITOR_INSPECTOR_SCENE
+                               OR kind == EDITOR_INSPECTOR_ACTOR)
+                                  ? 1
+                                  : 0;
             S32 first_row = 0;
             S32 visible_rows;
             S32 panel_x0 = 8;
@@ -1755,6 +2458,9 @@ void Editor_DrawOverlay(void) {
             } else if (kind == EDITOR_INSPECTOR_SCENE) {
                 CoulText(LBAWHITE, -1);
                 GraphPrintf(FALSE, panel_x0 + 9, panel_y0 + 8, "Scene c%d,%d", (int)CurrentCubeX, (int)CurrentCubeY);
+            } else if (kind == EDITOR_INSPECTOR_ACTOR) {
+                CoulText(LBAWHITE, -1);
+                GraphPrintf(FALSE, panel_x0 + 9, panel_y0 + 8, "Initial values:");
             }
 
             for (i = first_row; i < first_row + visible_rows; i++) {
@@ -1788,6 +2494,10 @@ void Editor_DrawOverlay(void) {
                     snprintf(text, sizeof(text), "%s: %s (%d)", EditorInspectorFieldName(kind, i), EditorInspectorGameCodeNames[(value >= 0 AND value < 16) ? value : 0], (int)value);
                 else if (kind == EDITOR_INSPECTOR_DECOR AND i == EXT_DECOR_FIELD_ROTATION)
                     snprintf(text, sizeof(text), "%s: %s", EditorInspectorFieldName(kind, i), EditorInspectorRotationNames[value]);
+                else if (kind == EDITOR_INSPECTOR_ACTOR
+                        AND i >= ACTOR_EDITOR_FIELD_FLAG_FIRST
+                        AND i <= ACTOR_EDITOR_FIELD_FLAG_LAST)
+                    snprintf(text, sizeof(text), "%s: %s", EditorInspectorFieldName(kind, i), value ? "On" : "Off");
                 else if (kind == EDITOR_INSPECTOR_ZONE AND i == ZONE_EDITOR_FIELD_TYPE)
                     snprintf(text, sizeof(text), "%s: %s (%d)", EditorInspectorFieldName(kind, i), (value >= 0 AND value < 10) ? EditorInspectorZoneTypeNames[value] : "Unknown", (int)value);
                 else if (kind == EDITOR_INSPECTOR_ZONE
@@ -1809,6 +2519,8 @@ void Editor_DrawOverlay(void) {
             }
         }
     }
+
+    EditorDrawNewMenu();
 
     if (EditorStatus[0] AND TimerRefHR <= EditorStatusTimerEnd) {
         status_y = ModeDesiredY - 18;

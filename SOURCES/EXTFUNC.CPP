@@ -8,6 +8,7 @@
  *══════════════════════════════════════════════════════════════════════════*/
 
 #include "C_EXTERN.H"
+#include "FREECAM.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 
@@ -297,6 +298,7 @@ void AffGrilleExt() {
     SetFollowCamera(VueOffsetX, VueOffsetY, VueOffsetZ,
                     AlphaCam, BetaCam, GammaCam,
                     VueDistance);
+    FreeCam_ApplyCamera();
 
     SetLightVector(AlphaLight, BetaLight, 0);
 

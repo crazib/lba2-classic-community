@@ -20,6 +20,7 @@
 #include "../PERFTRACE.H"
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/FILES.H>
+#include <SYSTEM/HQFILE.H>
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 #include <SVGA/SCREEN.H>
@@ -620,6 +621,81 @@ static void cmd_setvar(int argc, const char *argv[]) {
 
     ListVarGame[index] = (S16)value;
     Console_Print("ListVarGame[%ld] = %d", index, (int)ListVarGame[index]);
+}
+
+static void cmd_stateinv(int argc, const char *argv[]) {
+    if (argc < 3) {
+        Console_Print("Usage: stateinv <index> <value>");
+        return;
+    }
+
+    char *end = NULL;
+    long index = strtol(argv[1], &end, 0);
+    if (!end || *end != '\0' || argv[1][0] == '\0') {
+        Console_Print("stateinv: bad index '%s'", argv[1]);
+        return;
+    }
+    if (index < 0 || index >= MAX_INVENTORY) {
+        Console_Print("stateinv: index out of range %ld (valid 0-%d)", index, MAX_INVENTORY - 1);
+        return;
+    }
+
+    end = NULL;
+    long value = strtol(argv[2], &end, 0);
+    if (!end || *end != '\0' || argv[2][0] == '\0') {
+        Console_Print("stateinv: bad value '%s'", argv[2]);
+        return;
+    }
+    if (value < 0 || value >= T_INV_TABOBJ3D_COUNT) {
+        Console_Print("stateinv: value out of range %ld (valid 0-%d)", value, T_INV_TABOBJ3D_COUNT - 1);
+        return;
+    }
+
+    TabInv[index].IdObj3D = (S16)value;
+    Console_Print("TabInv[%ld].IdObj3D = %d", index, (int)TabInv[index].IdObj3D);
+}
+
+static void cmd_flow(int argc, const char *argv[]) {
+    char pathname[ADELINE_MAX_PATH];
+    char *end = NULL;
+    long index;
+    S32 count;
+
+    if (argc < 2) {
+        Console_Print("Usage: flow <index>");
+        return;
+    }
+
+    index = strtol(argv[1], &end, 0);
+    if (!end || *end != '\0' || argv[1][0] == '\0') {
+        Console_Print("flow: bad index '%s'", argv[1]);
+        return;
+    }
+
+    GetResPath(pathname, ADELINE_MAX_PATH, RESS_HQR_NAME);
+    count = HQF_ResSize(pathname, RESS_FLOW) / (S32)sizeof(T_FLOW);
+    if (index < 0 || index >= count) {
+        Console_Print("flow: index out of range %ld (valid 0-%d)", index, count - 1);
+        return;
+    }
+
+    {
+        const char *why = console_avail_in_game_scene();
+        if (why) {
+            Console_Print("%s", why);
+            return;
+        }
+    }
+
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    if (!CreateParticleFlow(0, NUM_PERSO, 0,
+                            hero->Obj.X, hero->Obj.Y + hero->YMax, hero->Obj.Z,
+                            hero->Obj.Beta, (S32)index)) {
+        Console_Print("flow: no free particle-flow slot");
+        return;
+    }
+
+    Console_Print("Spawned flow %ld", index);
 }
 
 static void cmd_playvideo(int argc, const char *argv[]) {
@@ -1780,6 +1856,11 @@ void Console_RegisterAll(void) {
                               "darts/money/gem/penguin/clover. Requires in-game loaded cube (not during video).");
     Console_RegisterCommandEx("setvar", cmd_setvar, "Set ListVarGame[index] to value", "setvar <index> <value>",
                               "Debug state mutation. Index range is 0-255; value is clamped to S16.");
+    Console_RegisterCommandEx("stateinv", cmd_stateinv, "Set TabInv[index].IdObj3D to value",
+                              "stateinv <index> <value>",
+                              "Debug inventory state mutation. Index range is 0-45; value range is 0-3.");
+    Console_RegisterCommandEx("flow", cmd_flow, "Spawn a particle flow above the hero", "flow <index>",
+                              "Requires an in-game loaded cube. Index is checked against RESS.HQR.");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
     Console_RegisterCommandEx("slide", cmd_slide, "Show a distributor or bumper slide",

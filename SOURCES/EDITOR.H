@@ -16,8 +16,11 @@ typedef enum EditorTool
 
 #define EDITOR_OVERLAY_DECOR (1 << 0)
 #define EDITOR_OVERLAY_ZONES (1 << 1)
+#define EDITOR_OVERLAY_ACTORS (1 << 2)
+#define EDITOR_OVERLAY_WAYPOINTS (1 << 3)
 
 extern void Editor_UpdateInput(void);
+extern void Editor_UpdateFreeCam(void);
 extern void Editor_DrawOverlay(void);
 extern S32 Editor_IsActive(void);
 extern S32 Editor_IsCameraPanActive(void);
@@ -28,10 +31,15 @@ extern EditorTool Editor_GetTool(void);
 extern S32 Editor_ToolIs(EditorTool tool);
 extern S32 Editor_HasOverlay(S32 overlay);
 extern S32 Editor_InspectorConsumesInput(void);
+extern S32 Editor_WorldPlacementActive(void);
+extern void Editor_PlaceAtWorld(S32 x, S32 y, S32 z);
+extern S32 ActorEditorFindPick(S32 *dist_sq);
+extern S32 WaypointEditorFindPick(S32 *dist_sq);
 
 #else
 
 #define Editor_UpdateInput() ((void)0)
+#define Editor_UpdateFreeCam() ((void)0)
 #define Editor_DrawOverlay() ((void)0)
 #define Editor_IsActive() (0)
 #define Editor_IsCameraPanActive() (0)
@@ -42,6 +50,10 @@ extern S32 Editor_InspectorConsumesInput(void);
 #define Editor_ToolIs(tool) (0)
 #define Editor_HasOverlay(overlay) (0)
 #define Editor_InspectorConsumesInput() (0)
+#define Editor_WorldPlacementActive() (0)
+#define Editor_PlaceAtWorld(x, y, z) ((void)0)
+#define ActorEditorFindPick(dist_sq) (-1)
+#define WaypointEditorFindPick(dist_sq) (-1)
 
 #endif
 

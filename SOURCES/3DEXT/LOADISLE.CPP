@@ -1,4 +1,5 @@
 #include "DEFINES.H"
+#include "LOADISLE.H"
 
 #include "../DIRECTORIES.H"
 
@@ -30,6 +31,21 @@
 #define HQR_TEX_OBJ 2
 
 #define HQR_START_CUBE 3
+
+static ExteriorFogOverrideFn s_fog_override = NULL;
+static ExteriorWideViewActiveFn s_wide_view_active = NULL;
+
+void SetExteriorFogOverride(ExteriorFogOverrideFn fn) {
+    s_fog_override = fn;
+}
+
+void SetExteriorWideViewActive(ExteriorWideViewActiveFn fn) {
+    s_wide_view_active = fn;
+}
+
+S32 ExteriorWideViewActive(void) {
+    return s_wide_view_active ? s_wide_view_active() : FALSE;
+}
 
 #define HQR_CUBE_INF 0
 #define HQR_CUBE_DOB 1
@@ -336,6 +352,8 @@ S32 LoadCube(S32 x, S32 y) {
     //*********
 
     SetFog(StartZFog, ClipZFar);
+    if (s_fog_override)
+        s_fog_override();
 
     if (NbObjDecors != 0) {
         ListDecors = (T_DECORS *)HQR_Get(HQR_ListDecors, index + HQR_CUBE_DOB);

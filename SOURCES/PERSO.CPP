@@ -24,6 +24,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
+#include "FREECAM.H"
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 
@@ -603,6 +604,9 @@ restartloop:
 
         MyGetInput();
         ManageTime();
+#if defined(LBA2CC_EDITOR)
+        Editor_UpdateFreeCam();
+#endif
 
         if (DemoSlide) {
             // Stuck-cube watchdog (interactive play only). The attract reel is a scripted
@@ -1694,7 +1698,7 @@ restartloop:
         /*-------------------------------------------------------------------------*/
         /* recentre sur hero (numobjfollow) */
 
-        if (!CameraZone) {
+        if (!CameraZone AND !FreeCam_IsActive()) {
             if (!CinemaMode) {
                 // AlphaCam (touches '+' et '-' *)
                 if (!Editor_IsActive())
@@ -1946,7 +1950,9 @@ restartloop:
 #endif
 
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
+        FreeCam_ApplyCamera();
         AffScene(FirstTime);
+        FreeCam_CaptureScreenshot();
         Perftrace_PhaseEnd(PERFTRACE_PHASE_SCENE);
 
         if ((FirstLoop OR RestartMusic)

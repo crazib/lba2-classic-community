@@ -38,6 +38,8 @@ void PresentRendererFrame(const void *pixels, U32 pitch);
 bool LockRendererTexture(void **pixels, int *pitch);
 void UnlockAndPresentRendererTexture();
 void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surfaceY);
+bool Window_SetRelativeMouseMode(bool enabled);
+void Window_GetRelativeMouseDelta(float *x, float *y);
 void SetWindowFullscreen(bool fullscreen);
 bool GetWindowFullscreen();
 // Actual SDL window fullscreen state (queries SDL_GetWindowFlags), not the

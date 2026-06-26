@@ -1,5 +1,8 @@
 #include "C_EXTERN.H"
 #include "CONFIG.H"
+#ifdef LBA2CC_EDITOR
+#include "BUILDING_KITBASHER.H"
+#endif
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 #include "JOYSTICK.H"
@@ -77,6 +80,10 @@ S32 FlagShowEndDemo = FALSE;
 #define MENU_ID_DISPLAY 2114
 #define MENU_ID_RESOLUTION 2115
 #define MENU_ID_DISPLAY_VSYNC 2116
+#ifdef LBA2CC_EDITOR
+#define MENU_ID_EDITING 2117
+#define MENU_ID_BUILDING_KITBASHER 2118
+#endif
 
 #define MENU_TYPE_TEXT_LANGUAGE 8
 #define MENU_TYPE_VOICE_LANGUAGE 9
@@ -103,7 +110,11 @@ U16 RealGameMainMenu[] = {
     0,
     74, // Options
     0,
+#ifdef LBA2CC_EDITOR
+    MENU_ID_EDITING, // Editing
+#else
     75, // Quitter
+#endif
 };
 
 U16 GameOptionMenu[] = {
@@ -125,6 +136,20 @@ U16 GameOptionMenu[] = {
     0,
     MENU_ID_CONTROLLER,
 };
+
+#ifdef LBA2CC_EDITOR
+U16 EditingMenu[] = {
+    0,   // selected
+    2,   // nb entries
+    260, // y center
+    0,   // .dia num
+
+    0,
+    MENU_ID_BUILDING_KITBASHER,
+    0,
+    26, // menu precedent
+};
+#endif
 
 // Display submenu: a "Resolution: <current>" row that cycles between
 // Classic 4:3 and the display-aspect-derived Widescreen, plus a "Vsync"
@@ -334,6 +359,10 @@ enum MenuLocalizedLabel {
     MENU_LABEL_RESOLUTION,
     MENU_LABEL_VSYNC_ON,
     MENU_LABEL_VSYNC_OFF,
+#ifdef LBA2CC_EDITOR
+    MENU_LABEL_EDITING,
+    MENU_LABEL_BUILDING_KITBASHER,
+#endif
     MENU_LABEL_COUNT,
 };
 
@@ -360,6 +389,10 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolution: %s",
         "Vsync ON",
         "Vsync OFF",
+#ifdef LBA2CC_EDITOR
+        "Editing",
+        "Building Kitbasher",
+#endif
     },
     {
         "Choix de la langue",
@@ -383,6 +416,10 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Résolution : %s",
         "Vsync ON",
         "Vsync OFF",
+#ifdef LBA2CC_EDITOR
+        "Édition",
+        "Building Kitbasher",
+#endif
     },
     {
         "Sprachauswahl",
@@ -406,6 +443,10 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Auflösung: %s",
         "Vsync ON",
         "Vsync OFF",
+#ifdef LBA2CC_EDITOR
+        "Editor",
+        "Building Kitbasher",
+#endif
     },
     {
         "Elegir idioma",
@@ -429,6 +470,10 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolución: %s",
         "Vsync ON",
         "Vsync OFF",
+#ifdef LBA2CC_EDITOR
+        "Edición",
+        "Building Kitbasher",
+#endif
     },
     {
         "Scegli lingua",
@@ -452,6 +497,10 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Risoluzione: %s",
         "Vsync ON",
         "Vsync OFF",
+#ifdef LBA2CC_EDITOR
+        "Modifica",
+        "Building Kitbasher",
+#endif
     },
     {
         "Escolha do idioma",
@@ -475,6 +524,10 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Resolução: %s",
         "Vsync ON",
         "Vsync OFF",
+#ifdef LBA2CC_EDITOR
+        "Edição",
+        "Building Kitbasher",
+#endif
     },
 };
 
@@ -574,6 +627,16 @@ static void BuildCustomMenuText(S32 num, char *string) {
     case MENU_ID_DISPLAY_VSYNC:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(DisplayVSync ? MENU_LABEL_VSYNC_ON : MENU_LABEL_VSYNC_OFF));
         break;
+
+#ifdef LBA2CC_EDITOR
+    case MENU_ID_EDITING:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_EDITING));
+        break;
+
+    case MENU_ID_BUILDING_KITBASHER:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_BUILDING_KITBASHER));
+        break;
+#endif
 
     case MENU_ID_FOLLOW_CAMERA:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(FollowCamera ? MENU_LABEL_AUTO_CAMERA : MENU_LABEL_CLASSIC_CAMERA));
@@ -3497,6 +3560,39 @@ S32 OptionsMenu(S32 flagflip) {
     return FALSE;
 }
 
+#ifdef LBA2CC_EDITOR
+S32 EditingMenuRun(void) {
+    S32 select;
+    S32 flag = 0;
+
+    MenuMouseAcquire();
+
+    while (!flag) {
+        select = DoGameMenu(EditingMenu);
+
+        switch (select) {
+        case 26:
+        case 1000:
+            flag = 1;
+            break;
+
+        case MENU_ID_BUILDING_KITBASHER:
+            MenuMouseRelease();
+            BuildingKitbasher_Run();
+            MenuMouseAcquire();
+            CopyScreen(Screen, Log);
+            if (FlagShadeMenu)
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+            BoxStaticFullflip();
+            break;
+        }
+    }
+
+    MenuMouseRelease();
+    return FALSE;
+}
+#endif
+
 /*══════════════════════════════════════════════════════════════════════════*/
 /*──────────────────────────────────────────────────────────────────────────*/
 S32 DeleteSavedGame(void) {
@@ -3639,7 +3735,11 @@ S32 IsFirstGameLaunched(void) {
         0, 72,  // charger partie
         0, 73,  // sauver partie
         0, 74,  // Options
+#ifdef LBA2CC_EDITOR
+        0, MENU_ID_EDITING,  // Editing
+#else
         0, 75,  // Quitter
+#endif
 */
 // Post-save success cue: positive chime + brief centred message overlay.
 // Shared by the regular save (case 73) and debug bug-save (case 2001) paths
@@ -3729,7 +3829,7 @@ void BuildGameMainMenu(S32 firstloop) {
     *ptrmain++ = *ptrreal++;
     nb++;
 
-    // Quitter
+    // Editing / Quitter
     *ptrmain++ = *ptrreal++;
     *ptrmain++ = *ptrreal++;
     nb++;
@@ -4087,12 +4187,20 @@ S32 MainGameMenu(S32 load) {
             OptionsMenu(TRUE);
             break;
 
+#ifdef LBA2CC_EDITOR
+        case MENU_ID_EDITING:
+            CopyScreen(Screen, Log);
+            BoxStaticFullflip();
+            EditingMenuRun();
+            break;
+#else
         case 75: // quitter
             FadeToBlack(PtrPalNormal);
             Cls();
             BoxUpdate();
             flag = 1;
             break;
+#endif
 
 #ifdef DEBUG_TOOLS
         // Gestion des sauvegardes de bugs

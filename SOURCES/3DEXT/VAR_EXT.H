@@ -95,7 +95,11 @@ extern U16 CubeBitField;
 //--------------------------------------------------------------------
 // Animation de l'eau
 
+#ifdef LBA2CC_EDITOR
+#define SIZE_BUFFER_POLY_SEA 1000000L
+#else
 #define SIZE_BUFFER_POLY_SEA 100000L
+#endif
 #define MAX_POLY_SEA (SIZE_BUFFER_POLY_SEA / sizeof(S_ANI_POLY))
 
 extern S32 TimerAniPoly;

@@ -706,7 +706,7 @@ void DrawHorizon2ZBuf() {
     S32 cz = CameraZ;
     S32 terrain_count = 9;
 #ifdef LBA2CC_EDITOR
-    struct S_Terrain editor_terrain[25];
+    struct S_Terrain editor_terrain[81];
 #endif
 
     if (BetaCam >= 0 AND BetaCam < 1024) {
@@ -738,7 +738,7 @@ void DrawHorizon2ZBuf() {
 */
 #ifdef LBA2CC_EDITOR
     // TODO: Other islands show black void artifacts with the wider editor view, so keep it gated to Proxima.
-    if (Editor_IsActive() AND Island == 12) {
+    if (ExteriorWideViewActive() OR(Editor_IsActive() AND Island == 12)) {
         S32 x_start;
         S32 x_step;
         S32 y_start;
@@ -747,19 +747,20 @@ void DrawHorizon2ZBuf() {
         S32 y;
         S32 n = 0;
 
-        x_start = (BetaCam >= 2048) ? 2 : -2;
+        S32 radius = ExteriorWideViewActive() ? 4 : 2;
+        x_start = (BetaCam >= 2048) ? radius : -radius;
         x_step = (BetaCam >= 2048) ? -1 : 1;
-        y_start = (BetaCam < 1024 OR BetaCam >= 3072) ? 2 : -2;
+        y_start = (BetaCam < 1024 OR BetaCam >= 3072) ? radius : -radius;
         y_step = (BetaCam < 1024 OR BetaCam >= 3072) ? -1 : 1;
-        for (y = y_start; y >= -2 AND y <= 2; y += y_step) {
-            for (x = x_start; x >= -2 AND x <= 2; x += x_step) {
+        for (y = y_start; y >= -radius AND y <= radius; y += y_step) {
+            for (x = x_start; x >= -radius AND x <= radius; x += x_step) {
                 editor_terrain[n].x = (S8)x;
                 editor_terrain[n].y = (S8)y;
                 n++;
             }
         }
         TerrainTri = editor_terrain;
-        terrain_count = 25;
+        terrain_count = (radius * 2 + 1) * (radius * 2 + 1);
     }
 #endif
     for (S32 n = terrain_count; n > 0; n--, TerrainTri++) {
@@ -768,8 +769,8 @@ void DrawHorizon2ZBuf() {
         x = CurrentCubeX + TerrainTri->x;
         y = CurrentCubeY + TerrainTri->y;
 
-        if (x >= 0 AND x <= 15 AND y >= 0 AND y <= 15) {
-            if (TerrainTri->x OR TerrainTri->y) {
+        if (TerrainTri->x OR TerrainTri->y) {
+            if ((x >= 0 AND x <= 15 AND y >= 0 AND y <= 15) OR ExteriorWideViewActive()) {
                 // PreClipping du Cube
                 /*				if( PtrProjectPoint( 0, 0, 0 )
 				OR  PtrProjectPoint( 32767, 0, 0 )
@@ -793,7 +794,7 @@ void DrawHorizon2ZBuf() {
                     SetPosCamera(cx - OffPosCamera[TerrainTri->x + 1] + TerrainTri->x * Reglage, cy, cz - OffPosCamera[TerrainTri->y + 1] + TerrainTri->y * Reglage);
 #endif
                     }
-                    if (LoadCube(x, y)) {
+                    if (x >= 0 AND x <= 15 AND y >= 0 AND y <= 15 AND LoadCube(x, y)) {
                         AffichageTerrainZBuf();
                         flag = TRUE;
                     } else

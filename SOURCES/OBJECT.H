@@ -123,6 +123,7 @@ extern void ZoneEditorSelectOnly(S32 index);
 extern void ZoneEditorToggleSelectedByIndex(S32 index);
 extern S32 ZoneEditorHasAnySelected(void);
 extern T_ZONE *ZoneEditorGetSelectedZone(void);
+extern S32 ZoneEditorLogSelected(void);
 extern S32 ZoneEditorCreateZone(const T_ZONE *zone);
 extern S32 ZoneEditorSetSelectedField(S32 field, S32 value);
 extern S32 ZoneEditorSaveRuntimeEdits(const char *island_dir, S32 island);

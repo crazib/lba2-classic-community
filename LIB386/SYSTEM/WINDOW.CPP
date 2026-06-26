@@ -365,6 +365,17 @@ void WindowToSurfaceCoords(S32 windowX, S32 windowY, S32 *surfaceX, S32 *surface
     }
 }
 
+bool Window_SetRelativeMouseMode(bool enabled) {
+    if (sdlWindow == NULL) {
+        return false;
+    }
+    return SDL_SetWindowRelativeMouseMode(sdlWindow, enabled);
+}
+
+void Window_GetRelativeMouseDelta(float *x, float *y) {
+    SDL_GetRelativeMouseState(x, y);
+}
+
 void SetWindowFullscreen(bool fullscreen) {
     windowFullscreenEnabled = fullscreen;
 
