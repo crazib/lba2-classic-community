@@ -414,7 +414,7 @@ void InitHoloPlan() {
     BufAnimTempo = (U8 *)HoloMalloc(SizeCurrentAnim);
 
     if (ZoomedIsland == 12) {
-        id = HQR_BEGIN_MAP; // Proxima prototype reuses Citadel holomap art.
+        id = HQR_BEGIN_MAP + (2 * 14); // Proxima custom map/view entries 46/47.
     } else if ((ZoomedIsland == 0) AND(TEMPETE_FINIE)) {
         id = HQR_BEGIN_MAP + (2 * 12); //	Citabau
     }
