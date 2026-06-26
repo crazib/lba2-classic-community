@@ -1,0 +1,1145 @@
+{
+  "flags": [
+    {
+      "id": 0,
+      "name": "Holomap"
+    },
+    {
+      "id": 1,
+      "name": "Magic Ball"
+    },
+    {
+      "id": 2,
+      "name": "Darts"
+    },
+    {
+      "id": 3,
+      "name": "Sendall's Ball"
+    },
+    {
+      "id": 4,
+      "name": "Magic Tunic"
+    },
+    {
+      "id": 5,
+      "name": "Pearl of Incandescence"
+    },
+    {
+      "id": 6,
+      "name": "Pyramid Key"
+    },
+    {
+      "id": 7,
+      "name": "Steering Wheel"
+    },
+    {
+      "id": 8,
+      "name": ""
+    },
+    {
+      "id": 9,
+      "name": "Broken Pistol"
+    },
+    {
+      "id": 10,
+      "name": "Emporer's Sabre"
+    },
+    {
+      "id": 11,
+      "name": "Wannies Glove"
+    },
+    {
+      "id": 12,
+      "name": "Proto Pack"
+    },
+    {
+      "id": 13,
+      "name": "Ferry Ticket"
+    },
+    {
+      "id": 14,
+      "name": "Nitro Meca Penguin"
+    },
+    {
+      "id": 15,
+      "name": "Gazogem"
+    },
+    {
+      "id": 16,
+      "name": "Dissidents Ring"
+    },
+    {
+      "id": 17,
+      "name": "Gallic Acid"
+    },
+    {
+      "id": 18,
+      "name": "Ferry Man song"
+    },
+    {
+      "id": 19,
+      "name": "Lightening Spell"
+    },
+    {
+      "id": 20,
+      "name": "Umbrella"
+    },
+    {
+      "id": 21,
+      "name": "Number of Magic Gems"
+    },
+    {
+      "id": 22,
+      "name": "Horn of the Blue Triton"
+    },
+    {
+      "id": 23,
+      "name": "Blowgun"
+    },
+    {
+      "id": 24,
+      "name": "Memory Viewer"
+    },
+    {
+      "id": 25,
+      "name": "Firefly Tart"
+    },
+    {
+      "id": 26,
+      "name": "Portable Radio"
+    },
+    {
+      "id": 27,
+      "name": "Garden Balsam"
+    },
+    {
+      "id": 28,
+      "name": "Magic Slate"
+    },
+    {
+      "id": 29,
+      "name": "Alien Translator"
+    },
+    {
+      "id": 30,
+      "name": "Wizards Diploma"
+    },
+    {
+      "id": 31,
+      "name": "Franco Key Fragment"
+    },
+    {
+      "id": 32,
+      "name": "Sup Key Fragment"
+    },
+    {
+      "id": 33,
+      "name": "Mosquibee Key Fragment"
+    },
+    {
+      "id": 34,
+      "name": "Wannies Key Fragment"
+    },
+    {
+      "id": 35,
+      "name": "Throne Key"
+    },
+    {
+      "id": 36,
+      "name": "Pick Axe"
+    },
+    {
+      "id": 37,
+      "name": "Burger Master's Key"
+    },
+    {
+      "id": 38,
+      "name": "Burger Master's Notes"
+    },
+    {
+      "id": 39,
+      "name": "Protection Spell"
+    },
+    {
+      "id": 40,
+      "name": "Zoe's position",
+      "values": {
+        "0": "New game",
+        "1": "Zoe talks",
+        "2": "Zoe waiting outside the door",
+        "3": "Zoe walking to dinofly waypoint",
+        "4": "Zoe walking to dinofly waypoint",
+        "5": "Zoe walking to dinofly waypoint",
+        "6": "Zoe walking to dinofly waypoint",
+        "7": "Zoe walking to dinofly waypoint",
+        "8": "Zoe walking to dinofly waypoint",
+        "9": "Zoe walking to dinofly waypoint",
+        "10": "Zoe walking to dinofly waypoint",
+        "11": "Zoe walking to dinofly waypoint",
+        "12": "Zoe walking to dinofly waypoint",
+        "13": "Zoe walking to dinofly waypoint",
+        "14": "Zoe walking to dinofly waypoint",
+        "15": "Gave car part to Zoe and she mentions portable radio",
+        "16": "Walking towards car",
+        "17": "Walking towards car",
+        "18": "Walking towards car",
+        "19": "Walking towards car",
+        "20": "Working on car"
+      }
+    },
+    {
+      "id": 41,
+      "name": "Hacienda grobo state",
+      "values": {
+        "0": "Grobo in first area",
+        "1": "Outside womens steam room",
+        "2": "Grobo attacking Twinsen (after he enters steam room a second time)"
+      }
+    },
+    {
+      "id": 42,
+      "name": "Dinofly injured status",
+      "values": {
+        "0": "Injured",
+        "1": "Cured"
+      }
+    },
+    {
+      "id": 43,
+      "name": "Baggage claim",
+      "values": {
+        "0": "Package in default location",
+        "1": "Package in reception",
+        "2": "Pushed package onto final conveyor",
+        "3": "Leaving package basement area",
+        "4": "Grobo opens box",
+        "5": "Paid guy to move box"
+      }
+    },
+    {
+      "id": 44,
+      "name": "Citadel Island tavern waiter",
+      "values": {
+        "0": "Not in cellar",
+        "1": "In cellar"
+      }
+    },
+    {
+      "id": 45,
+      "name": "Citadel Island shop keeper status",
+      "values": {
+        "0": "Normal",
+        "1": "Scared away with meca penguin",
+        "2": "Returned to shop"
+      }
+    },
+    {
+      "id": 46,
+      "name": "Citadel Island shop cash register",
+      "values": {
+        "0": "Not stolen",
+        "1": "Stolen"
+      }
+    },
+    {
+      "id": 47,
+      "name": "Injured wannie",
+      "values": {
+        "0": "Injured",
+        "1": "Healed",
+        "2": "Asking how to find mosquibee queen"
+      }
+    },
+    {
+      "id": 48,
+      "name": "Throne door",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 49,
+      "name": "Baggage claim door to lower area",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 50,
+      "name": "Baggage claim hidden money",
+      "values": {
+        "0": "Not collected",
+        "1": "Opened box"
+      }
+    },
+    {
+      "id": 51,
+      "name": "Stopping the rain",
+      "values": {
+        "0": "Default",
+        "1": "Spoke to weather wizard",
+        "2": "Spoke to Raph",
+        "3": "Killed Tralu and freed Raph",
+        "4": "Rain cleared and aliens landed"
+      }
+    },
+    {
+      "id": 52,
+      "name": "?"
+    },
+    {
+      "id": 53,
+      "name": "Tralu: Hit switch to unlock first door",
+      "values": {
+        "0": "Closed",
+        "1": "Open"
+      }
+    },
+    {
+      "id": 54,
+      "name": "Pyramid Key",
+      "values": {
+        "0": "Default",
+        "1": "Neighbour says he needs gallic acid but there's none left on the island",
+        "2": "Gave gallic acid to neighbour",
+        "3": "Got pyramid key",
+        "4": "Used pyramid key to open door in cellar"
+      }
+    },
+    {
+      "id": 55,
+      "name": "Full key fragment",
+      "values": {
+        "0": "Default",
+        "1": "Has full key (all fragments)"
+      }
+    },
+    {
+      "id": 56,
+      "name": "Lighthouse keeper",
+      "values": {
+        "0": "Default",
+        "1": "?",
+        "2": "?",
+        "3": "After lighthouse keeper runs away upon freeing him",
+        "4": "?",
+        "5": "After cutscene finishes and alien cutscene starts"
+      }
+    },
+    {
+      "id": 57,
+      "name": "Umbrella status",
+      "values": {
+        "0": "Not stolen",
+        "1": "Stolen",
+        "2": "Retrieved umbrella",
+        "3": "Returned umbrella on Citadel Island"
+      }
+    },
+    {
+      "id": 58,
+      "name": "Unknown"
+    },
+    {
+      "id": 59,
+      "name": "Ferry ticket",
+      "values": {
+        "0": "Default",
+        "1": "Purchased a ferry ticket",
+        "2": "?",
+        "3": "Boarded ferry",
+        "4": "Arrived at Desert Island",
+        "5": "Bought a ferry ticket on Desert Island",
+        "6": "?",
+        "7": "Entered ferry from Desert to Citadel Island",
+        "8": "Arrived on Citadel Island"
+      }
+    },
+    {
+      "id": 60,
+      "name": "Tralu boss fight",
+      "values": {
+        "0": "Default",
+        "1": "Entered Tralu boss area",
+        "2": "Defeated Tralu",
+        "3": "Unlocked door to free Raph"
+      }
+    },
+    {
+      "id": 61,
+      "name": "Becoming a wizard",
+      "values": {
+        "0": "Default",
+        "1": "?",
+        "2": "?",
+        "3": "Paid wizard entrance fee",
+        "4": "Received horn of the blue triton",
+        "5": "Received magic slate",
+        "6": "?",
+        "7": "Received wizard diploma"
+      }
+    },
+    {
+      "id": 62,
+      "name": "The healing wizard",
+      "values": {
+        "0": "Default",
+        "1": "Mr. Paul tells you to visit the wizard Ker'aooc",
+        "2": "Ker'aooc house keeper says to try the school of magic",
+        "3": "Arrived at the school of magic for the first time; grand rector appears"
+      }
+    },
+    {
+      "id": 63,
+      "name": "Obtaining the blowgun",
+      "values": {
+        "0": "Default",
+        "1": "Hit all targets",
+        "2": "Received the blowgun"
+      }
+    },
+    {
+      "id": 64,
+      "name": "Ferry man song",
+      "values": {
+        "0": "Default",
+        "1": "Fainting in firefly scene",
+        "2": "Gave pie to old man and got key",
+        "3": "Unlocked chapel door",
+        "4": "Monk says to call on ferry man services"
+      }
+    },
+    {
+      "id": 65,
+      "name": "School of magic entrance doors",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 66,
+      "name": "Sewers map in neighbours house",
+      "values": {
+        "0": "Unreadable",
+        "1": "Readable",
+        "2": "Read"
+      }
+    },
+    {
+      "id": 67,
+      "name": "Otringal: Hiding in box",
+      "values": {
+        "0": "Default",
+        "1": "Inside box no lid",
+        "2": "Inside box with lid"
+      }
+    },
+    {
+      "id": 68,
+      "name": "Cutscene with Zoe outside Twinsens house at start of game",
+      "values": {
+        "0": "Default",
+        "1": "Cutscene with Zoe"
+      }
+    },
+    {
+      "id": 69,
+      "name": "Cutscene \"Notification of soldiers attacking\"",
+      "values": {
+        "0": "Default",
+        "1": "Mousquibee cutscene \"Soldiers attacking\"",
+        "2": "Left cutscene and entered throne room from blowtron area",
+        "3": "Ferry man to Island of the Wannies cutscene",
+        "4": "Mousquibee rebels say queen is captured"
+      }
+    },
+    {
+      "id": 70,
+      "name": "Alien cutscene after rain clearing",
+      "values": {
+        "0": "Not triggered",
+        "1": "Cutscene over"
+      }
+    },
+    {
+      "id": 71,
+      "name": "Citadel Island bike taxi",
+      "values": {
+        "0": "Not on bike",
+        "1": "On bike"
+      }
+    },
+    {
+      "id": 72,
+      "name": "Attacking kids in school (which child you hit)"
+    },
+    {
+      "id": 73,
+      "name": "Mousquibee blowtron",
+      "values": {
+        "0": "Default",
+        "1": "Own"
+      }
+    },
+    {
+      "id": 74,
+      "name": "Fixing car, getting horn",
+      "values": {
+        "0": "Default",
+        "1": "Got car part",
+        "2": "Gave car part to Zoe",
+        "3": "Zoe called on portable radio",
+        "4": "Zoe says to try the car at the race track",
+        "5": "Traded the flower for the Horn of the blue triton"
+      }
+    },
+    {
+      "id": 75,
+      "name": "Unknown"
+    },
+    {
+      "id": 76,
+      "name": "Door to fragment in Wannie mines",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 77,
+      "name": "Citadel Island: Grobo brother waypoint (after he beats you up at the school)",
+      "values": {
+        "0": "Default",
+        "1": "At school",
+        "2": "Waypoint",
+        "3": "Waypoint",
+        "4": "Waypoint",
+        "5": "Waypoint, normally despawns at 4"
+      }
+    },
+    {
+      "id": 78,
+      "name": "Brother of skipping child (after you beat them up)",
+      "values": {
+        "0": "Default",
+        "1": "Spawned"
+      }
+    },
+    {
+      "id": 79,
+      "name": "Funfrock pizza scene",
+      "values": {
+        "0": "Default",
+        "1": "Funfrock Speech",
+        "2": "Funfrock inside afterwards"
+      }
+    },
+    {
+      "id": 80,
+      "name": "Wizard on magic carpet position"
+    },
+    {
+      "id": 81,
+      "name": "Wizard to Otringal",
+      "values": {
+        "0": "Default",
+        "1": "Recieved Wizard diploma",
+        "2": "Accepted Sup invitation to go to Zeelich"
+      }
+    },
+    {
+      "id": 82,
+      "name": "Ferry man taxi",
+      "values": {
+        "0": "Not on taxi",
+        "1": "On taxi (cutscene)"
+      }
+    },
+    {
+      "id": 83,
+      "name": "Wizard to Baldino cell",
+      "values": {
+        "0": "Default",
+        "1": "As wizard going to spaceship",
+        "2": "Leaving spaceship getting attacked",
+        "3": "Getting attacked leaving spaceship",
+        "4": "Entering spaceport as wizard - Joe scene",
+        "5": "Escaped cell and Joe vanished",
+        "6": "Used Itineray token to return home",
+        "7": "Landed on Citadel: Zoe calls to say come home",
+        "8": "Zoe says to go to the school of magic",
+        "9": "Dinofly lands in the oasis in the desert",
+        "10": "Spoke to rector about lightning spell; told to get Sendells ball; informed about clam",
+        "11": "Got pearl of incandescence",
+        "12": "Used lightning spell to get Sendells Ball",
+        "13": "Baldino called form Emerald moon"
+      }
+    },
+    {
+      "id": 84,
+      "name": "Unlocked mosquibee cell",
+      "values": {
+        "0": "Default",
+        "1": "Unlocked cell",
+        "2": "Mosquibee gone (Triggered on Twinsen re-entering)"
+      }
+    },
+    {
+      "id": 85,
+      "name": "Spaceship from Desert to Baldino crash landing",
+      "values": {
+        "0": "Default",
+        "1": "?",
+        "2": "?",
+        "3": "Used itineray token in spaceship from Desert Island to Emerald Moon",
+        "4": "Landed on Emerald Moon",
+        "5": "Gave wrong password",
+        "6": "Gave correct password",
+        "7": "Unlocked Baldino cell",
+        "8": "After cutscene of unlocking cell",
+        "9": "Emerald moon - after cutscene with CX guy dying",
+        "10": "Unlocked door with Baldino to Baldinos spaceship",
+        "11": "Crash landed with Baldino"
+      }
+    },
+    {
+      "id": 86,
+      "name": "Killed green alien on spaceship and triggered guards",
+      "values": {
+        "0": "Not killed",
+        "1": "Killed"
+      }
+    },
+    {
+      "id": 87,
+      "name": "Otringal Cells: Joe",
+      "values": {
+        "0": "Joe there",
+        "1": "Joe gone"
+      }
+    },
+    {
+      "id": 88,
+      "name": "Otringal cells guards killed (bit values?)"
+    },
+    {
+      "id": 89,
+      "name": "Temple of Bu moving platform",
+      "values": {
+        "0": "Not on platform",
+        "1": "On platform"
+      }
+    },
+    {
+      "id": 90,
+      "name": "Unknown"
+    },
+    {
+      "id": 91,
+      "name": "Unknown"
+    },
+    {
+      "id": 92,
+      "name": "Otringal: On top of tower killing people",
+      "notes": "definitely bit values, can be combined",
+      "values": {
+        "0": "Killed nobody",
+        "1": "Killed scientist on left",
+        "2": "Killed scientist on right",
+        "4": "Killed soldier",
+        "8": "Killed Sup"
+      }
+    },
+    {
+      "id": 93,
+      "name": "Emerald Moon: Yellow/black doors",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 94,
+      "name": "Dinofly location?",
+      "values": {
+        "0": "Default",
+        "1": "Started new game, Zoe cutscene",
+        "2": "Island of the Dome of slate",
+        "3": "Desert Island",
+        "4": "Island across from the Hacienda",
+        "5": "Dinofly to Dome of slate",
+        "6": "Dinofly to Desert Island from Citadel"
+      }
+    },
+    {
+      "id": 95,
+      "name": "Wizard note about finishing the spell",
+      "values": {
+        "0": "Not read",
+        "1": "Read"
+      }
+    },
+    {
+      "id": 96,
+      "name": "Unknown"
+    },
+    {
+      "id": 97,
+      "name": "Emerald Moon: Circle door",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 98,
+      "name": "Emerald Moon: Triangle door",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 99,
+      "name": "Emerald Moon: Square door",
+      "values": {
+        "0": "Locked",
+        "1": "Unlocked"
+      }
+    },
+    {
+      "id": 100,
+      "name": "Emerald moon: Spaceship landed",
+      "values": {
+        "0": "Not landed",
+        "1": "Landed"
+      }
+    },
+    {
+      "id": 101,
+      "name": "Otringal fence behind prison panel 4",
+      "values": {
+        "0": "Not destroyed",
+        "1": "Destroyed"
+      }
+    },
+    {
+      "id": 102,
+      "name": "Otringal fence behind prison panel 2",
+      "values": {
+        "0": "Not destroyed",
+        "1": "Destroyed"
+      }
+    },
+    {
+      "id": 103,
+      "name": "Otringal fence behind prison panel 1",
+      "values": {
+        "0": "Not destroyed",
+        "1": "Destroyed"
+      }
+    },
+    {
+      "id": 104,
+      "name": "Otringal fence behind prison panel 5",
+      "values": {
+        "0": "Not destroyed",
+        "1": "Destroyed"
+      }
+    },
+    {
+      "id": 105,
+      "name": "Otringal fence behind prison panel 6",
+      "values": {
+        "0": "Not destroyed",
+        "1": "Destroyed"
+      }
+    },
+    {
+      "id": 106,
+      "name": "Otringal fence behind prison panel 3",
+      "values": {
+        "0": "Not destroyed",
+        "1": "Destroyed"
+      }
+    },
+    {
+      "id": 107,
+      "name": "Undergas elevator",
+      "values": {
+        "0": "Default",
+        "1": "Taken elevator down",
+        "2": "Took right elevator up",
+        "3": "Took left elevator up"
+      }
+    },
+    {
+      "id": 108,
+      "name": "Citadel Island to Desert Island ferry cutscene",
+      "values": {
+        "0": "Default",
+        "2": "In cutscene"
+      }
+    },
+    {
+      "id": 109,
+      "name": "Wizard outfit",
+      "values": {
+        "0": "Not purchased",
+        "1": "Purchased"
+      }
+    },
+    {
+      "id": 110,
+      "name": "Outside after Otringal cells",
+      "values": {
+        "0": "Default",
+        "1": "Outside"
+      }
+    },
+    {
+      "id": 111,
+      "name": "Temple of Bu poster in Ferry ticket office",
+      "values": {
+        "0": "Not read",
+        "1": "Read"
+      }
+    },
+    {
+      "id": 112,
+      "name": "Otringal guards status",
+      "values": {
+        "0": "Friendly",
+        "1": "They attack you"
+      }
+    },
+    {
+      "id": 113,
+      "name": "Unknown"
+    },
+    {
+      "id": 114,
+      "name": "Unknown"
+    },
+    {
+      "id": 115,
+      "name": "Unknown"
+    },
+    {
+      "id": 116,
+      "name": "Otringal safari giraffe",
+      "values": {
+        "0": "Default",
+        "1": "Outside",
+        "2": "Inside"
+      }
+    },
+    {
+      "id": 117,
+      "name": "Super jet pack",
+      "notes": "Not inventory flag",
+      "values": {
+        "0": "Default",
+        "1": "Baldino given super jet pack"
+      }
+    },
+    {
+      "id": 118,
+      "name": "Desert Island: Pétanque player",
+      "values": {
+        "0": "Default",
+        "1": "Healed"
+      }
+    },
+    {
+      "id": 119,
+      "name": "House area, Zoe at car",
+      "values": {
+        "0": "Default",
+        "1": "Entering outside house area, Zoe is at the car"
+      }
+    },
+    {
+      "id": 120,
+      "name": "Gazogem refinary second or third room life container",
+      "values": {
+        "0": "Default",
+        "1": "Opened"
+      }
+    },
+    {
+      "id": 121,
+      "name": "Telescope on hacienda roof",
+      "values": {
+        "0": "Default",
+        "1": "Used (Allows you to fly there with Dinofly)"
+      }
+    },
+    {
+      "id": 122,
+      "name": "Leontine Taxi",
+      "values": {
+        "0": "Default",
+        "1": "Taking taxi"
+      }
+    },
+    {
+      "id": 123,
+      "name": "Taxi to Island of the Francos",
+      "values": {
+        "0": "Can't take",
+        "1": "Can take"
+      }
+    },
+    {
+      "id": 124,
+      "name": "Otringal rebels",
+      "values": {
+        "0": "Default",
+        "1": "Spoke to CX guy on Celebration Island",
+        "2": "Can take boat from Otringal",
+        "3": "Talking to Rick in bar about Island CX",
+        "4": "Got ring of dissidents from Johnny Rocket",
+        "5": "Entered tourist shop rebel area"
+      }
+    },
+    {
+      "id": 125,
+      "name": "Yellow taxi to Island of the Francos from Celebration Island cutscene",
+      "values": {
+        "0": "Default",
+        "1": "Cutscene active"
+      }
+    },
+    {
+      "id": 126,
+      "name": "Taking yellow taxi from Island of the Francos to Otringal",
+      "values": {
+        "0": "Default",
+        "1": "Taking taxi"
+      }
+    },
+    {
+      "id": 127,
+      "name": "Gazogem to Baldino",
+      "values": {
+        "0": "Not given",
+        "1": "Given"
+      }
+    },
+    {
+      "id": 128,
+      "name": "Unknown"
+    },
+    {
+      "id": 129,
+      "name": "Boarded boat to elevator to the under gas",
+      "values": {
+        "0": "Default",
+        "1": "Boarded boat"
+      }
+    },
+    {
+      "id": 130,
+      "name": "Laser pistol",
+      "values": {
+        "0": "Have nothing",
+        "1": "Have crystal",
+        "2": "Have broken pistol",
+        "3": "Working pistol"
+      }
+    },
+    {
+      "id": 131,
+      "name": "Rick's Bar entertainment",
+      "values": {
+        "0": "Kiss on Stage",
+        "1": "Singer about to come on stage",
+        "2": "Singer on stage",
+        "3": "Kiss about to come on stage"
+      }
+    },
+    {
+      "id": 132,
+      "name": "Johnny Rocket position",
+      "values": {
+        "0": "By swimming pool",
+        "1": "In his room"
+      }
+    },
+    {
+      "id": 133,
+      "name": "Otringal: Left cell block",
+      "values": {
+        "0": "Default",
+        "1": "Left"
+      }
+    },
+    {
+      "id": 134,
+      "name": "Gems in Otringal mines",
+      "notes": "bit values",
+      "values": {
+        "0": "No gems",
+        "1": "Gem near lava and grabber",
+        "2": "Gem near Franco guard",
+        "3": "Gem near Wannie and machine"
+      }
+    },
+    {
+      "id": 135,
+      "name": "Otringal mines: Gem in small area with two wannies digging",
+      "values": {
+        "0": "Not collected",
+        "1": "Collected"
+      }
+    },
+    {
+      "id": 136,
+      "name": "Mine gems second area",
+      "notes": "bit values",
+      "values": {
+        "0": "No gems",
+        "1": "Gem near church",
+        "2": "Gem near wannies glove"
+      }
+    },
+    {
+      "id": 137,
+      "name": "Mousquibee gems landing area",
+      "notes": "bit values",
+      "values": {
+        "0": "No gems",
+        "1": "Gem near rope",
+        "2": "Gem near Ferry man song location"
+      }
+    },
+    {
+      "id": 138,
+      "name": "Mousquibee gems",
+      "notes": "bit values",
+      "values": {
+        "0": "No gems",
+        "1": "Gem by bridge",
+        "2": "Gem by Franco guard"
+      }
+    },
+    {
+      "id": 139,
+      "name": "Mousquibee gem by spider",
+      "values": {
+        "0": "Not collected",
+        "1": "Collected"
+      }
+    },
+    {
+      "id": 140,
+      "name": "Volcano Island gems",
+      "notes": "bit values"
+    },
+    {
+      "id": 141,
+      "name": "Volcano Island gems 2",
+      "notes": "bit values"
+    },
+    {
+      "id": 142,
+      "name": "Volcano Island gems 3 - gem inside hideout?",
+      "values": {
+        "0": "Not collected",
+        "1": "Collected"
+      }
+    },
+    {
+      "id": 143,
+      "name": "Moya the turtle",
+      "values": {
+        "0": "Default",
+        "1": "Currently on Moya"
+      }
+    },
+    {
+      "id": 144,
+      "name": "Otringal tourist shop: Wizard diplomoa",
+      "values": {
+        "0": "Not sold",
+        "1": "Sold"
+      }
+    },
+    {
+      "id": 145,
+      "name": "Otringal tourist shop: Ferry Ticket",
+      "values": {
+        "0": "Not sold",
+        "1": "Sold"
+      }
+    },
+    {
+      "id": 146,
+      "name": "Otringal tourist shop: Umbrella",
+      "values": {
+        "0": "Not sold",
+        "1": "Sold"
+      }
+    },
+    {
+      "id": 147,
+      "name": "Burger Masters Notes",
+      "values": {
+        "0": "Default",
+        "1": "Found"
+      }
+    },
+    {
+      "id": 148,
+      "name": "Sup key fragment",
+      "values": {
+        "0": "Default",
+        "1": "?",
+        "2": "?",
+        "3": "Got Sup key fragment",
+        "4": "Broke window above key chest"
+      }
+    },
+    {
+      "id": 149,
+      "name": "Landed with dinofly in desert",
+      "values": {
+        "0": "Default",
+        "1": "Landed"
+      }
+    },
+    {
+      "id": 150,
+      "name": "Twinsen climbing rope in mousquibee cutscene",
+      "values": {
+        "0": "Default",
+        "1": "Climbing"
+      }
+    },
+    {
+      "id": 152,
+      "name": "Rain"
+    },
+    {
+      "id": 159,
+      "name": "Unknown"
+    },
+    {
+      "id": 194,
+      "name": "Crashed spaceship action near Sendell's flower circle"
+    },
+    {
+      "id": 195,
+      "name": "Wizards freed",
+      "notes": "At the Dark Monk's statue, room 1",
+      "values": {
+        "0": "Wizards have not been freed",
+        "1": "Wizards have been freed"
+      }
+    }
+  ]
+}
