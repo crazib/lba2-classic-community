@@ -125,6 +125,8 @@ extern S32 ZoneEditorHasAnySelected(void);
 extern T_ZONE *ZoneEditorGetSelectedZone(void);
 extern S32 ZoneEditorLogSelected(void);
 extern S32 ZoneEditorCreateZone(const T_ZONE *zone);
+extern S32 ZoneEditorCreateLinkedDecorZone(const T_ZONE *zone, S32 decor_cube_x, S32 decor_cube_y, S32 decor_num, S32 decor_body, S32 decor_role, S32 decor_x, S32 decor_y, S32 decor_z, S32 decor_beta);
+extern void ZoneEditorSyncLinkedDecorZones(S32 decor_cube_x, S32 decor_cube_y, S32 decor_num, S32 decor_body, S32 decor_x, S32 decor_y, S32 decor_z, S32 decor_beta);
 extern S32 ZoneEditorSetSelectedField(S32 field, S32 value);
 extern S32 ZoneEditorSaveRuntimeEdits(const char *island_dir, S32 island);
 extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);

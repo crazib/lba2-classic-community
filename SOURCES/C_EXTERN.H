@@ -234,6 +234,9 @@ extern T_HQR_HEADER *HQRPtrAnim3DS;
 extern S16 *PtrZvExtra;
 extern S16 *PtrZvExtraRaw;
 extern S16 *PtrZvAnim3DS;
+extern S32 PtrZvExtraCount;
+extern S32 PtrZvExtraRawCount;
+extern S32 PtrZvAnim3DSCount;
 
 /*-------- Moteur 3D ---------------------------------------------*/
 extern U8 *BufferTexture;

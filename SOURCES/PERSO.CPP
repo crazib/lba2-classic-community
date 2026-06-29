@@ -16,6 +16,7 @@
 #include "EDITOR.H"
 #include <SYSTEM/LOG.H>
 #include <SYSTEM/LOGPRINT.H> /* CreateLog (boot log brought up in main) */
+#include <SYSTEM/HQFILE.H>
 #include "ASSET_PREFLIGHT.H"
 #include <SYSTEM/EVENTS.H>
 #include <SVGA/VIDEO.H>
@@ -1947,6 +1948,8 @@ restartloop:
 #ifdef LBA2CC_EDITOR
         if (CubeMode == CUBE_EXTERIEUR AND(ExtDecorEditorGetSelect() OR TerrainEditorGetSelect() OR TerrainTextureEditorGetSelect() OR TerrainRegionEditorGetSelect()))
             FirstTime = AFF_ALL_FLIP;
+        if (CubeMode == CUBE_INTERIEUR AND Editor_IsActive())
+            FirstTime = AFF_ALL_FLIP;
 #endif
 
         Perftrace_PhaseBegin(PERFTRACE_PHASE_SCENE);
@@ -2773,17 +2776,20 @@ int main(int argc, char *argv[]) {
     InitTextureAnimation(); // pour initialiser l'affaire
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+    PtrZvExtraCount = HQF_ResSize(tmpFilePath, RESS_GOODIES_GPC) / (8 * (S32)sizeof(S16));
     PtrZvExtra = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_GOODIES_GPC);
     if (!PtrZvExtra)
         TheEndCheckFile(tmpFilePath);
 
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+    PtrZvExtraRawCount = HQF_ResSize(tmpFilePath, RESS_GOODRAW_GPC) / (8 * (S32)sizeof(S16));
     PtrZvExtraRaw = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_GOODRAW_GPC);
     if (!PtrZvExtraRaw)
         TheEndCheckFile(tmpFilePath);
 
 #ifndef DEMO
     GetResPath(tmpFilePath, ADELINE_MAX_PATH, RESS_HQR_NAME);
+    PtrZvAnim3DSCount = HQF_ResSize(tmpFilePath, RESS_ANIM3DS_GPC) / (8 * (S32)sizeof(S16));
     PtrZvAnim3DS = (S16 *)LoadMalloc_HQR(tmpFilePath, RESS_ANIM3DS_GPC);
     if (!PtrZvAnim3DS)
         TheEndCheckFile(tmpFilePath);

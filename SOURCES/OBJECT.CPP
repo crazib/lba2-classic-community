@@ -67,6 +67,8 @@ S32 PersoFlashTimer = 0;
 
 S32 ShadowYHero;
 
+extern U8 *SearchPtrAnimAction;
+
 T_COMPORTEMENT ListComportement[MAX_COMPORTEMENTS] = {
     {0, -1, NULL, CF_STANDARD},   // Normal
     {0, -1, NULL, CF_STANDARD},   // Sportif
@@ -97,9 +99,37 @@ char DefSysText[4][20] = {
     "Aggressif",
     "Discret"};
 
+static S32 File3DEntryExists(S32 index) {
+    U32 count;
+    U32 offset;
+
+    if (!BufferFile3D OR index < 0)
+        return FALSE;
+
+    count = *(U32 *)BufferFile3D / 4;
+    if ((U32)index >= count)
+        return FALSE;
+
+    offset = *((U32 *)BufferFile3D + index);
+    return offset != 0;
+}
+
+static void InitComportementFiche(S32 comportement, S32 fiche) {
+    T_COMPORTEMENT *ptrcomp = &ListComportement[comportement];
+    T_OBJET *ptrobj = &ListObjet[NUM_PERSO];
+    U8 *memo_file3d = ptrobj->PtrFile3D;
+    U8 *memo_anim_action = SearchPtrAnimAction;
+
+    ptrobj->PtrFile3D = LoadFile3D(fiche);
+    ptrcomp->PtrFile3d = ptrobj->PtrFile3D;
+    ptrcomp->AnimRien = SearchAnim(GEN_ANIM_RIEN, NUM_PERSO);
+
+    ptrobj->PtrFile3D = memo_file3d;
+    SearchPtrAnimAction = memo_anim_action;
+}
+
 extern S32 XMap, YMap, ZMap;
 extern S16 M_XMin, M_XMax, M_YMin, M_YMax, M_ZMin, M_ZMax;
-extern U8 *SearchPtrAnimAction;
 
 /*══════════════════════════════════════════════════════════════════════════*/
 #define HashLine(x0, y0, x1, y1, coul, ep) Line(x0, y0, x1, y1, coul)
@@ -154,6 +184,23 @@ typedef struct
     S32 SkipLogged;
     S32 Added;
     T_ZONE AddedZone;
+    S32 LinkedDecor;
+    S32 LinkDecorCubeX;
+    S32 LinkDecorCubeY;
+    S32 LinkDecorNum;
+    S32 LinkDecorBody;
+    S32 LinkDecorRole;
+    S32 LinkDecorX;
+    S32 LinkDecorY;
+    S32 LinkDecorZ;
+    S32 LinkDecorBeta;
+    S32 LinkBaseInfo2;
+    S32 LinkX0;
+    S32 LinkY0;
+    S32 LinkZ0;
+    S32 LinkX1;
+    S32 LinkY1;
+    S32 LinkZ1;
 } T_ZONE_EDITOR_EDIT;
 
 static T_ZONE_EDITOR_EDIT ZoneEditorEdits[ZONE_EDITOR_MAX_EDITS];
@@ -175,6 +222,8 @@ static S32 ZoneEditorSelected[ZONE_EDITOR_MAX_SELECTED];
 extern S32 ExtDecorEditorGetSelect(void);
 extern S32 ExtDecorEditorGetPickPending(void);
 extern void ExtDecorEditorResolveClickPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq);
+extern S32 Editor_SelectPickPending(void);
+extern void Editor_ResolveSelectPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq);
 
 void ZoneOverlaySet(S32 ids, S32 boxes) {
     ZoneOverlayIds = ids ? TRUE : FALSE;
@@ -373,9 +422,130 @@ static T_ZONE_EDITOR_EDIT *ZoneEditorGetOrCreateEdit(S32 cube, S32 index, T_ZONE
     return NULL;
 }
 
+static void ZoneEditorRotateXZ(S32 x, S32 z, S32 turn, S32 *out_x, S32 *out_z) {
+    turn &= 3;
+    if (turn == 0) {
+        *out_x = x;
+        *out_z = z;
+    } else if (turn == 1) {
+        *out_x = z;
+        *out_z = -x;
+    } else if (turn == 2) {
+        *out_x = -x;
+        *out_z = -z;
+    } else {
+        *out_x = -z;
+        *out_z = x;
+    }
+}
+
+static S32 ZoneEditorAngleDeltaToTurn(S32 delta) {
+    delta &= 4095;
+    return ((delta + 512) / 1024) & 3;
+}
+
+static S32 ZoneEditorRotateDirection(S32 direction, S32 turn) {
+    S32 i;
+
+    turn &= 3;
+    for (i = 0; i < turn; i++) {
+        if (direction == 1)
+            direction = 8;
+        else if (direction == 8)
+            direction = 2;
+        else if (direction == 2)
+            direction = 4;
+        else if (direction == 4)
+            direction = 1;
+    }
+    return direction;
+}
+
+static void ZoneEditorSetEditInfo(T_ZONE_EDITOR_EDIT *edit, T_ZONE *zone) {
+    edit->TargetInfo[0] = zone->Info0;
+    edit->TargetInfo[1] = zone->Info1;
+    edit->TargetInfo[2] = zone->Info2;
+    edit->TargetInfo[3] = zone->Info3;
+    edit->TargetInfo[4] = zone->Info4;
+    edit->TargetInfo[5] = zone->Info5;
+    edit->TargetInfo[6] = zone->Info6;
+    edit->TargetInfo[7] = zone->Info7;
+    edit->HasTargetInfo = TRUE;
+}
+
+static void ZoneEditorSetLinkedBaseBounds(T_ZONE_EDITOR_EDIT *edit) {
+    edit->LinkX0 = edit->TargetX0;
+    edit->LinkY0 = edit->TargetY0;
+    edit->LinkZ0 = edit->TargetZ0;
+    edit->LinkX1 = edit->TargetX1;
+    edit->LinkY1 = edit->TargetY1;
+    edit->LinkZ1 = edit->TargetZ1;
+    edit->LinkBaseInfo2 = edit->TargetInfo[2];
+}
+
+void ZoneEditorSyncLinkedDecorZones(S32 decor_cube_x, S32 decor_cube_y, S32 decor_num, S32 decor_body, S32 decor_x, S32 decor_y, S32 decor_z, S32 decor_beta) {
+    S32 i;
+
+    for (i = 0; i < ZONE_EDITOR_MAX_EDITS; i++) {
+        T_ZONE_EDITOR_EDIT *edit = &ZoneEditorEdits[i];
+        S32 turn;
+        S32 xs[4];
+        S32 zs[4];
+        S32 n;
+
+        if (!edit->Used OR !edit->LinkedDecor)
+            continue;
+        if (edit->LinkDecorCubeX != decor_cube_x OR edit->LinkDecorCubeY != decor_cube_y OR edit->LinkDecorNum != decor_num OR edit->LinkDecorBody != decor_body)
+            continue;
+
+        turn = ZoneEditorAngleDeltaToTurn(decor_beta - edit->LinkDecorBeta);
+        ZoneEditorRotateXZ(edit->LinkX0 - edit->LinkDecorX, edit->LinkZ0 - edit->LinkDecorZ, turn, &xs[0], &zs[0]);
+        ZoneEditorRotateXZ(edit->LinkX0 - edit->LinkDecorX, edit->LinkZ1 - edit->LinkDecorZ, turn, &xs[1], &zs[1]);
+        ZoneEditorRotateXZ(edit->LinkX1 - edit->LinkDecorX, edit->LinkZ0 - edit->LinkDecorZ, turn, &xs[2], &zs[2]);
+        ZoneEditorRotateXZ(edit->LinkX1 - edit->LinkDecorX, edit->LinkZ1 - edit->LinkDecorZ, turn, &xs[3], &zs[3]);
+
+        edit->TargetX0 = xs[0] + decor_x;
+        edit->TargetX1 = edit->TargetX0;
+        edit->TargetZ0 = zs[0] + decor_z;
+        edit->TargetZ1 = edit->TargetZ0;
+        for (n = 1; n < 4; n++) {
+            S32 x = xs[n] + decor_x;
+            S32 z = zs[n] + decor_z;
+
+            if (x < edit->TargetX0)
+                edit->TargetX0 = x;
+            if (x > edit->TargetX1)
+                edit->TargetX1 = x;
+            if (z < edit->TargetZ0)
+                edit->TargetZ0 = z;
+            if (z > edit->TargetZ1)
+                edit->TargetZ1 = z;
+        }
+        edit->TargetY0 = edit->LinkY0 + decor_y - edit->LinkDecorY;
+        edit->TargetY1 = edit->LinkY1 + decor_y - edit->LinkDecorY;
+        edit->HasTargetBounds = TRUE;
+
+        if (edit->HasTargetInfo)
+            edit->TargetInfo[2] = ZoneEditorRotateDirection(edit->LinkBaseInfo2, turn);
+
+        if (ListZone AND edit->Cube == NumCube AND edit->Index >= 0 AND edit->Index < NbZones)
+            ZoneEditorApplyEditToZone(edit, &ListZone[edit->Index]);
+
+        edit->LinkDecorX = decor_x;
+        edit->LinkDecorY = decor_y;
+        edit->LinkDecorZ = decor_z;
+        edit->LinkDecorBeta = decor_beta;
+        ZoneEditorSetLinkedBaseBounds(edit);
+    }
+}
+
 void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
     S32 base_zones = NbZones;
     S32 appended;
+    S32 matched = 0;
+    S32 applied = 0;
+    S32 added = 0;
+    S32 skipped = 0;
     S32 i;
 
     do {
@@ -385,10 +555,12 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
 
             if (!edit->Used OR !edit->Added OR edit->Cube != cube OR edit->Index != NbZones)
                 continue;
+            matched++;
             if (!ZoneEditorResizeLoadedList(NbZones + 1))
-        return;
+                return;
             ListZone[NbZones] = edit->AddedZone;
             NbZones++;
+            added++;
             appended = TRUE;
         }
     } while (appended);
@@ -400,7 +572,9 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
 
         if (!edit->Used OR edit->Cube != cube)
             continue;
+        matched++;
         if (edit->Index < 0 OR edit->Index >= NbZones OR(edit->Added AND edit->Index < base_zones)) {
+            skipped++;
             if (!edit->SkipLogged) {
                 Log_Warn("[editor] zone edit skipped scene %d z%d: zone index is out of range [0,%d)",
                          (int)cube,
@@ -421,6 +595,7 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
         if ((edit->HasExpectType AND ptrz->Type != edit->Type)
                 OR(edit->HasExpectNum AND ptrz->Num != edit->Num)
                 OR(edit->HasExpectBounds AND !bounds_match)) {
+            skipped++;
             if (!edit->SkipLogged) {
                 Log_Warn("[editor] zone edit skipped scene %d z%d: current t%d n%d bounds [%d,%d,%d,%d,%d,%d] do not match expected",
                          (int)cube,
@@ -439,6 +614,17 @@ void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube) {
         }
 
         ZoneEditorApplyEditToZone(edit, ptrz);
+        applied++;
+    }
+
+    if (matched OR applied OR added OR skipped) {
+        Log_Info("[editor] applied zone edits for scene %d: base=%d final=%d added=%d applied=%d skipped=%d",
+                 (int)cube,
+                 (int)base_zones,
+                 (int)NbZones,
+                 (int)added,
+                 (int)applied,
+                 (int)skipped);
     }
 }
 
@@ -486,6 +672,8 @@ static S32 ZoneEditorImportZone(const char *json,
     S32 info[8];
     S32 expect_bounds[6];
     S32 bounds[6];
+    S32 decor_link[5];
+    S32 decor_anchor[4];
     T_ZONE_EDITOR_EDIT *edit;
 
     if (!EditorJsonParseInt(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "zone"), &index)) {
@@ -565,6 +753,32 @@ static S32 ZoneEditorImportZone(const char *json,
             edit->AddedZone.Info6 = info[6];
             edit->AddedZone.Info7 = info[7];
         }
+    }
+    edit->LinkedDecor = EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "decor_link"), decor_link, 5);
+    if (edit->LinkedDecor) {
+        edit->LinkDecorCubeX = decor_link[0];
+        edit->LinkDecorCubeY = decor_link[1];
+        edit->LinkDecorNum = decor_link[2];
+        edit->LinkDecorBody = decor_link[3];
+        edit->LinkDecorRole = decor_link[4];
+        if (EditorJsonParseIntArray(json, tokens, count, EditorJsonFindValue(json, tokens, count, zone, "decor_anchor"), decor_anchor, 4)) {
+            edit->LinkDecorX = decor_anchor[0];
+            edit->LinkDecorY = decor_anchor[1];
+            edit->LinkDecorZ = decor_anchor[2];
+            edit->LinkDecorBeta = decor_anchor[3];
+        } else {
+            edit->LinkDecorX = (bounds[0] + bounds[3]) / 2;
+            edit->LinkDecorY = bounds[1];
+            edit->LinkDecorZ = (bounds[2] + bounds[5]) / 2;
+            edit->LinkDecorBeta = 2048;
+        }
+        edit->LinkBaseInfo2 = edit->TargetInfo[2];
+        edit->LinkX0 = bounds[0];
+        edit->LinkY0 = bounds[1];
+        edit->LinkZ0 = bounds[2];
+        edit->LinkX1 = bounds[3];
+        edit->LinkY1 = bounds[4];
+        edit->LinkZ1 = bounds[5];
     }
     return TRUE;
 }
@@ -653,6 +867,8 @@ void ZoneEditorLoadAuthoringEditsForCurrentIsland(void) {
     }
 
     Log_Info("[editor] loaded zone edits: %s (loaded=%d skipped=%d)", path, (int)loaded, (int)skipped);
+    if (ListZone)
+        ZoneEditorApplyRuntimeEditsForLoadedScene(NumCube);
     free(tokens);
     free(json);
 }
@@ -733,13 +949,23 @@ S32 ZoneEditorSaveRuntimeEdits(const char *island_dir, S32 island) {
                 (int)edit->BaseX1, (int)edit->BaseY1, (int)edit->BaseZ1);
         fprintf(f, "          \"bounds\": [%d, %d, %d, %d, %d, %d]%s\n",
                 (int)x0, (int)y0, (int)z0, (int)x1, (int)y1, (int)z1,
-                (edit->Added OR edit->HasTargetInfo) ? "," : "");
+                (edit->Added OR edit->HasTargetInfo OR edit->LinkedDecor) ? "," : "");
         if (edit->Added OR edit->HasTargetInfo) {
-            fprintf(f, "          \"info\": [%d, %d, %d, %d, %d, %d, %d, %d]\n",
+            fprintf(f, "          \"info\": [%d, %d, %d, %d, %d, %d, %d, %d]%s\n",
                     (int)edit->TargetInfo[0], (int)edit->TargetInfo[1],
                     (int)edit->TargetInfo[2], (int)edit->TargetInfo[3],
                     (int)edit->TargetInfo[4], (int)edit->TargetInfo[5],
-                    (int)edit->TargetInfo[6], (int)edit->TargetInfo[7]);
+                    (int)edit->TargetInfo[6], (int)edit->TargetInfo[7],
+                    edit->LinkedDecor ? "," : "");
+        }
+        if (edit->LinkedDecor) {
+            fprintf(f, "          \"decor_link\": [%d, %d, %d, %d, %d],\n",
+                    (int)edit->LinkDecorCubeX, (int)edit->LinkDecorCubeY,
+                    (int)edit->LinkDecorNum, (int)edit->LinkDecorBody,
+                    (int)edit->LinkDecorRole);
+            fprintf(f, "          \"decor_anchor\": [%d, %d, %d, %d]\n",
+                    (int)edit->LinkDecorX, (int)edit->LinkDecorY,
+                    (int)edit->LinkDecorZ, (int)edit->LinkDecorBeta);
         }
         fprintf(f, "        }\n");
         fprintf(f, "      ]\n");
@@ -856,6 +1082,33 @@ S32 ZoneEditorCreateZone(const T_ZONE *zone) {
     return index;
 }
 
+S32 ZoneEditorCreateLinkedDecorZone(const T_ZONE *zone, S32 decor_cube_x, S32 decor_cube_y, S32 decor_num, S32 decor_body, S32 decor_role, S32 decor_x, S32 decor_y, S32 decor_z, S32 decor_beta) {
+    T_ZONE_EDITOR_EDIT *edit;
+    S32 index;
+
+    index = ZoneEditorCreateZone(zone);
+    if (index < 0)
+        return -1;
+
+    edit = ZoneEditorFindEdit(NumCube, index);
+    if (!edit)
+        return index;
+
+    edit->LinkedDecor = TRUE;
+    edit->LinkDecorCubeX = decor_cube_x;
+    edit->LinkDecorCubeY = decor_cube_y;
+    edit->LinkDecorNum = decor_num;
+    edit->LinkDecorBody = decor_body;
+    edit->LinkDecorRole = decor_role;
+    edit->LinkDecorX = decor_x;
+    edit->LinkDecorY = decor_y;
+    edit->LinkDecorZ = decor_z;
+    edit->LinkDecorBeta = decor_beta;
+    ZoneEditorSetEditInfo(edit, &ListZone[index]);
+    ZoneEditorSetLinkedBaseBounds(edit);
+    return index;
+}
+
 S32 ZoneEditorSetSelectedField(S32 field, S32 value) {
     T_ZONE *zone = ZoneEditorGetSelectedZone();
     T_ZONE_EDITOR_EDIT *edit;
@@ -929,12 +1182,15 @@ S32 ZoneEditorSetSelectedField(S32 field, S32 value) {
         break;
     }
 
+    if (edit->LinkedDecor AND edit->HasTargetBounds)
+        ZoneEditorSetLinkedBaseBounds(edit);
     ZoneEditorApplyEditToZone(edit, zone);
     return TRUE;
 }
 
 static void ZoneEditorMoveSelected(S32 dx, S32 dz) {
     S32 n;
+    S32 moved = FALSE;
     T_ZONE *ptrz;
 
     if (!ListZone OR NbZones <= 0)
@@ -950,11 +1206,24 @@ static void ZoneEditorMoveSelected(S32 dx, S32 dz) {
         edit = ZoneEditorGetOrCreateEdit(NumCube, n, ptrz);
         if (!edit)
             continue;
+        if (edit->LinkedDecor)
+            continue;
 
-        edit->Dx += dx;
-        edit->Dz += dz;
+        if (edit->HasTargetBounds) {
+            edit->TargetX0 += dx;
+            edit->TargetZ0 += dz;
+            edit->TargetX1 += dx;
+            edit->TargetZ1 += dz;
+        } else {
+            edit->Dx += dx;
+            edit->Dz += dz;
+        }
         ZoneEditorApplyEditToZone(edit, ptrz);
+        moved = TRUE;
     }
+
+    if (moved)
+        FirstTime = AFF_ALL_FLIP;
 }
 
 static void ZoneEditorBeginFrame(void) {
@@ -1000,7 +1269,8 @@ static void ZoneEditorConsiderPickPoint(S32 zone_index, S32 xs, S32 ys) {
     S32 dy;
     S32 dist;
 
-    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) OR !ExtDecorEditorGetPickPending())
+    if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            OR(!ExtDecorEditorGetPickPending() AND !Editor_SelectPickPending()))
         return;
 
     dx = xs - (S32)MouseX;
@@ -1022,7 +1292,10 @@ static void ZoneEditorEndFrame(void) {
         return;
     actor_index = ActorEditorFindPick(&actor_dist_sq);
     waypoint_index = WaypointEditorFindPick(&waypoint_dist_sq);
-    ExtDecorEditorResolveClickPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist, actor_index, actor_dist_sq, waypoint_index, waypoint_dist_sq);
+    if (ExtDecorEditorGetPickPending())
+        ExtDecorEditorResolveClickPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist, actor_index, actor_dist_sq, waypoint_index, waypoint_dist_sq);
+    else
+        Editor_ResolveSelectPick(ZoneEditorPickBestIndex, ZoneEditorPickBestDist, actor_index, actor_dist_sq, waypoint_index, waypoint_dist_sq);
 }
 #endif
 
@@ -3481,6 +3754,7 @@ void InitBody(U8 gennewbody,
 void InitSprite(S32 newsprite,
                 T_OBJET *ptrobj) {
     S16 *ptr;
+    S32 count;
 
     ptrobj->Sprite = (S16)newsprite;
 
@@ -3490,13 +3764,29 @@ void InitSprite(S32 newsprite,
     if (newsprite != -1 AND newsprite != ptrobj->Obj.Body.Num) {
         ptrobj->Obj.Body.Num = newsprite;
 
-        if (ptrobj->Flags & ANIM_3DS)
+        if (ptrobj->Flags & ANIM_3DS) {
+            count = PtrZvAnim3DSCount;
+            if (newsprite < 0 OR newsprite >= count) {
+                Log_Warn("[sprite] refused anim3DS sprite %d: metadata count is %d", (int)newsprite, (int)count);
+                return;
+            }
             ptr = &PtrZvAnim3DS[newsprite * 8 + 2];
-        else {
-            if (newsprite >= 100)
+        } else {
+            if (newsprite >= 100) {
+                count = PtrZvExtraCount;
+                if (newsprite >= count) {
+                    Log_Warn("[sprite] refused sprite %d: SPRITES metadata count is %d", (int)newsprite, (int)count);
+                    return;
+                }
                 ptr = &PtrZvExtra[newsprite * 8 + 2];
-            else
+            } else {
+                count = PtrZvExtraRawCount;
+                if (newsprite >= count) {
+                    Log_Warn("[sprite] refused raw sprite %d: SPRIRAW metadata count is %d", (int)newsprite, (int)count);
+                    return;
+                }
                 ptr = &PtrZvExtraRaw[newsprite * 8 + 2];
+            }
         }
 
         ptrobj->XMin = *ptr++;

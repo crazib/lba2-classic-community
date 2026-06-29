@@ -254,6 +254,76 @@ class ActorEditsTest(unittest.TestCase):
                 [1000, 2000, 3000],
             )
 
+    def test_replaces_added_zone_when_requested(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scene_path = os.path.join(tmp, "SCENE.HQR")
+            zone_path = os.path.join(tmp, "zone_edits.json")
+            data_patch.write_hqr_blobs(
+                scene_path,
+                [
+                    data_patch.stored_hqr_blob(b"max scene"),
+                    data_patch.stored_hqr_blob(scene_blob()),
+                ],
+            )
+            with open(zone_path, "w") as f:
+                json.dump(
+                    {
+                        "scenes": [
+                            {
+                                "scene": 0,
+                                "zones": [
+                                    {
+                                        "zone": 0,
+                                        "add": True,
+                                        "replace": True,
+                                        "type": 3,
+                                        "num": 10,
+                                        "bounds": [10, 20, 30, 40, 50, 60],
+                                        "info": [4, 0, 1, 0, 0, 0, 0, 0],
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    f,
+                )
+            zone_op = {
+                "file": "SCENE.HQR",
+                "source": "zone_edits.json",
+                "_manifest_dir": tmp,
+            }
+            self.assertTrue(data_patch.op_apply_zone_edits(zone_op, tmp, True))
+
+            with open(zone_path, "w") as f:
+                json.dump(
+                    {
+                        "scenes": [
+                            {
+                                "scene": 0,
+                                "zones": [
+                                    {
+                                        "zone": 0,
+                                        "add": True,
+                                        "replace": True,
+                                        "type": 3,
+                                        "num": 10,
+                                        "bounds": [10, 20, 30, 40, 50, 60],
+                                        "info": [28, 0, 0, 0, 0, 0, 0, 0],
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    f,
+                )
+            self.assertTrue(data_patch.op_apply_zone_edits(zone_op, tmp, True))
+            self.assertFalse(data_patch.op_apply_zone_edits(zone_op, tmp, True))
+
+            _ents, _data, _raw, scene = scene_zones.load_scene(scene_path, 0)
+            self.assertEqual(len(scene["zones"]), 1)
+            self.assertEqual(scene["zones"][0]["info0"], 28)
+            self.assertEqual(scene["zones"][0]["info2"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

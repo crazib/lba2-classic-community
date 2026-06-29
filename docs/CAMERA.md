@@ -133,6 +133,8 @@ The Select / Move editor tool provides a free camera. Press Shift+Backtick to en
 
 Press Shift+Backtick again to exit. The editor camera remains where it was placed. Entering and leaving the mode is briefly reported in the bottom-left editor status text. Plain Backtick retains its existing inspector toggle.
 
+In Select / Move outside free camera, `Shift+F` toggles the same exterior fog/draw-distance limit. Fog is enabled by default.
+
 ### Future work
 
 - **Rendering architecture:** A faster terrain path (GPU or structural changes) would reduce the CPU cost of per-frame `RefreshGrille`.

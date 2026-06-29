@@ -2,6 +2,7 @@
 #include "CONFIG.H"
 #ifdef LBA2CC_EDITOR
 #include "BUILDING_KITBASHER.H"
+#include "EDITOR/MODEL_EDITOR/MODEL_EDITOR.H"
 #endif
 #include "DIRECTORIES.H"
 #include "INPUT.H"
@@ -83,6 +84,7 @@ S32 FlagShowEndDemo = FALSE;
 #ifdef LBA2CC_EDITOR
 #define MENU_ID_EDITING 2117
 #define MENU_ID_BUILDING_KITBASHER 2118
+#define MENU_ID_MODEL_EDITOR 2119
 #endif
 
 #define MENU_TYPE_TEXT_LANGUAGE 8
@@ -140,10 +142,12 @@ U16 GameOptionMenu[] = {
 #ifdef LBA2CC_EDITOR
 U16 EditingMenu[] = {
     0,   // selected
-    2,   // nb entries
+    3,   // nb entries
     260, // y center
     0,   // .dia num
 
+    0,
+    MENU_ID_MODEL_EDITOR,
     0,
     MENU_ID_BUILDING_KITBASHER,
     0,
@@ -361,6 +365,7 @@ enum MenuLocalizedLabel {
     MENU_LABEL_VSYNC_OFF,
 #ifdef LBA2CC_EDITOR
     MENU_LABEL_EDITING,
+    MENU_LABEL_MODEL_EDITOR,
     MENU_LABEL_BUILDING_KITBASHER,
 #endif
     MENU_LABEL_COUNT,
@@ -391,6 +396,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vsync OFF",
 #ifdef LBA2CC_EDITOR
         "Editing",
+        "PERSO-Edit 26",
         "Building Kitbasher",
 #endif
     },
@@ -418,6 +424,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vsync OFF",
 #ifdef LBA2CC_EDITOR
         "Édition",
+        "Model Editor",
         "Building Kitbasher",
 #endif
     },
@@ -445,6 +452,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vsync OFF",
 #ifdef LBA2CC_EDITOR
         "Editor",
+        "Model Editor",
         "Building Kitbasher",
 #endif
     },
@@ -472,6 +480,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vsync OFF",
 #ifdef LBA2CC_EDITOR
         "Edición",
+        "Model Editor",
         "Building Kitbasher",
 #endif
     },
@@ -499,6 +508,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vsync OFF",
 #ifdef LBA2CC_EDITOR
         "Modifica",
+        "Model Editor",
         "Building Kitbasher",
 #endif
     },
@@ -526,6 +536,7 @@ static const char *LocalizedMenuLabels[6][MENU_LABEL_COUNT] = {
         "Vsync OFF",
 #ifdef LBA2CC_EDITOR
         "Edição",
+        "Model Editor",
         "Building Kitbasher",
 #endif
     },
@@ -631,6 +642,10 @@ static void BuildCustomMenuText(S32 num, char *string) {
 #ifdef LBA2CC_EDITOR
     case MENU_ID_EDITING:
         CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_EDITING));
+        break;
+
+    case MENU_ID_MODEL_EDITOR:
+        CopyUtf8ToCp850(string, 256, GetLocalizedMenuLabel(MENU_LABEL_MODEL_EDITOR));
         break;
 
     case MENU_ID_BUILDING_KITBASHER:
@@ -3574,6 +3589,16 @@ S32 EditingMenuRun(void) {
         case 26:
         case 1000:
             flag = 1;
+            break;
+
+        case MENU_ID_MODEL_EDITOR:
+            MenuMouseRelease();
+            ModelEditor_Run();
+            MenuMouseAcquire();
+            CopyScreen(Screen, Log);
+            if (FlagShadeMenu)
+                ShadeBoxBlk(0, 0, (S32)ModeDesiredX - 1, (S32)ModeDesiredY - 1, SCREEN_SHADE_LVL);
+            BoxStaticFullflip();
             break;
 
         case MENU_ID_BUILDING_KITBASHER:

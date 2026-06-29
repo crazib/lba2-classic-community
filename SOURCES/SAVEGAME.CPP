@@ -44,6 +44,10 @@ extern U8 *PtrLib3DBufferAnim; // P_ANIM.ASM (lib_3D)
 
 extern S32 InvSelect; // GAMEMENU.C
 
+#ifdef LBA2CC_EDITOR
+extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
+#endif
+
 U8 *PtrSave;
 
 #if defined(DEBUG_TOOLS) || defined(TEST_TOOLS) || defined(EDITLBA2)
@@ -1978,6 +1982,10 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             }
 #endif
         }
+
+#ifdef LBA2CC_EDITOR
+        ZoneEditorApplyRuntimeEditsForLoadedScene(NumCube);
+#endif
 
         // Incrust
         LbaReadByte(wbyte);

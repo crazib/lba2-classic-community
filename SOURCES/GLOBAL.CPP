@@ -225,6 +225,9 @@ T_HQR_HEADER *HQRPtrAnim3DS;
 S16 *PtrZvExtra;
 S16 *PtrZvExtraRaw;
 S16 *PtrZvAnim3DS;
+S32 PtrZvExtraCount = 0;
+S32 PtrZvExtraRawCount = 0;
+S32 PtrZvAnim3DSCount = 0;
 
 /*--------- moteur 3D ----------------------------*/
 U8 *BufferAnim;
