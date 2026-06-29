@@ -3,6 +3,7 @@
 #include "EDITOR_DECOR_BOUNDS.H"
 
 #include "../ACTOR_EDITOR.H"
+#include "../COMMON.H"
 #include "../EDITOR_JSON.H"
 #include "../EDITOR.H"
 #include "../WAYPOINT_EDITOR.H"
@@ -55,6 +56,8 @@ extern void ZoneEditorClearAllSelected(void);
 extern void ZoneEditorSelectOnly(S32 index);
 extern void ZoneEditorToggleSelectedByIndex(S32 index);
 extern S32 ZoneEditorLogSelected(void);
+extern S32 ZoneEditorCreateLinkedDecorZone(const T_ZONE *zone, S32 decor_cube_x, S32 decor_cube_y, S32 decor_num, S32 decor_body, S32 decor_role, S32 decor_x, S32 decor_y, S32 decor_z, S32 decor_beta);
+extern void ZoneEditorSyncLinkedDecorZones(S32 decor_cube_x, S32 decor_cube_y, S32 decor_num, S32 decor_body, S32 decor_x, S32 decor_y, S32 decor_z, S32 decor_beta);
 extern void ActorEditorClearSelection(void);
 extern void ActorEditorResolvePick(S32 index, S32 toggle);
 extern void WaypointEditorClearSelection(void);
@@ -62,6 +65,16 @@ extern void WaypointEditorResolvePick(S32 index, S32 toggle);
 extern S32 ZoneEditorHasAnySelected(void);
 extern S32 Island;
 extern char IslandName[ADELINE_MAX_PATH];
+extern S32 NumCube;
+extern S32 StartXCube;
+extern S32 StartYCube;
+extern S32 StartZCube;
+extern S32 AlphaCam;
+extern S32 BetaCam;
+extern S32 GammaCam;
+extern S32 VueDistance;
+extern S16 NbZones;
+extern T_ZONE *ListZone;
 
 static S32 ExtDecorOverlayIds = FALSE;
 static S32 ExtDecorOverlayBoxes = FALSE;
@@ -106,6 +119,11 @@ static void ExtDecorEditorPlaceAtPreview(void);
 
 #define EXT_DECOR_EDITOR_MAX_EDITS 4096
 #define EXT_DECOR_EDITOR_MAX_SELECTED 256
+
+#define EXT_DECOR_LINK_ROLE_SIGN_TEXT_A 1
+#define EXT_DECOR_LINK_ROLE_SIGN_CAMERA 2
+#define EXT_DECOR_LINK_ROLE_SIGN_TEXT_B 3
+#define EXT_DECOR_LINK_ROLE_BONUS 4
 
 typedef struct
 {
@@ -634,6 +652,160 @@ static void ExtDecorEditorRotateXZ(S32 x, S32 z, S32 turn, S32 *out_x, S32 *out_
     }
 }
 
+static S32 ExtDecorEditorAngleDeltaToTurn(S32 delta) {
+    delta &= 4095;
+    return ((delta + 512) / 1024) & 3;
+}
+
+static S32 ExtDecorEditorRotateDirection(S32 direction, S32 turn) {
+    S32 i;
+
+    turn &= 3;
+    for (i = 0; i < turn; i++) {
+        if (direction == 1)
+            direction = 8;
+        else if (direction == 8)
+            direction = 2;
+        else if (direction == 2)
+            direction = 4;
+        else if (direction == 4)
+            direction = 1;
+    }
+    return direction;
+}
+
+static void ExtDecorEditorSetRotatedBounds(T_ZONE *zone, S32 x, S32 y, S32 z, S32 beta, S32 x0, S32 y0, S32 z0, S32 x1, S32 y1, S32 z1) {
+    S32 turn;
+    S32 xs[4];
+    S32 zs[4];
+    S32 i;
+
+    turn = ExtDecorEditorAngleDeltaToTurn(beta - 2048);
+    ExtDecorEditorRotateXZ(x0, z0, turn, &xs[0], &zs[0]);
+    ExtDecorEditorRotateXZ(x0, z1, turn, &xs[1], &zs[1]);
+    ExtDecorEditorRotateXZ(x1, z0, turn, &xs[2], &zs[2]);
+    ExtDecorEditorRotateXZ(x1, z1, turn, &xs[3], &zs[3]);
+
+    zone->X0 = xs[0] + x;
+    zone->X1 = zone->X0;
+    zone->Z0 = zs[0] + z;
+    zone->Z1 = zone->Z0;
+    for (i = 1; i < 4; i++) {
+        S32 xr = xs[i] + x;
+        S32 zr = zs[i] + z;
+
+        if (xr < zone->X0)
+            zone->X0 = xr;
+        if (xr > zone->X1)
+            zone->X1 = xr;
+        if (zr < zone->Z0)
+            zone->Z0 = zr;
+        if (zr > zone->Z1)
+            zone->Z1 = zr;
+    }
+    zone->Y0 = y + y0;
+    zone->Y1 = y + y1;
+}
+
+static S32 ExtDecorEditorNextCameraZoneNum(void) {
+    S32 i;
+    S32 max_num = 0;
+
+    if (!ListZone)
+        return 1;
+
+    for (i = 0; i < NbZones; i++) {
+        if (ListZone[i].Type == 1 AND ListZone[i].Num > max_num)
+            max_num = ListZone[i].Num;
+    }
+    return max_num + 1;
+}
+
+static S32 ExtDecorEditorIsCitadelProximaBody(S32 library) {
+    if (library == 0)
+        return Island == 0 OR Island == 12;
+    return library == 0 OR library == 12;
+}
+
+static void ExtDecorEditorMaybeCreateLinkedZones(S32 slot, T_DECORS *obj) {
+    S32 library;
+    S32 body_index;
+    S32 body;
+    S32 beta;
+    S32 turn;
+    T_ZONE zone;
+
+    if (!obj)
+        return;
+
+    ExtDecorEditorDecodeBody(obj->Body, &library, &body_index);
+    body = obj->Body & 0xFFFF;
+    beta = obj->Beta & 4095;
+    turn = ExtDecorEditorAngleDeltaToTurn(beta - 2048);
+
+    if (body_index == 5 AND ExtDecorEditorIsCitadelProximaBody(library)) {
+        S32 camera_num = ExtDecorEditorNextCameraZoneNum();
+
+        memset(&zone, 0, sizeof(zone));
+        zone.Type = 5;
+        zone.Num = 0;
+        zone.Info0 = 12;
+        zone.Info1 = camera_num;
+        zone.Info2 = ExtDecorEditorRotateDirection(1, turn);
+        zone.Info6 = 15000;
+        zone.Info7 = 1;
+        ExtDecorEditorSetRotatedBounds(&zone, obj->Xworld, obj->Yworld, obj->Zworld, beta, -432, 0, 256, 384, 1216, 768);
+        ZoneEditorCreateLinkedDecorZone(&zone, ExtDecorEditorLoadedCubeX, ExtDecorEditorLoadedCubeY, slot, body, EXT_DECOR_LINK_ROLE_SIGN_TEXT_A, obj->Xworld, obj->Yworld, obj->Zworld, beta);
+
+        memset(&zone, 0, sizeof(zone));
+        zone.Type = 1;
+        zone.Num = camera_num;
+        zone.Info0 = StartXCube;
+        zone.Info1 = StartYCube;
+        zone.Info2 = StartZCube;
+        zone.Info3 = AlphaCam;
+        zone.Info4 = BetaCam;
+        zone.Info5 = GammaCam;
+        zone.Info6 = VueDistance;
+        zone.Info7 = 1;
+        ExtDecorEditorSetRotatedBounds(&zone, obj->Xworld, obj->Yworld, obj->Zworld, beta, -256, 0, 256, 256, 256, 768);
+        ZoneEditorCreateLinkedDecorZone(&zone, ExtDecorEditorLoadedCubeX, ExtDecorEditorLoadedCubeY, slot, body, EXT_DECOR_LINK_ROLE_SIGN_CAMERA, obj->Xworld, obj->Yworld, obj->Zworld, beta);
+
+        memset(&zone, 0, sizeof(zone));
+        zone.Type = 5;
+        zone.Num = 0;
+        zone.Info0 = 12;
+        zone.Info1 = camera_num;
+        zone.Info2 = ExtDecorEditorRotateDirection(2, turn);
+        zone.Info6 = 15000;
+        zone.Info7 = 1;
+        ExtDecorEditorSetRotatedBounds(&zone, obj->Xworld, obj->Yworld, obj->Zworld, beta, -464, 0, -768, 432, 1184, -256);
+        ZoneEditorCreateLinkedDecorZone(&zone, ExtDecorEditorLoadedCubeX, ExtDecorEditorLoadedCubeY, slot, body, EXT_DECOR_LINK_ROLE_SIGN_TEXT_B, obj->Xworld, obj->Yworld, obj->Zworld, beta);
+        ExtDecorEditorSelectSlot(slot);
+        Log_Info("[editor] created sign zones for decor c%d,%d #%d", (int)ExtDecorEditorLoadedCubeX, (int)ExtDecorEditorLoadedCubeY, (int)slot);
+    } else if (body_index == 34) {
+        memset(&zone, 0, sizeof(zone));
+        zone.Type = 4;
+        zone.Num = 0;
+        zone.Info0 = 112;
+        zone.Info1 = 1;
+        ExtDecorEditorSetRotatedBounds(&zone, obj->Xworld, obj->Yworld, obj->Zworld, beta, -1040, -47, -880, 860, 603, 1020);
+        ZoneEditorCreateLinkedDecorZone(&zone, ExtDecorEditorLoadedCubeX, ExtDecorEditorLoadedCubeY, slot, body, EXT_DECOR_LINK_ROLE_BONUS, obj->Xworld, obj->Yworld, obj->Zworld, beta);
+        ExtDecorEditorSelectSlot(slot);
+        Log_Info("[editor] created trashcan bonus zone for decor c%d,%d #%d", (int)ExtDecorEditorLoadedCubeX, (int)ExtDecorEditorLoadedCubeY, (int)slot);
+    } else if (body_index == 41) {
+        memset(&zone, 0, sizeof(zone));
+        zone.Type = 4;
+        zone.Num = 0;
+        zone.Info0 = 112;
+        zone.Info1 = 1;
+        ExtDecorEditorSetRotatedBounds(&zone, obj->Xworld, obj->Yworld, obj->Zworld, beta, -1024, 0, -1056, 928, 650, 896);
+        ZoneEditorCreateLinkedDecorZone(&zone, ExtDecorEditorLoadedCubeX, ExtDecorEditorLoadedCubeY, slot, body, EXT_DECOR_LINK_ROLE_BONUS, obj->Xworld, obj->Yworld, obj->Zworld, beta);
+        ExtDecorEditorSelectSlot(slot);
+        Log_Info("[editor] created planter bonus zone for decor c%d,%d #%d", (int)ExtDecorEditorLoadedCubeX, (int)ExtDecorEditorLoadedCubeY, (int)slot);
+    }
+}
+
 static void ExtDecorEditorApplyEditBounds(T_EXT_DECOR_EDITOR_EDIT *edit, T_DECORS *ptrobj) {
     S32 turn;
     S32 xs[4];
@@ -669,6 +841,17 @@ static void ExtDecorEditorApplyEditBounds(T_EXT_DECOR_EDITOR_EDIT *edit, T_DECOR
     ptrobj->ZMax += edit->BaseZ + edit->Dz;
 }
 
+static void ExtDecorEditorSyncLinkedZonesForEdit(T_EXT_DECOR_EDITOR_EDIT *edit) {
+    ZoneEditorSyncLinkedDecorZones(edit->CubeX,
+                                   edit->CubeY,
+                                   edit->Num,
+                                   edit->Body,
+                                   edit->BaseX + edit->Dx,
+                                   edit->BaseY + edit->Dy,
+                                   edit->BaseZ + edit->Dz,
+                                   (edit->BaseBeta + edit->DBeta) & 4095);
+}
+
 static void ExtDecorEditorApplyEditToObject(T_EXT_DECOR_EDITOR_EDIT *edit, T_DECORS *ptrobj) {
     if (edit->Deleted) {
         ptrobj->Body |= DEC_INVISIBLE;
@@ -676,11 +859,13 @@ static void ExtDecorEditorApplyEditToObject(T_EXT_DECOR_EDITOR_EDIT *edit, T_DEC
     }
 
     ptrobj->Body = (ptrobj->Body & ~0xFFFF) | (edit->NewBody & 0xFFFF);
+    ptrobj->Body &= ~DEC_INVISIBLE;
     ptrobj->Beta = (edit->BaseBeta + edit->DBeta) & 0xFFFF;
     ptrobj->Xworld = edit->BaseX + edit->Dx;
     ptrobj->Yworld = edit->BaseY + edit->Dy;
     ptrobj->Zworld = edit->BaseZ + edit->Dz;
     ExtDecorEditorApplyEditBounds(edit, ptrobj);
+    ExtDecorEditorSyncLinkedZonesForEdit(edit);
 }
 
 void ExtDecorEditorReleaseOwnedDecorList(void) {
@@ -755,7 +940,7 @@ void ExtDecorEditorApplyRuntimeEditsForLoadedCube(S32 cube_x, S32 cube_y) {
         T_EXT_DECOR_EDITOR_EDIT *edit = &ExtDecorEditorEdits[i];
         if (edit->Used
                 AND edit->CubeX == cube_x AND edit->CubeY == cube_y AND edit->Num >= NbObjDecors) {
-            if (!edit->Deleted AND !edit->HasExpectBody AND edit->Num == NbObjDecors) {
+            if (!edit->HasExpectBody AND edit->Num == NbObjDecors) {
                 ExtDecorEditorAppendObjectFromEdit(edit);
                 continue;
             }
@@ -1241,7 +1426,10 @@ static S32 ExtDecorEditorAppendObjectFromEdit(T_EXT_DECOR_EDITOR_EDIT *edit) {
         return FALSE;
 
     ListDecors[slot].Body = (edit->BaseBodyRaw & ~0xFFFF) | (edit->NewBody & 0xFFFF);
-    ListDecors[slot].Body &= ~DEC_INVISIBLE;
+    if (edit->Deleted)
+        ListDecors[slot].Body |= DEC_INVISIBLE;
+    else
+        ListDecors[slot].Body &= ~DEC_INVISIBLE;
     ListDecors[slot].CodeJeu = edit->BaseCodeJeu;
     ListDecors[slot].Beta = (edit->BaseBeta + edit->DBeta) & 0xFFFF;
     ListDecors[slot].Xworld = edit->BaseX + edit->Dx;
@@ -1390,6 +1578,7 @@ static void ExtDecorEditorPlaceObjectInDeletedSlot(T_DECORS *src) {
                  (int)ExtDecorEditorLoadedCubeY,
                  (int)slot,
                  (int)(ListDecors[slot].Body & 0xFFFF));
+        ExtDecorEditorMaybeCreateLinkedZones(slot, &ListDecors[slot]);
         return;
     }
 
@@ -1420,6 +1609,7 @@ static void ExtDecorEditorPlaceObjectInDeletedSlot(T_DECORS *src) {
              (int)ExtDecorEditorLoadedCubeY,
              (int)slot,
              (int)(ListDecors[slot].Body & 0xFFFF));
+    ExtDecorEditorMaybeCreateLinkedZones(slot, &ListDecors[slot]);
 }
 
 static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 beta, S32 x, S32 y, S32 z) {
@@ -1444,6 +1634,7 @@ static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 beta, S32 x
                  (int)x,
                  (int)y,
                  (int)z);
+        ExtDecorEditorMaybeCreateLinkedZones(slot, &ListDecors[slot]);
         return;
     }
 
@@ -1469,6 +1660,7 @@ static void ExtDecorEditorPlaceObjectAt(T_DECORS *src, S32 body, S32 beta, S32 x
              (int)x,
              (int)y,
              (int)z);
+    ExtDecorEditorMaybeCreateLinkedZones(slot, &ListDecors[slot]);
 }
 
 void ExtDecorEditorDeleteSelected(void) {
@@ -1486,8 +1678,15 @@ void ExtDecorEditorDeleteSelected(void) {
             continue;
         if (sel->CubeX != ExtDecorEditorLoadedCubeX OR sel->CubeY != ExtDecorEditorLoadedCubeY OR sel->Num < 0 OR sel->Num >= NbObjDecors)
             continue;
+        if ((ListDecors[sel->Num].Body & DEC_INVISIBLE)
+                OR((ListDecors[sel->Num].Body & 0xFFFF) != sel->Body)) {
+            sel->Used = FALSE;
+            continue;
+        }
 
-        edit = ExtDecorEditorFindAnyEdit(sel->CubeX, sel->CubeY, sel->Num);
+        edit = ExtDecorEditorFindEdit(sel->CubeX, sel->CubeY, sel->Num, sel->Body);
+        if (!edit)
+            edit = ExtDecorEditorFindAnyEdit(sel->CubeX, sel->CubeY, sel->Num);
         if (!edit)
             edit = ExtDecorEditorGetOrCreateEdit(sel->CubeX, sel->CubeY, sel->Num, &ListDecors[sel->Num]);
         if (edit)
@@ -1500,6 +1699,8 @@ void ExtDecorEditorDeleteSelected(void) {
     if (deleted) {
         Editor_SetStatus("Deleted selected exterior decor");
         Log_Info("[editor] deleted %d exterior decor object(s)", (int)deleted);
+    } else {
+        Editor_SetStatus("No selected exterior decor to delete");
     }
 }
 
@@ -1998,7 +2199,7 @@ void ExtDecorEditorBeginFrame(void) {
         ExtDecorEditorUpdatePlacementPreview();
         if ((click & 1) AND !(ExtDecorEditorLastClick & 1))
             ExtDecorEditorPlaceAtPreview();
-    } else if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND(click & 1) AND !(ExtDecorEditorLastClick & 1)) {
+    } else if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND !Editor_CubeAllocateModeActive() AND(click & 1) AND !(ExtDecorEditorLastClick & 1)) {
         ExtDecorEditorPickPending = TRUE;
         ExtDecorEditorPickShift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
         ExtDecorEditorPickBestDist = EXT_DECOR_EDITOR_PICK_RADIUS * EXT_DECOR_EDITOR_PICK_RADIUS;

@@ -25,7 +25,7 @@
 #define FREECAM_MOUSE_SENSITIVITY 3.0f
 #define FREECAM_PITCH_LIMIT 1000
 #define FREECAM_MAX_DT 100
-#define FREECAM_FOG_FAR 200000
+#define FREECAM_FOG_FAR 400000
 #define FREECAM_FOG_RANGE 100
 
 static S32 s_active = FALSE;
@@ -66,13 +66,16 @@ static void FreeCam_Start(void) {
     s_gamma = FreeCam_NormalizeAngle(CameraGamma);
     s_saved_start_fog = StartZFog;
     s_saved_clip_far = ClipZFar;
-    s_fog_disabled = FALSE;
+    s_fog_disabled = TRUE;
     s_hide_actors = FALSE;
     s_last_fog_toggle = FALSE;
     s_last_actor_toggle = FALSE;
     s_last_screenshot = FALSE;
     s_active = TRUE;
     s_last_time = TimerRefHR;
+    StartZFog = FREECAM_FOG_FAR - FREECAM_FOG_RANGE;
+    ClipZFar = FREECAM_FOG_FAR;
+    SetFog(StartZFog, ClipZFar);
     FreeCam_SetRelativeMode(TRUE);
 }
 

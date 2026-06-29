@@ -88,8 +88,8 @@ U8 *PalOrg;
 
 //--------------------------------------------------------------
 #define NB_LANGUAGES 6
-#define MAX_TEXT_LANG 15                              // Attention, pour 1 langue seulement!
-#define MAX_FILE_VOICE (MAX_TEXT_LANG * NB_LANGUAGES) // ( SYS CRE GAM 0 ... 11 ) * MaxLang
+#define MAX_TEXT_LANG 16                              // Attention, pour 1 langue seulement!
+#define MAX_FILE_VOICE (MAX_TEXT_LANG * NB_LANGUAGES) // ( SYS CRE GAM 0 ... 12 ) * MaxLang
 #define EXT_VOX ".VOX"
 #define FROM_HD 0
 #define FROM_CD 1
@@ -182,7 +182,8 @@ const char *ListFileText[] = {"sys",
                               "008",
                               "009",
                               "010",
-                              "011"};
+                              "011",
+                              "012"};
 // flag de cadre shade
 
 S32 FlagMessageShade = TRUE;

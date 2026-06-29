@@ -5,6 +5,8 @@ static void EditorTerrainPatternDefaults(T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
     cell->Sens1 = 1;
     cell->Footstep0 = -1;
     cell->Footstep1 = -1;
+    cell->ColorBank0 = -1;
+    cell->ColorBank1 = -1;
 }
 
 static void EditorTerrainPatternPavementSens(T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
@@ -251,4 +253,57 @@ void EditorTerrainPatternDirt(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
     cell->Sens1 = 0;
     cell->Footstep0 = 0;
     cell->Footstep1 = 0;
+}
+
+void EditorTerrainPatternSand(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                              S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
+    (void)region;
+    (void)x;
+    (void)z;
+
+    EditorTerrainPatternDefaults(cell);
+    cell->Texture0 = -1;
+    cell->Texture1 = -1;
+    cell->ColorBank0 = 6;
+    cell->ColorBank1 = 6;
+    cell->Footstep0 = 12;
+    cell->Footstep1 = 12;
+}
+
+void EditorTerrainPatternCement(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
+    (void)region;
+    (void)x;
+    (void)z;
+
+    EditorTerrainPatternDefaults(cell);
+    cell->Texture0 = -1;
+    cell->Texture1 = -1;
+    cell->Sens1 = 0;
+    cell->ColorBank0 = 14;
+    cell->ColorBank1 = 14;
+    cell->Footstep0 = 4;
+    cell->Footstep1 = 4;
+}
+
+void EditorTerrainPatternConcrete(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                  S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell) {
+    static const S32 texture0[2][2] = {
+        {308, 311},
+        {307, 305}
+    };
+    static const S32 texture1[2][2] = {
+        {309, 310},
+        {304, 306}
+    };
+    S32 row = (z - region->AnchorZ) & 1;
+    S32 col = (x - region->AnchorX) & 1;
+
+    EditorTerrainPatternDefaults(cell);
+    cell->Texture0 = texture0[row][col];
+    cell->Texture1 = texture1[row][col];
+    cell->ColorBank0 = 1;
+    cell->ColorBank1 = 1;
+    cell->Footstep0 = 4;
+    cell->Footstep1 = 4;
 }

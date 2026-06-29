@@ -45,6 +45,10 @@ extern U8 *PtrLib3DBufferAnim; // P_ANIM.ASM (lib_3D)
 extern S32 InvSelect; // GAMEMENU.C
 extern T_INV_OBJ InitTabInv[];
 
+#ifdef LBA2CC_EDITOR
+extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
+#endif
+
 U8 *PtrSave;
 
 #define SAVE_INVENTORY_LEGACY_COUNT 40
@@ -1994,6 +1998,10 @@ S32 LoadContexte(S32 *savetimerrefhr) {
             }
 #endif
         }
+
+#ifdef LBA2CC_EDITOR
+        ZoneEditorApplyRuntimeEditsForLoadedScene(NumCube);
+#endif
 
         // Incrust
         LbaReadByte(wbyte);

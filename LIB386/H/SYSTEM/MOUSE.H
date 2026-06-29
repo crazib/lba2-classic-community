@@ -17,6 +17,10 @@ extern S32 MouseYDep;       ///< Mouse relative motion in the Y axis
 
 /// Accumulated vertical mouse wheel delta (surface coords) since last consume.
 extern volatile S32 MouseWheelYAccum;
+/// Accumulated horizontal mouse wheel delta (surface coords) since last consume.
+extern volatile S32 MouseWheelXAccum;
+/// Multiplicative pinch gesture scale since last consume. 1.0 means unchanged.
+extern volatile float MousePinchScaleAccum;
 
 extern S32 MouseSpriteGraphicNum;      ///< Id of graphic for mouse cursor
 extern const void *MouseSpriteGraphic; ///< Memory of graphic for mouse cursor
@@ -44,6 +48,10 @@ void HandleEventsMouse(const void *event);
 
 /// Returns accumulated vertical wheel motion since last call and clears the accumulator.
 S32 ConsumeMouseWheelY(void);
+/// Returns accumulated horizontal wheel motion since last call and clears the accumulator.
+S32 ConsumeMouseWheelX(void);
+/// Returns accumulated pinch zoom scale since last call and resets it to 1.0.
+float ConsumeMousePinchScale(void);
 
 // =============================================================================
 #ifdef __cplusplus

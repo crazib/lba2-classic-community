@@ -22,17 +22,20 @@ typedef enum EditorTool
 extern void Editor_UpdateInput(void);
 extern void Editor_UpdateFreeCam(void);
 extern void Editor_DrawOverlay(void);
-extern S32 Editor_IsActive(void);
-extern S32 Editor_IsCameraPanActive(void);
+extern bool Editor_IsActive(void);
+extern bool Editor_IsCameraPanActive(void);
 extern S32 Editor_ResolveOutputDir(char *outPath, S32 pathMax);
 extern S32 Editor_FindExteriorScene(S32 cube_x, S32 cube_y);
 extern void Editor_SetStatus(const char *text);
 extern EditorTool Editor_GetTool(void);
-extern S32 Editor_ToolIs(EditorTool tool);
-extern S32 Editor_HasOverlay(S32 overlay);
-extern S32 Editor_InspectorConsumesInput(void);
-extern S32 Editor_WorldPlacementActive(void);
+extern bool Editor_ToolIs(EditorTool tool);
+extern bool Editor_HasOverlay(S32 overlay);
+extern bool Editor_CubeAllocateModeActive(void);
+extern bool Editor_InspectorConsumesInput(void);
+extern bool Editor_WorldPlacementActive(void);
 extern void Editor_PlaceAtWorld(S32 x, S32 y, S32 z);
+extern S32 Editor_SelectPickPending(void);
+extern void Editor_ResolveSelectPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq);
 extern S32 ActorEditorFindPick(S32 *dist_sq);
 extern S32 WaypointEditorFindPick(S32 *dist_sq);
 
@@ -49,9 +52,12 @@ extern S32 WaypointEditorFindPick(S32 *dist_sq);
 #define Editor_GetTool() (0)
 #define Editor_ToolIs(tool) (0)
 #define Editor_HasOverlay(overlay) (0)
+#define Editor_CubeAllocateModeActive() (0)
 #define Editor_InspectorConsumesInput() (0)
 #define Editor_WorldPlacementActive() (0)
 #define Editor_PlaceAtWorld(x, y, z) ((void)0)
+#define Editor_SelectPickPending() (0)
+#define Editor_ResolveSelectPick(zone_index, zone_dist_sq, actor_index, actor_dist_sq, waypoint_index, waypoint_dist_sq) ((void)0)
 #define ActorEditorFindPick(dist_sq) (-1)
 #define WaypointEditorFindPick(dist_sq) (-1)
 

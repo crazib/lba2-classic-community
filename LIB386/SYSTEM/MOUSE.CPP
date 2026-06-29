@@ -32,6 +32,8 @@ S32 LibMouseXDep, LibMouseYDep;
 U32 MouseBoxX0, MouseBoxX1, MouseBoxY0, MouseBoxY1;
 
 volatile S32 MouseWheelYAccum = 0;
+volatile S32 MouseWheelXAccum = 0;
+volatile float MousePinchScaleAccum = 1.0f;
 
 static bool s_showSpriteAfterFirstMotion = false;
 static Uint32 s_lastPointerActivityMs = 0;
@@ -57,6 +59,7 @@ void InitMouse() {
 
     MouseSpriteGraphic = (const void *)BinGphMouse;
     MouseSpriteGraphicNum = 0;
+    MousePinchScaleAccum = 1.0f;
 }
 
 void EndMouse() {
@@ -198,9 +201,32 @@ void HandleEventsMouse(const void *event) {
 
     case SDL_EVENT_MOUSE_WHEEL:
         MousePointerMarkActivity();
+        MouseWheelXAccum += (S32)lround((double)sdlEvent->wheel.x);
         MouseWheelYAccum += (S32)lround((double)sdlEvent->wheel.y);
         LastInputWasKeyboard = 0;
         break;
+
+#ifdef SDL_EVENT_PINCH_BEGIN
+    case SDL_EVENT_PINCH_BEGIN:
+        MousePointerMarkActivity();
+        LastInputWasKeyboard = 0;
+        break;
+#endif
+
+#ifdef SDL_EVENT_PINCH_UPDATE
+    case SDL_EVENT_PINCH_UPDATE:
+        MousePointerMarkActivity();
+        MousePinchScaleAccum *= sdlEvent->pinch.scale;
+        LastInputWasKeyboard = 0;
+        break;
+#endif
+
+#ifdef SDL_EVENT_PINCH_END
+    case SDL_EVENT_PINCH_END:
+        MousePointerMarkActivity();
+        LastInputWasKeyboard = 0;
+        break;
+#endif
     }
 }
 
@@ -209,6 +235,22 @@ S32 ConsumeMouseWheelY(void) {
 
     v = MouseWheelYAccum;
     MouseWheelYAccum = 0;
+    return v;
+}
+
+S32 ConsumeMouseWheelX(void) {
+    S32 v;
+
+    v = MouseWheelXAccum;
+    MouseWheelXAccum = 0;
+    return v;
+}
+
+float ConsumeMousePinchScale(void) {
+    float v;
+
+    v = MousePinchScaleAccum;
+    MousePinchScaleAccum = 1.0f;
     return v;
 }
 

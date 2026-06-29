@@ -9,6 +9,7 @@
 
 #ifdef LBA2CC_EDITOR
 extern void ZoneEditorApplyRuntimeEditsForLoadedScene(S32 cube);
+extern void ZoneEditorLoadAuthoringEditsForCurrentIsland(void);
 extern void ZoneEditorReleaseOwnedZoneList(void);
 #endif
 
@@ -241,6 +242,11 @@ S32 LoadScene(S32 numscene) {
     ListZone = (T_ZONE *)PtrSce;
     PtrSce += NbZones * sizeof(T_ZONE);
 
+#ifdef LBA2CC_EDITOR
+    ZoneEditorLoadAuthoringEditsForCurrentIsland();
+    ZoneEditorApplyRuntimeEditsForLoadedScene(numscene);
+#endif
+
     ptrz = ListZone;
 
     for (n = 0; n < NbZones; n++, ptrz++) {
@@ -282,10 +288,6 @@ S32 LoadScene(S32 numscene) {
             break;
         }
     }
-
-#ifdef LBA2CC_EDITOR
-    ZoneEditorApplyRuntimeEditsForLoadedScene(numscene);
-#endif
 
     // point track: TRACK
 

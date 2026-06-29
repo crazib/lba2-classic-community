@@ -10,15 +10,18 @@
 #include "DISKFUNC.H"
 #include "FREECAM.H"
 #include "HQR_NAMES.H"
+#include "INTEXT.H"
 #include "MESSAGE.H"
 #include "OBJECT.H"
 #include "3DEXT/DECORS.H"
 #include "3DEXT/EDITOR_TERRAIN_PATTERNS.H"
 #include "3DEXT/LOADISLE.H"
 #include "3DEXT/TERRAIN.H"
+#include "3DEXT/VAR_EXT.H"
 
 #include <3D/LIGHT.H>
 #include <3D/ROT2D.H>
+#include <POLYGON/POLY.H>
 #include <SVGA/SCREEN.H>
 #include <SVGA/DIRTYBOX.H>
 #include <SYSTEM/FILES.H>
@@ -40,6 +43,8 @@ extern S32 CurrentCubeY;
 extern S32 *ListCubeInfos;
 extern U8 *PtrSce;
 extern void ZoneEditorClearAllSelected(void);
+extern void ZoneEditorSelectOnly(S32 index);
+extern void ZoneEditorToggleSelectedByIndex(S32 index);
 
 static S32 EditorVisible = FALSE;
 static S32 EditorLastSave = FALSE;
@@ -53,6 +58,10 @@ static S32 EditorLastActorOverlay = FALSE;
 static S32 EditorLastWaypointOverlay = FALSE;
 static S32 EditorLastOverlayDetail = FALSE;
 static S32 EditorLastCubeBoundaryOverlay = FALSE;
+static S32 EditorLastFogToggle = FALSE;
+static S32 EditorLastCubeAllocateClick = FALSE;
+static S32 EditorLastPlacementClick = FALSE;
+static S32 EditorLastSelectClick = FALSE;
 static S32 EditorLastEscape = FALSE;
 static S32 EditorLastEnter = FALSE;
 static S32 EditorSuppressEscapeUntilRelease = FALSE;
@@ -81,6 +90,9 @@ static EditorTool EditorActiveTool = EDITOR_TOOL_SELECT_MOVE;
 static S32 EditorOverlayFlags = EDITOR_OVERLAY_DECOR | EDITOR_OVERLAY_ZONES | EDITOR_OVERLAY_ACTORS | EDITOR_OVERLAY_WAYPOINTS;
 static S32 EditorOverlayDetailIds = FALSE;
 static S32 EditorCubeBoundaryOverlay = FALSE;
+static S32 EditorCubeAllocateMode = FALSE;
+static S32 EditorSelectPickPending = FALSE;
+static S32 EditorSelectPickShift = FALSE;
 static S32 EditorNewMenuActive = FALSE;
 static S32 EditorNewMenuRow = 0;
 static S32 EditorNewMenuLastUp = FALSE;
@@ -126,6 +138,9 @@ static S32 EditorCameraOrtho = FALSE;
 static S32 EditorRememberedOrtho = FALSE;
 static S32 EditorHasGameCamera = FALSE;
 static S32 EditorHasCamera = FALSE;
+static S32 EditorFogDisabled = FALSE;
+static S32 EditorSavedStartFog = 0;
+static S32 EditorSavedClipFar = 0;
 static S32 EditorLastViewFront = FALSE;
 static S32 EditorLastViewRight = FALSE;
 static S32 EditorLastViewTop = FALSE;
@@ -186,7 +201,7 @@ static const char *EditorInspectorDecorFieldNames[EXT_DECOR_FIELD_COUNT] = {
 };
 
 static const char *EditorInspectorActorFieldNames[] = {
-    "Index", "Model", "Body", "Animation", "X", "Y", "Z", "Beta",
+    "Index", "Model", "Body", "Animation", "X", "Y", "Z", "Sprite ID", "Beta",
     "Life", "Armour", "Move", "Raw flags",
     "Object collision", "Brick collision", "Zone checks", "Sprite clipping",
     "Pushable", "Low collision", "Game-code checks", "Floor-only collision",
@@ -227,7 +242,7 @@ static const char *EditorInspectorTerrainRegionFieldNames[TERRAIN_REGION_FIELD_C
 };
 
 static const char *EditorInspectorTerrainRegionTypeNames[TERRAIN_REGION_TYPE_COUNT] = {
-    "Grass Patch", "Pavement", "Grass Inset", "Asphalt", "Grass Pavement", "Riprap", "Pavement (Alt)", "Rocks", "Cliffside", "Dirt"
+    "Grass Patch", "Pavement", "Grass Inset", "Asphalt", "Grass Pavement", "Riprap", "Pavement (Alt)", "Rocks", "Cliffside", "Dirt", "Sand", "Cement", "Concrete"
 };
 
 typedef struct {
@@ -267,7 +282,14 @@ typedef struct {
 #define EDITOR_ORTHO_SCALE_STEP 1.5f
 #define EDITOR_ORTHO_SCALE_MIN (1.0f / 512.0f)
 #define EDITOR_ORTHO_SCALE_MAX (1.0f / 4.0f)
+#define EDITOR_FOG_FAR 400000
+#define EDITOR_FOG_RANGE 100
 #define EDITOR_CUBE_BOUNDARY_COLOR 7
+#define EDITOR_CUBE_ALLOCATED_COLOR 10
+#define EDITOR_CUBE_UNALLOCATED_COLOR 14
+#define EDITOR_CUBE_ALLOCATE_PICK_RADIUS 18
+#define EDITOR_CUBE_ALLOCATE_MAX_ADDED 256
+#define EDITOR_CUBE_ALLOCATE_SCENE_BASE_PROXIMA 223
 #define EDITOR_ACTOR_BOX_COLOR 10
 #define EDITOR_ACTOR_BOX_AXIS_COLOR 14
 #define EDITOR_ACTOR_TEXT_COLOR 10
@@ -288,7 +310,19 @@ typedef struct {
 #define EDITOR_NEW_WAYPOINT 2
 #define EDITOR_NEW_ZONE 3
 
+typedef struct {
+    S32 CubeX;
+    S32 CubeY;
+} T_EDITOR_ALLOCATED_CUBE;
+
 static T_EDITOR_SCENE_EDIT EditorSceneEdits[EDITOR_SCENE_MAX_EDITS];
+static T_EDITOR_ALLOCATED_CUBE EditorCubeAllocateAll[EDITOR_CUBE_ALLOCATE_MAX_ADDED];
+static T_EDITOR_ALLOCATED_CUBE EditorCubeAllocateAdded[EDITOR_CUBE_ALLOCATE_MAX_ADDED];
+static S32 EditorCubeAllocateAllCount = 0;
+static S32 EditorCubeAllocateAddedCount = 0;
+static S32 EditorCubeAllocateInitialCount = 0;
+
+static S32 EditorProjectPoint(S32 x, S32 y, S32 z, S32 *screen_x, S32 *screen_y);
 
 static void EditorTrimLine(char *text) {
     size_t len;
@@ -309,6 +343,50 @@ void Editor_SetStatus(const char *text) {
     strncpy(EditorStatus, text, sizeof(EditorStatus));
     EditorStatus[sizeof(EditorStatus) - 1] = '\0';
     EditorStatusTimerEnd = TimerRefHR + 1000;
+}
+
+static void Editor_ApplyFogDisabled(void) {
+    StartZFog = EDITOR_FOG_FAR - EDITOR_FOG_RANGE;
+    ClipZFar = EDITOR_FOG_FAR;
+    SetFog(StartZFog, ClipZFar);
+}
+
+static void Editor_ApplyExteriorFogOverride(void) {
+    if (CubeMode != CUBE_EXTERIEUR)
+        return;
+
+    if (FreeCam_IsActive()) {
+        FreeCam_ApplyFogOverride();
+        return;
+    }
+
+    if (!EditorFogDisabled)
+        return;
+
+    EditorSavedStartFog = StartZFog;
+    EditorSavedClipFar = ClipZFar;
+    Editor_ApplyFogDisabled();
+}
+
+static void Editor_RestoreExteriorFog(void) {
+    StartZFog = EditorSavedStartFog;
+    ClipZFar = EditorSavedClipFar;
+    SetFog(StartZFog, ClipZFar);
+}
+
+static void Editor_ToggleExteriorFog(void) {
+    if (EditorFogDisabled) {
+        EditorFogDisabled = FALSE;
+        Editor_RestoreExteriorFog();
+        Editor_SetStatus("Editor fog enabled");
+    } else {
+        EditorSavedStartFog = StartZFog;
+        EditorSavedClipFar = ClipZFar;
+        EditorFogDisabled = TRUE;
+        Editor_ApplyFogDisabled();
+        Editor_SetStatus("Editor fog disabled");
+    }
+    FirstTime = AFF_ALL_FLIP;
 }
 
 static S32 Editor_ReadOutputRoot(char *outPath, S32 pathMax) {
@@ -803,16 +881,20 @@ EditorTool Editor_GetTool(void) {
     return EditorActiveTool;
 }
 
-S32 Editor_ToolIs(EditorTool tool) {
+bool Editor_ToolIs(EditorTool tool) {
     return EditorVisible AND EditorActiveTool == tool;
 }
 
-S32 Editor_IsCameraPanActive(void) {
+bool Editor_IsCameraPanActive(void) {
     return EditorCameraPanActive;
 }
 
-S32 Editor_HasOverlay(S32 overlay) {
+bool Editor_HasOverlay(S32 overlay) {
     return (EditorOverlayFlags & overlay) ? TRUE : FALSE;
+}
+
+bool Editor_CubeAllocateModeActive(void) {
+    return EditorVisible AND EditorCubeAllocateMode;
 }
 
 static const char *Editor_ToolName(EditorTool tool) {
@@ -847,10 +929,14 @@ static void Editor_SetDefaultOverlaysForTool(void) {
 
 static void Editor_ApplyToolState(void) {
     S32 exterior = CubeMode == CUBE_EXTERIEUR;
+    S32 interior = CubeMode == CUBE_INTERIEUR;
     S32 decor_select = FALSE;
     S32 terrain_select = FALSE;
     S32 texture_select = FALSE;
     S32 terrain_region_select = FALSE;
+
+    if (EditorVisible AND !exterior AND EditorActiveTool != EDITOR_TOOL_SELECT_MOVE)
+        EditorActiveTool = EDITOR_TOOL_SELECT_MOVE;
 
     if (EditorVisible AND exterior) {
         if (EditorActiveTool == EDITOR_TOOL_SELECT_MOVE)
@@ -870,11 +956,11 @@ static void Editor_ApplyToolState(void) {
     TerrainTextureEditorSetSelect(texture_select);
     TerrainRegionEditorSetSelect(terrain_region_select);
 
-    if (EditorVisible AND exterior) {
+    if (EditorVisible AND(exterior OR interior)) {
         S32 decor = EditorOverlayFlags & EDITOR_OVERLAY_DECOR;
         S32 zones = EditorOverlayFlags & EDITOR_OVERLAY_ZONES;
 
-        ExtDecorOverlaySet((decor AND EditorOverlayDetailIds), decor);
+        ExtDecorOverlaySet(exterior AND(decor AND EditorOverlayDetailIds), exterior AND decor);
         ZoneOverlaySet((zones AND EditorOverlayDetailIds), zones);
         ZoneOverlaySetType(-1);
     } else {
@@ -895,21 +981,32 @@ static void Editor_SetOff(void);
 
 static void Editor_SetTool(EditorTool tool) {
     S32 was_visible = EditorVisible;
+    S32 exterior = CubeMode == CUBE_EXTERIEUR;
 
     if (tool < EDITOR_TOOL_SELECT_MOVE OR tool > EDITOR_TOOL_TERRAIN_REGION)
         tool = EDITOR_TOOL_SELECT_MOVE;
+    if (!exterior)
+        tool = EDITOR_TOOL_SELECT_MOVE;
 
     if (!was_visible) {
-        EditorSaveGameCamera();
-        if (EDITOR_RESTORE_SAVED_CAMERA AND EditorHasCamera)
-            EditorRestoreEditorCamera();
-        else
-            EditorSaveEditorCamera();
-        EditorSyncLoadedCubeToCamera();
+        if (exterior) {
+            EditorSaveGameCamera();
+            if (EDITOR_RESTORE_SAVED_CAMERA AND EditorHasCamera)
+                EditorRestoreEditorCamera();
+            else
+                EditorSaveEditorCamera();
+            EditorSyncLoadedCubeToCamera();
+        } else {
+            EditorHasGameCamera = FALSE;
+            EditorCameraPanActive = FALSE;
+            CameraCenter(0);
+        }
     }
 
     EditorVisible = TRUE;
     EditorActiveTool = tool;
+    if (EditorActiveTool != EDITOR_TOOL_SELECT_MOVE)
+        EditorCubeAllocateMode = FALSE;
     Editor_SetDefaultOverlaysForTool();
     if (EditorActiveTool == EDITOR_TOOL_DECOR_PLACE)
         ExtDecorEditorClearSelection();
@@ -920,6 +1017,15 @@ static void Editor_SetTool(EditorTool tool) {
 
 static void Editor_CycleTool(S32 dir) {
     S32 index;
+
+    if (EditorVisible AND CubeMode != CUBE_EXTERIEUR) {
+        Editor_SetOff();
+        return;
+    }
+    if (!EditorVisible AND CubeMode != CUBE_EXTERIEUR) {
+        Editor_SetTool(EDITOR_TOOL_SELECT_MOVE);
+        return;
+    }
 
     index = EditorVisible ? ((S32)EditorActiveTool + 1) : 0;
     index += dir;
@@ -937,12 +1043,17 @@ static void Editor_CycleTool(S32 dir) {
 
 static void Editor_SetOff(void) {
     if (EditorVisible) {
-        EditorSaveEditorCamera();
-        EditorRestoreGameCamera();
-        if (EditorHasGameCamera) {
-            CurrentCubeX = EditorGameCubeX;
-            CurrentCubeY = EditorGameCubeY;
-            LoadCube(CurrentCubeX, CurrentCubeY);
+        if (CubeMode == CUBE_INTERIEUR) {
+            EditorCameraPanActive = FALSE;
+            CameraCenter(0);
+        } else {
+            EditorSaveEditorCamera();
+            EditorRestoreGameCamera();
+            if (EditorHasGameCamera) {
+                CurrentCubeX = EditorGameCubeX;
+                CurrentCubeY = EditorGameCubeY;
+                LoadCube(CurrentCubeX, CurrentCubeY);
+            }
         }
     }
     EditorCameraPanActive = FALSE;
@@ -1048,8 +1159,49 @@ static S32 EditorUpdateNewMenuInput(void) {
     return TRUE;
 }
 
-S32 Editor_WorldPlacementActive(void) {
+bool Editor_WorldPlacementActive(void) {
     return EditorNewPlacement != EDITOR_NEW_NONE;
+}
+
+static S32 Editor_GetWorldPlacementPoint(S32 *x, S32 *y, S32 *z) {
+    if (CubeMode == CUBE_INTERIEUR) {
+        S32 best_dist = 48 * 48;
+        S32 best_x = -1;
+        S32 best_z = -1;
+        S32 xi;
+        S32 zi;
+
+        for (zi = 0; zi < SIZE_CUBE_Z; zi++) {
+            for (xi = 0; xi < SIZE_CUBE_X; xi++) {
+                S32 wx = xi * SIZE_BRICK_XZ + DEMI_BRICK_XZ;
+                S32 wy = SIZE_BRICK_Y;
+                S32 wz = zi * SIZE_BRICK_XZ + DEMI_BRICK_XZ;
+                S32 sx;
+                S32 sy;
+                S32 dx;
+                S32 dy;
+                S32 dist;
+
+                if (!EditorProjectPoint(wx, wy, wz, &sx, &sy))
+                    continue;
+                dx = sx - (S32)MouseX;
+                dy = sy - (S32)MouseY;
+                dist = dx * dx + dy * dy;
+                if (dist <= best_dist) {
+                    best_dist = dist;
+                    best_x = wx;
+                    best_z = wz;
+                }
+            }
+        }
+        if (best_x < 0)
+            return FALSE;
+        *x = best_x;
+        *y = SIZE_BRICK_Y;
+        *z = best_z;
+        return TRUE;
+    }
+    return ExtDecorEditorGetPlacementPoint(x, y, z);
 }
 
 void Editor_PlaceAtWorld(S32 x, S32 y, S32 z) {
@@ -1075,6 +1227,61 @@ void Editor_PlaceAtWorld(S32 x, S32 y, S32 z) {
     if (!ActorEditorIsPlacing())
         EditorNewPlacement = EDITOR_NEW_NONE;
     FirstTime = AFF_ALL_FLIP;
+}
+
+S32 Editor_SelectPickPending(void) {
+    return EditorSelectPickPending;
+}
+
+void Editor_ResolveSelectPick(S32 zone_index, S32 zone_dist_sq, S32 actor_index, S32 actor_dist_sq, S32 waypoint_index, S32 waypoint_dist_sq) {
+    S32 zone_hit;
+    S32 actor_hit;
+    S32 waypoint_hit;
+    S32 winner;
+
+    if (!EditorSelectPickPending)
+        return;
+
+    zone_hit = zone_index >= 0;
+    actor_hit = actor_index >= 0;
+    waypoint_hit = waypoint_index >= 0;
+
+    if (!zone_hit AND !actor_hit AND !waypoint_hit) {
+        if (!EditorSelectPickShift)
+            Editor_ClearAllSelection();
+        EditorSelectPickPending = FALSE;
+        return;
+    }
+
+    winner = 0;
+    if (zone_hit)
+        winner = 1;
+    if (actor_hit AND(!winner OR actor_dist_sq < zone_dist_sq))
+        winner = 2;
+    if (waypoint_hit
+            AND(!winner
+                OR(winner == 1 AND waypoint_dist_sq < zone_dist_sq)
+                OR(winner == 2 AND waypoint_dist_sq < actor_dist_sq)))
+        winner = 3;
+
+    if (EditorSelectPickShift) {
+        if (winner == 1)
+            ZoneEditorToggleSelectedByIndex(zone_index);
+        else if (winner == 2)
+            ActorEditorResolvePick(actor_index, TRUE);
+        else
+            WaypointEditorResolvePick(waypoint_index, TRUE);
+    } else {
+        Editor_ClearAllSelection();
+        if (winner == 1)
+            ZoneEditorSelectOnly(zone_index);
+        else if (winner == 2)
+            ActorEditorResolvePick(actor_index, FALSE);
+        else
+            WaypointEditorResolvePick(waypoint_index, FALSE);
+    }
+
+    EditorSelectPickPending = FALSE;
 }
 
 static void Editor_ConsumeCurrentFrameInput(void) {
@@ -1163,12 +1370,8 @@ static const char *EditorInspectorFieldName(S32 kind, S32 field) {
 }
 
 static S32 EditorInspectorFieldIsReadOnly(S32 kind, S32 field) {
-    if (kind == EDITOR_INSPECTOR_ACTOR AND field == ACTOR_EDITOR_FIELD_INDEX)
-        return TRUE;
-    if (kind == EDITOR_INSPECTOR_ACTOR
-            AND(field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 10
-                OR field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 18))
-        return TRUE;
+    if (kind == EDITOR_INSPECTOR_ACTOR)
+        return !ActorEditorCanEditField(field);
     if (kind == EDITOR_INSPECTOR_WAYPOINT AND field == EDITOR_WAYPOINT_FIELD_INDEX)
         return TRUE;
     if (kind == EDITOR_INSPECTOR_ZONE
@@ -1701,14 +1904,14 @@ static void WaypointEditorUpdateMovement(void) {
     WaypointEditorLastPageDown = page_down;
 }
 
-S32 Editor_IsActive(void) {
+bool Editor_IsActive(void) {
     return EditorVisible
            OR ExtDecorEditorGetSelect()
            OR TerrainEditorGetSelect()
            OR TerrainTextureEditorGetSelect();
 }
 
-S32 Editor_InspectorConsumesInput(void) {
+bool Editor_InspectorConsumesInput(void) {
     return EditorNewMenuActive
            OR FreeCam_IsActive()
            OR(EditorInspectorVisible AND EditorInspectorFocused);
@@ -1716,10 +1919,15 @@ S32 Editor_InspectorConsumesInput(void) {
 
 void Editor_UpdateFreeCam(void) {
     S32 event;
+    S32 ctrl;
+    S32 alt;
+    S32 shift;
+    S32 fog_toggle;
 
     if (EditorNewMenuActive)
         return;
-    event = FreeCam_UpdateEditor(Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE));
+    event = FreeCam_UpdateEditor(Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND CubeMode == CUBE_EXTERIEUR);
+    SetExteriorFogOverride(Editor_ApplyExteriorFogOverride);
     if (event == FREECAM_EVENT_ENTERED)
         Editor_SetStatus("Free camera enabled");
     else if (event == FREECAM_EVENT_EXITED)
@@ -1742,6 +1950,177 @@ void Editor_UpdateFreeCam(void) {
         ShowMouse(true);
         EditorMouseShown = TRUE;
     }
+
+    ctrl = (CheckKey(K_CTRL) OR CheckKey(K_CTRL_LEFT) OR CheckKey(K_CTRL_RIGHT)) ? TRUE : FALSE;
+    alt = (CheckKey(K_ALT) OR CheckKey(K_ALT_LEFT) OR CheckKey(K_ALT_RIGHT)) ? TRUE : FALSE;
+    shift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+    fog_toggle = (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+                  AND CubeMode == CUBE_EXTERIEUR
+                  AND !FreeCam_IsActive()
+                  AND !Editor_WorldPlacementActive()
+                  AND !(EditorInspectorVisible AND EditorInspectorFocused)
+                  AND shift
+                  AND !ctrl
+                  AND !alt
+                  AND CheckKey(K_F)) ? TRUE : FALSE;
+    if (fog_toggle AND !EditorLastFogToggle) {
+        Editor_ToggleExteriorFog();
+        Editor_ConsumeCurrentFrameInput();
+    }
+    EditorLastFogToggle = fog_toggle;
+}
+
+static void EditorCubeAllocateCaptureExisting(void) {
+    S32 cube_x;
+    S32 cube_y;
+
+    EditorCubeAllocateAllCount = 0;
+    if (!IsleMapIndex)
+        return;
+
+    for (cube_y = 0; cube_y < EDITOR_ISLAND_MAP_SIZE; cube_y++) {
+        for (cube_x = 0; cube_x < EDITOR_ISLAND_MAP_SIZE; cube_x++) {
+            if ((IsleMapIndex[cube_y * EDITOR_ISLAND_MAP_SIZE + cube_x] & 127) == 0)
+                continue;
+            if (EditorCubeAllocateAllCount >= EDITOR_CUBE_ALLOCATE_MAX_ADDED)
+                return;
+            EditorCubeAllocateAll[EditorCubeAllocateAllCount].CubeX = cube_x;
+            EditorCubeAllocateAll[EditorCubeAllocateAllCount].CubeY = cube_y;
+            EditorCubeAllocateAllCount++;
+        }
+    }
+}
+
+static S32 EditorCubeAllocateSceneBase(void) {
+    if (Island == 12)
+        return EDITOR_CUBE_ALLOCATE_SCENE_BASE_PROXIMA;
+    return 0;
+}
+
+static void EditorCubeAllocateDump(void) {
+    S32 scene_base = EditorCubeAllocateSceneBase();
+    S32 i;
+
+    Log_Raw("  \"cubes\": [");
+    for (i = 0; i < EditorCubeAllocateAllCount; i++) {
+        Log_Raw("    [%d, %d]%s",
+                (int)EditorCubeAllocateAll[i].CubeX,
+                (int)EditorCubeAllocateAll[i].CubeY,
+                i + 1 < EditorCubeAllocateAllCount ? "," : "");
+    }
+    Log_Raw("  ]");
+    Log_Raw("");
+
+    if (scene_base > 0) {
+        for (i = 0; i < EditorCubeAllocateAddedCount; i++) {
+            Log_Raw("    {");
+            Log_Raw("      \"type\": \"clone_scene\",");
+            Log_Raw("      \"file\": \"SCENE.HQR\",");
+            Log_Raw("      \"from\": 94,");
+            Log_Raw("      \"to\": %d,", (int)(scene_base + EditorCubeAllocateInitialCount + i));
+            Log_Raw("      \"patch\": { \"island\": %d, \"cube_x\": %d, \"cube_y\": %d },",
+                    (int)Island,
+                    (int)EditorCubeAllocateAdded[i].CubeX,
+                    (int)EditorCubeAllocateAdded[i].CubeY);
+            Log_Raw("      \"description\": \"\"");
+            Log_Raw("    },");
+        }
+    } else {
+        Log_Raw("    /* clone_scene output has no configured scene base for island %d */", (int)Island);
+    }
+    Log_Raw("--8<----");
+}
+
+static void EditorCubeAllocateSetMode(S32 active) {
+    EditorCubeAllocateMode = active ? TRUE : FALSE;
+    if (EditorCubeAllocateMode) {
+        EditorCubeBoundaryOverlay = TRUE;
+        EditorCubeAllocateAddedCount = 0;
+        EditorCubeAllocateCaptureExisting();
+        EditorCubeAllocateInitialCount = EditorCubeAllocateAllCount;
+        Editor_SetStatus("Allocate cube mode");
+        Log_Info("[editor] allocate cube mode enabled");
+    } else {
+        Editor_SetStatus("Allocate cube mode disabled");
+        Log_Info("[editor] allocate cube mode disabled");
+    }
+    FirstTime = AFF_ALL_FLIP;
+}
+
+static S32 EditorCubeAllocatePick(S32 *out_x, S32 *out_y) {
+    S32 cube_x;
+    S32 cube_y;
+    S32 cube_size;
+    S32 best_dist;
+    S32 best_x = -1;
+    S32 best_y = -1;
+
+    if (!IsleMapIndex OR CubeMode != CUBE_EXTERIEUR)
+        return FALSE;
+
+    cube_size = NB_COTE * SIZE_BRICK_XZ;
+    best_dist = EDITOR_CUBE_ALLOCATE_PICK_RADIUS * EDITOR_CUBE_ALLOCATE_PICK_RADIUS;
+    for (cube_y = 0; cube_y < EDITOR_ISLAND_MAP_SIZE; cube_y++) {
+        for (cube_x = 0; cube_x < EDITOR_ISLAND_MAP_SIZE; cube_x++) {
+            S32 screen_x;
+            S32 screen_y;
+            S32 dx;
+            S32 dy;
+            S32 dist;
+
+            if ((IsleMapIndex[cube_y * EDITOR_ISLAND_MAP_SIZE + cube_x] & 127) != 0)
+                continue;
+            if (!EditorProjectPoint((cube_x - CurrentCubeX) * cube_size + cube_size / 2,
+                                    0,
+                                    (cube_y - CurrentCubeY) * cube_size + cube_size / 2,
+                                    &screen_x,
+                                    &screen_y))
+                continue;
+            dx = screen_x - (S32)MouseX;
+            dy = screen_y - (S32)MouseY;
+            dist = dx * dx + dy * dy;
+            if (dist <= best_dist) {
+                best_dist = dist;
+                best_x = cube_x;
+                best_y = cube_y;
+            }
+        }
+    }
+
+    if (best_x < 0)
+        return FALSE;
+    *out_x = best_x;
+    *out_y = best_y;
+    return TRUE;
+}
+
+static void EditorCubeAllocateClick(void) {
+    S32 cube_x;
+    S32 cube_y;
+
+    if (!EditorCubeAllocatePick(&cube_x, &cube_y)) {
+        Editor_SetStatus("Allocate cube: click near a yellow cube label");
+        return;
+    }
+
+    if (EditorCubeAllocateAddedCount >= EDITOR_CUBE_ALLOCATE_MAX_ADDED
+            OR EditorCubeAllocateAllCount >= EDITOR_CUBE_ALLOCATE_MAX_ADDED) {
+        Editor_SetStatus("Allocate cube: added cube list is full");
+        return;
+    }
+
+    IsleMapIndex[cube_y * EDITOR_ISLAND_MAP_SIZE + cube_x] = 1;
+    EditorCubeAllocateAll[EditorCubeAllocateAllCount].CubeX = cube_x;
+    EditorCubeAllocateAll[EditorCubeAllocateAllCount].CubeY = cube_y;
+    EditorCubeAllocateAllCount++;
+    EditorCubeAllocateAdded[EditorCubeAllocateAddedCount].CubeX = cube_x;
+    EditorCubeAllocateAdded[EditorCubeAllocateAddedCount].CubeY = cube_y;
+    EditorCubeAllocateAddedCount++;
+
+    Editor_SetStatus("Cube allocated");
+    Log_Info("[editor] allocated cube %d,%d", (int)cube_x, (int)cube_y);
+    EditorCubeAllocateDump();
+    FirstTime = AFF_ALL_FLIP;
 }
 
 void Editor_UpdateInput(void) {
@@ -1756,11 +2135,13 @@ void Editor_UpdateInput(void) {
     S32 waypoint_overlay;
     S32 overlay_detail;
     S32 cube_boundary_overlay;
+    S32 allocate_cube;
     S32 escape;
     S32 enter;
     S32 ctrl;
     S32 alt;
     S32 shift;
+    S32 exterior_camera_controls;
     S32 left;
     S32 pan_dx;
     S32 pan_dz;
@@ -1825,12 +2206,14 @@ void Editor_UpdateInput(void) {
     ctrl = (CheckKey(K_CTRL) OR CheckKey(K_CTRL_LEFT) OR CheckKey(K_CTRL_RIGHT)) ? TRUE : FALSE;
     alt = (CheckKey(K_ALT) OR CheckKey(K_ALT_LEFT) OR CheckKey(K_ALT_RIGHT)) ? TRUE : FALSE;
     shift = (CheckKey(K_SHIFT) OR CheckKey(K_SHIFT_LEFT) OR CheckKey(K_SHIFT_RIGHT)) ? TRUE : FALSE;
+    exterior_camera_controls = Editor_IsActive() AND CubeMode == CUBE_EXTERIEUR;
     decor_overlay = CheckKey(K_D) ? TRUE : FALSE;
     zone_overlay = CheckKey(K_Z) ? TRUE : FALSE;
     actor_overlay = CheckKey(K_A) ? TRUE : FALSE;
     waypoint_overlay = CheckKey(K_W) ? TRUE : FALSE;
     overlay_detail = CheckKey(K_I) ? TRUE : FALSE;
     cube_boundary_overlay = CheckKey(K_C) ? TRUE : FALSE;
+    allocate_cube = (cube_boundary_overlay AND shift AND !ctrl AND !alt) ? TRUE : FALSE;
 
     if (EditorVisible AND !ctrl AND decor_overlay AND !EditorLastDecorOverlay)
         Editor_ToggleOverlay(EDITOR_OVERLAY_DECOR);
@@ -1846,7 +2229,10 @@ void Editor_UpdateInput(void) {
         Editor_ConsumeCurrentFrameInput();
     if (EditorVisible AND overlay_detail AND !EditorLastOverlayDetail)
         Editor_ToggleOverlayDetail();
-    if (EditorVisible AND !ctrl AND cube_boundary_overlay AND !EditorLastCubeBoundaryOverlay) {
+    if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE) AND allocate_cube AND !EditorLastCubeBoundaryOverlay) {
+        EditorCubeAllocateSetMode(!EditorCubeAllocateMode);
+        Editor_ConsumeCurrentFrameInput();
+    } else if (EditorVisible AND !ctrl AND !shift AND cube_boundary_overlay AND !EditorLastCubeBoundaryOverlay) {
         EditorCubeBoundaryOverlay = !EditorCubeBoundaryOverlay;
         Editor_SetStatus(EditorCubeBoundaryOverlay ? "Cube boundaries enabled" : "Cube boundaries disabled");
         FirstTime = AFF_ALL_FLIP;
@@ -1915,33 +2301,33 @@ void Editor_UpdateInput(void) {
     zoom_in = (CheckKey(K_EQUALS) OR CheckKey(K_KP_PLUS)) ? TRUE : FALSE;
     zoom_out = (CheckKey(K_MOINS) OR CheckKey(K_KP_MOINS)) ? TRUE : FALSE;
 
-    if (Editor_IsActive() AND zoom_in AND !EditorLastZoomIn) {
+    if (exterior_camera_controls AND zoom_in AND !EditorLastZoomIn) {
         EditorZoomCamera(TRUE);
     }
 
-    if (Editor_IsActive() AND zoom_out AND !EditorLastZoomOut) {
+    if (exterior_camera_controls AND zoom_out AND !EditorLastZoomOut) {
         EditorZoomCamera(FALSE);
     }
 
     EditorLastZoomIn = zoom_in;
     EditorLastZoomOut = zoom_out;
 
-    if (Editor_IsActive() AND view_front AND !EditorLastViewFront) {
+    if (exterior_camera_controls AND view_front AND !EditorLastViewFront) {
         EditorSetCameraPreset(EDITOR_FRONT_ALPHA, EDITOR_VIEW_BETA_FRONT);
     }
-    if (Editor_IsActive() AND view_right AND !EditorLastViewRight) {
+    if (exterior_camera_controls AND view_right AND !EditorLastViewRight) {
         EditorSetCameraPreset(EDITOR_RIGHT_ALPHA, EDITOR_VIEW_BETA_RIGHT);
     }
-    if (Editor_IsActive() AND view_top AND !EditorLastViewTop) {
+    if (exterior_camera_controls AND view_top AND !EditorLastViewTop) {
         EditorSetCameraPreset(EDITOR_TOP_ALPHA, EDITOR_VIEW_BETA_FRONT);
     }
-    if (Editor_IsActive() AND view_ortho AND !EditorLastViewOrtho) {
+    if (exterior_camera_controls AND view_ortho AND !EditorLastViewOrtho) {
         if (EditorCameraOrtho)
             EditorSetCameraPerspective();
         else
             EditorSetCameraOrtho();
     }
-    if (Editor_IsActive() AND view_reset AND !EditorLastViewReset)
+    if (exterior_camera_controls AND view_reset AND !EditorLastViewReset)
         EditorResetCameraToPlayer();
 
     EditorLastViewFront = view_front;
@@ -1962,7 +2348,7 @@ void Editor_UpdateInput(void) {
     S32 arrow_step;
     S32 arrow_angle;
 
-    if (Editor_IsActive() AND shift AND alt) {
+    if (exterior_camera_controls AND shift AND alt) {
         arrow_left = CheckKey(K_LEFT) ? TRUE : FALSE;
         arrow_right = CheckKey(K_RIGHT) ? TRUE : FALSE;
         arrow_up = CheckKey(K_UP) ? TRUE : FALSE;
@@ -2013,6 +2399,44 @@ void Editor_UpdateInput(void) {
 
     ManageMouse();
     left = (Click & 1) ? TRUE : FALSE;
+    if (EditorCubeAllocateMode AND Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)) {
+        if (left AND !EditorLastCubeAllocateClick) {
+            EditorCubeAllocateClick();
+            Editor_ConsumeCurrentFrameInput();
+        }
+        EditorLastCubeAllocateClick = left;
+    } else {
+        EditorLastCubeAllocateClick = left;
+    }
+    if (Editor_WorldPlacementActive() AND CubeMode == CUBE_INTERIEUR) {
+        S32 x;
+        S32 y;
+        S32 z;
+
+        if (left AND !EditorLastPlacementClick AND Editor_GetWorldPlacementPoint(&x, &y, &z)) {
+            Editor_PlaceAtWorld(x, y, z);
+            Editor_ConsumeCurrentFrameInput();
+        }
+        EditorLastPlacementClick = left;
+    } else {
+        EditorLastPlacementClick = left;
+    }
+    if (Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
+            AND CubeMode == CUBE_INTERIEUR
+            AND !Editor_WorldPlacementActive()
+            AND !Editor_CubeAllocateModeActive()
+            AND !(shift AND alt)
+            AND left
+            AND !EditorLastSelectClick) {
+        EditorSelectPickPending = TRUE;
+        EditorSelectPickShift = shift ? TRUE : FALSE;
+        ZoneEditorBeginPick();
+        Editor_ConsumeCurrentFrameInput();
+    }
+    if (!left OR CubeMode != CUBE_INTERIEUR)
+        EditorLastSelectClick = left;
+    else
+        EditorLastSelectClick = TRUE;
     if (!Editor_IsActive()) {
         EditorCameraPanActive = FALSE;
     } else if (left AND shift AND alt) {
@@ -2077,7 +2501,7 @@ static S32 EditorIslandHasCube(S32 cube_x, S32 cube_y) {
     return (IsleMapIndex[cube_y * EDITOR_ISLAND_MAP_SIZE + cube_x] & 127) != 0;
 }
 
-static void EditorDrawCubeBoundarySegment(S32 x0, S32 z0, S32 x1, S32 z1) {
+static void EditorDrawCubeBoundarySegment(S32 x0, S32 z0, S32 x1, S32 z1, S32 color) {
     S32 screen_x0;
     S32 screen_y0;
     S32 screen_x1;
@@ -2095,12 +2519,16 @@ static void EditorDrawCubeBoundarySegment(S32 x0, S32 z0, S32 x1, S32 z1) {
     screen_x1 = Xp;
     screen_y1 = Yp;
 
-    Line(screen_x0, screen_y0, screen_x1, screen_y1, EDITOR_CUBE_BOUNDARY_COLOR);
+    Line(screen_x0, screen_y0, screen_x1, screen_y1, color);
 }
 
-static void EditorDrawCubeBoundaryLabel(S32 cube_x, S32 cube_y, S32 x, S32 z) {
+static void EditorDrawCubeBoundaryLabel(S32 cube_x, S32 cube_y, S32 x, S32 z, S32 color) {
+    static S32 scene_cache_island = -1;
+    static S32 scene_cache[EDITOR_ISLAND_MAP_SIZE * EDITOR_ISLAND_MAP_SIZE];
     S32 screen_x;
     S32 screen_y;
+    S32 scene;
+    S32 index;
 
     LongWorldRotatePoint(x, 0, z);
     if (!LongProjectPoint(X0, Y0, Z0))
@@ -2110,18 +2538,32 @@ static void EditorDrawCubeBoundaryLabel(S32 cube_x, S32 cube_y, S32 x, S32 z) {
     if (screen_x < 0 OR screen_x >= (S32)ModeDesiredX
             OR screen_y < 0 OR screen_y >= (S32)ModeDesiredY)
         return;
-    CoulText(EDITOR_CUBE_BOUNDARY_COLOR, -1);
-    GraphPrintf(FALSE, screen_x, screen_y, "c%d,%d", (int)cube_x, (int)cube_y);
+    if (scene_cache_island != Island) {
+        S32 i;
+        for (i = 0; i < EDITOR_ISLAND_MAP_SIZE * EDITOR_ISLAND_MAP_SIZE; i++)
+            scene_cache[i] = -1;
+        scene_cache_island = Island;
+    }
+    index = cube_y * EDITOR_ISLAND_MAP_SIZE + cube_x;
+    if (scene_cache[index] < 0)
+        scene_cache[index] = Editor_FindExteriorScene(cube_x, cube_y);
+    scene = scene_cache[index];
+    CoulText(color, -1);
+    GraphPrintf(FALSE, screen_x, screen_y - (scene ? 6 : 0), "c%d,%d", (int)cube_x, (int)cube_y);
+    if (scene)
+        GraphPrintf(FALSE, screen_x, screen_y + 7, "s%d", (int)scene);
 }
 
 static void EditorDrawCubeBoundaries(void) {
     S32 cube_x;
     S32 cube_y;
     S32 cube_size;
+    S32 draw_all;
 
-    if (!EditorVisible OR !EditorCubeBoundaryOverlay OR CubeMode != CUBE_EXTERIEUR)
+    if (!EditorVisible OR (!EditorCubeBoundaryOverlay AND !EditorCubeAllocateMode) OR CubeMode != CUBE_EXTERIEUR)
         return;
 
+    draw_all = EditorCubeAllocateMode ? TRUE : FALSE;
     cube_size = NB_COTE * SIZE_BRICK_XZ;
     for (cube_y = 0; cube_y < EDITOR_ISLAND_MAP_SIZE; cube_y++) {
         for (cube_x = 0; cube_x < EDITOR_ISLAND_MAP_SIZE; cube_x++) {
@@ -2129,23 +2571,27 @@ static void EditorDrawCubeBoundaries(void) {
             S32 z0;
             S32 x1;
             S32 z1;
+            S32 allocated;
+            S32 color;
 
-            if (!EditorIslandHasCube(cube_x, cube_y))
+            allocated = EditorIslandHasCube(cube_x, cube_y);
+            if (!allocated AND !draw_all)
                 continue;
+            color = allocated ? EDITOR_CUBE_ALLOCATED_COLOR : EDITOR_CUBE_UNALLOCATED_COLOR;
 
             x0 = (cube_x - CurrentCubeX) * cube_size;
             z0 = (cube_y - CurrentCubeY) * cube_size;
             x1 = x0 + cube_size;
             z1 = z0 + cube_size;
 
-            EditorDrawCubeBoundarySegment(x0, z0, x1, z0);
-            EditorDrawCubeBoundarySegment(x0, z0, x0, z1);
-            if (!EditorIslandHasCube(cube_x, cube_y + 1))
-                EditorDrawCubeBoundarySegment(x0, z1, x1, z1);
-            if (!EditorIslandHasCube(cube_x + 1, cube_y))
-                EditorDrawCubeBoundarySegment(x1, z0, x1, z1);
-            if (EditorOverlayDetailIds)
-                EditorDrawCubeBoundaryLabel(cube_x, cube_y, x0 + cube_size / 2, z0 + cube_size / 2);
+            EditorDrawCubeBoundarySegment(x0, z0, x1, z0, color);
+            EditorDrawCubeBoundarySegment(x0, z0, x0, z1, color);
+            if (draw_all OR !EditorIslandHasCube(cube_x, cube_y + 1))
+                EditorDrawCubeBoundarySegment(x0, z1, x1, z1, color);
+            if (draw_all OR !EditorIslandHasCube(cube_x + 1, cube_y))
+                EditorDrawCubeBoundarySegment(x1, z0, x1, z1, color);
+            if (EditorOverlayDetailIds OR EditorCubeAllocateMode)
+                EditorDrawCubeBoundaryLabel(cube_x, cube_y, x0 + cube_size / 2, z0 + cube_size / 2, color);
         }
     }
 }
@@ -2209,7 +2655,7 @@ S32 ActorEditorFindPick(S32 *dist_sq) {
 
     if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
             OR !Editor_HasOverlay(EDITOR_OVERLAY_ACTORS)
-            OR !ExtDecorEditorGetPickPending()) {
+            OR(!ExtDecorEditorGetPickPending() AND !Editor_SelectPickPending())) {
         *dist_sq = best_dist;
         return -1;
     }
@@ -2246,7 +2692,7 @@ S32 WaypointEditorFindPick(S32 *dist_sq) {
 
     if (!Editor_ToolIs(EDITOR_TOOL_SELECT_MOVE)
             OR !Editor_HasOverlay(EDITOR_OVERLAY_WAYPOINTS)
-            OR !ExtDecorEditorGetPickPending()
+            OR(!ExtDecorEditorGetPickPending() AND !Editor_SelectPickPending())
             OR !ListBrickTrack) {
         *dist_sq = best_dist;
         return -1;
@@ -2348,7 +2794,7 @@ static void EditorDrawWorldPlacement(void) {
     S32 screen_y;
 
     if (!Editor_WorldPlacementActive()
-            OR !ExtDecorEditorGetPlacementPoint(&x, &y, &z)
+            OR !Editor_GetWorldPlacementPoint(&x, &y, &z)
             OR !EditorProjectPoint(x, y, z, &screen_x, &screen_y))
         return;
     Line(screen_x - 8, screen_y, screen_x - 2, screen_y, 12);

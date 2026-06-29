@@ -3442,6 +3442,7 @@ static void TerrainTextureEditorLogSelected(void) {
         S32 x;
         S32 z;
         S32 tri;
+        S32 texture = -1;
 
         if (!sel->Used)
             continue;
@@ -3454,22 +3455,25 @@ static void TerrainTextureEditorLogSelected(void) {
         }
         if (!poly)
             continue;
-        if ((S32)poly->IndexTex < 0 OR(S32)poly->IndexTex >= TerrainTextureEditorTexDefCount)
-            continue;
+        if (poly->TexFlag
+                AND(S32)poly->IndexTex >= 0
+                AND(S32)poly->IndexTex < TerrainTextureEditorTexDefCount)
+            texture = TerrainTextureEditorFindTexDef(TerrainTextureEditorCatalog,
+                                                     TerrainTextureEditorCatalogCount,
+                                                     &ListTexDef[poly->IndexTex]);
 
         cell = sel->Index / 2;
         x = cell % NB_COTE;
         z = cell / NB_COTE;
         tri = sel->Index & 1;
-        Log_Raw("[c%d,%d %d,%d.%d] %d (sens=%d col=%d footstep=%d)",
+        Log_Raw("[c%d,%d %d,%d.%d] %d (bank=%d sens=%d col=%d footstep=%d)",
                 (int)sel->CubeX,
                 (int)sel->CubeY,
                 (int)x,
                 (int)z,
                 (int)tri,
-                (int)TerrainTextureEditorFindTexDef(TerrainTextureEditorCatalog,
-                                                    TerrainTextureEditorCatalogCount,
-                                                    &ListTexDef[poly->IndexTex]),
+                (int)texture,
+                (int)poly->Bank,
                 (int)poly->Sens,
                 (int)poly->Col,
                 (int)poly->SampleStep);
@@ -3706,7 +3710,8 @@ static void TerrainRegionEditorRestoreBase(T_TERRAIN_REGION_BASE *base, S32 rele
 
 static void TerrainRegionEditorSetCell(T_TERRAIN_REGION *region, S32 x, S32 z,
                                        S32 texture0, S32 texture1, S32 sens0, S32 sens1,
-                                       S32 grass_edge, S32 footstep0, S32 footstep1) {
+                                       S32 grass_edge, S32 footstep0, S32 footstep1,
+                                       S32 color_bank0, S32 color_bank1, S32 pattern_type) {
     S32 index0;
     S32 index1;
     T_TERRAIN_TEXTURE_EDITOR_EDIT *edit0;
@@ -3734,7 +3739,7 @@ static void TerrainRegionEditorSetCell(T_TERRAIN_REGION *region, S32 x, S32 z,
     if (!edit0 AND !edit1)
         return;
 
-    if (region->Type == TERRAIN_REGION_TYPE_DIRT) {
+    if (pattern_type == TERRAIN_REGION_TYPE_DIRT) {
         if (edit0) {
             edit0->Poly.Bank = 1;
             edit0->Poly.TexFlag = 0;
@@ -3756,12 +3761,19 @@ static void TerrainRegionEditorSetCell(T_TERRAIN_REGION *region, S32 x, S32 z,
             edit1->Poly.IndexTex = 0;
         }
     } else {
-        texture0 = TerrainTextureEditorResolveCatalogTexture(texture0);
-        texture1 = TerrainTextureEditorResolveCatalogTexture(texture1);
-        if (texture0 < 0 OR texture1 < 0)
+        if (texture0 >= 0)
+            texture0 = TerrainTextureEditorResolveCatalogTexture(texture0);
+        if (texture1 >= 0)
+            texture1 = TerrainTextureEditorResolveCatalogTexture(texture1);
+        if ((texture0 < 0 AND color_bank0 < 0) OR(texture1 < 0 AND color_bank1 < 0))
             return;
         if (edit0) {
             TerrainTextureEditorSetEditTexture(edit0, texture0);
+            if (color_bank0 >= 0) {
+                edit0->Poly.Bank = (U32)color_bank0;
+                if (texture0 < 0)
+                    edit0->Poly.PolyFlag = 3;
+            }
             edit0->Poly.Sens = sens0 ? 1 : 0;
             edit0->Poly.Col = 0;
             edit0->Poly.CodeJeu = 0;
@@ -3770,6 +3782,11 @@ static void TerrainRegionEditorSetCell(T_TERRAIN_REGION *region, S32 x, S32 z,
         }
         if (edit1) {
             TerrainTextureEditorSetEditTexture(edit1, texture1);
+            if (color_bank1 >= 0) {
+                edit1->Poly.Bank = (U32)color_bank1;
+                if (texture1 < 0)
+                    edit1->Poly.PolyFlag = 3;
+            }
             edit1->Poly.Sens = sens1 ? 1 : 0;
             edit1->Poly.Col = 0;
             edit1->Poly.CodeJeu = 0;
@@ -3777,7 +3794,7 @@ static void TerrainRegionEditorSetCell(T_TERRAIN_REGION *region, S32 x, S32 z,
                 edit1->Poly.SampleStep = (U32)footstep1;
         }
     }
-    if (region->Type == TERRAIN_REGION_TYPE_GRASS) {
+    if (pattern_type == TERRAIN_REGION_TYPE_GRASS) {
         if (edit0) {
             edit0->Poly.Bank = 1;
             edit0->Poly.TexFlag = 3;
@@ -3793,13 +3810,15 @@ static void TerrainRegionEditorSetCell(T_TERRAIN_REGION *region, S32 x, S32 z,
             edit1->Poly.CodeJeu = 0;
         }
     }
-    if (region->Type == TERRAIN_REGION_TYPE_PAVEMENT) {
+    if (pattern_type == TERRAIN_REGION_TYPE_PAVEMENT) {
         if (edit0)
             edit0->Poly.TexFlag = 3;
         if (edit1)
             edit1->Poly.TexFlag = 3;
     }
-    if (region->Type == TERRAIN_REGION_TYPE_ROCKS OR region->Type == TERRAIN_REGION_TYPE_CLIFFSIDE) {
+    if (pattern_type == TERRAIN_REGION_TYPE_ROCKS
+            OR pattern_type == TERRAIN_REGION_TYPE_CLIFFSIDE
+            OR pattern_type == TERRAIN_REGION_TYPE_CEMENT) {
         if (edit0)
             edit0->Poly.Col = 1;
         if (edit1)
@@ -3988,6 +4007,9 @@ static void TerrainRegionEditorBake(T_TERRAIN_REGION *region) {
             S32 grass_edge = FALSE;
             S32 footstep0 = -1;
             S32 footstep1 = -1;
+            S32 color_bank0 = -1;
+            S32 color_bank1 = -1;
+            S32 pattern_type = region->Type;
 
             if (!present[z][x])
                 continue;
@@ -4000,14 +4022,23 @@ static void TerrainRegionEditorBake(T_TERRAIN_REGION *region) {
             pattern_region.South = z < NB_COTE - 1 AND present[z + 1][x];
             pattern_region.SouthEast = x < NB_COTE - 1 AND z < NB_COTE - 1 AND present[z + 1][x + 1];
             if (region->Type == TERRAIN_REGION_TYPE_GRASS) {
-                if (!TerrainRegionEditorGrassCellPresent(region, x, z))
-                    continue;
-                grass_edge = !(z > region->Z0 AND TerrainRegionEditorGrassCellPresent(region, x, z - 1))
-                             OR !(z < region->Z1 AND TerrainRegionEditorGrassCellPresent(region, x, z + 1))
-                             OR !(x > region->X0 AND TerrainRegionEditorGrassCellPresent(region, x - 1, z))
-                             OR !(x < region->X1 AND TerrainRegionEditorGrassCellPresent(region, x + 1, z));
-                TerrainRegionEditorGrassTextures(region, x, z, &texture0, &texture1, &sens);
-                sens0 = sens1 = sens;
+                if (!TerrainRegionEditorGrassCellPresent(region, x, z)) {
+                    pattern_type = TERRAIN_REGION_TYPE_DIRT;
+                    EditorTerrainPatternDirt(&pattern_region, x, z, &pattern_cell);
+                    texture0 = pattern_cell.Texture0;
+                    texture1 = pattern_cell.Texture1;
+                    sens0 = pattern_cell.Sens0;
+                    sens1 = pattern_cell.Sens1;
+                    footstep0 = pattern_cell.Footstep0;
+                    footstep1 = pattern_cell.Footstep1;
+                } else {
+                    grass_edge = !(z > region->Z0 AND TerrainRegionEditorGrassCellPresent(region, x, z - 1))
+                                 OR !(z < region->Z1 AND TerrainRegionEditorGrassCellPresent(region, x, z + 1))
+                                 OR !(x > region->X0 AND TerrainRegionEditorGrassCellPresent(region, x - 1, z))
+                                 OR !(x < region->X1 AND TerrainRegionEditorGrassCellPresent(region, x + 1, z));
+                    TerrainRegionEditorGrassTextures(region, x, z, &texture0, &texture1, &sens);
+                    sens0 = sens1 = sens;
+                }
             } else if (region->Type == TERRAIN_REGION_TYPE_GRASS_INSET) {
                 EditorTerrainPatternGrassInset(&pattern_region, x, z, &pattern_cell);
                 texture0 = pattern_cell.Texture0;
@@ -4064,6 +4095,36 @@ static void TerrainRegionEditorBake(T_TERRAIN_REGION *region) {
                 sens1 = pattern_cell.Sens1;
                 footstep0 = pattern_cell.Footstep0;
                 footstep1 = pattern_cell.Footstep1;
+            } else if (region->Type == TERRAIN_REGION_TYPE_SAND) {
+                EditorTerrainPatternSand(&pattern_region, x, z, &pattern_cell);
+                texture0 = pattern_cell.Texture0;
+                texture1 = pattern_cell.Texture1;
+                sens0 = pattern_cell.Sens0;
+                sens1 = pattern_cell.Sens1;
+                footstep0 = pattern_cell.Footstep0;
+                footstep1 = pattern_cell.Footstep1;
+                color_bank0 = pattern_cell.ColorBank0;
+                color_bank1 = pattern_cell.ColorBank1;
+            } else if (region->Type == TERRAIN_REGION_TYPE_CEMENT) {
+                EditorTerrainPatternCement(&pattern_region, x, z, &pattern_cell);
+                texture0 = pattern_cell.Texture0;
+                texture1 = pattern_cell.Texture1;
+                sens0 = pattern_cell.Sens0;
+                sens1 = pattern_cell.Sens1;
+                footstep0 = pattern_cell.Footstep0;
+                footstep1 = pattern_cell.Footstep1;
+                color_bank0 = pattern_cell.ColorBank0;
+                color_bank1 = pattern_cell.ColorBank1;
+            } else if (region->Type == TERRAIN_REGION_TYPE_CONCRETE) {
+                EditorTerrainPatternConcrete(&pattern_region, x, z, &pattern_cell);
+                texture0 = pattern_cell.Texture0;
+                texture1 = pattern_cell.Texture1;
+                sens0 = pattern_cell.Sens0;
+                sens1 = pattern_cell.Sens1;
+                footstep0 = pattern_cell.Footstep0;
+                footstep1 = pattern_cell.Footstep1;
+                color_bank0 = pattern_cell.ColorBank0;
+                color_bank1 = pattern_cell.ColorBank1;
             } else {
                 EditorTerrainPatternPavement(&pattern_region, x, z, &pattern_cell);
                 texture0 = pattern_cell.Texture0;
@@ -4074,7 +4135,8 @@ static void TerrainRegionEditorBake(T_TERRAIN_REGION *region) {
                 footstep1 = pattern_cell.Footstep1;
             }
             TerrainRegionEditorSetCell(region, x, z, texture0, texture1, sens0, sens1,
-                                       grass_edge, footstep0, footstep1);
+                                       grass_edge, footstep0, footstep1, color_bank0, color_bank1,
+                                       pattern_type);
             count++;
         }
     }
@@ -4097,6 +4159,12 @@ static void TerrainRegionEditorBake(T_TERRAIN_REGION *region) {
         Editor_SetStatus("Baked Cliffside region");
     else if (region->Type == TERRAIN_REGION_TYPE_DIRT)
         Editor_SetStatus("Baked Dirt region");
+    else if (region->Type == TERRAIN_REGION_TYPE_SAND)
+        Editor_SetStatus("Baked Sand region");
+    else if (region->Type == TERRAIN_REGION_TYPE_CEMENT)
+        Editor_SetStatus("Baked Cement region");
+    else if (region->Type == TERRAIN_REGION_TYPE_CONCRETE)
+        Editor_SetStatus("Baked Concrete region");
     else
         Editor_SetStatus("Baked Pavement region");
     Log_Info("[editor] baked terrain region type=%d cells=%d seed=%d patchiness=%d",
@@ -5629,7 +5697,7 @@ static void TerrainRegionEditorPaletteRect(S32 *x0, S32 *y0, S32 *x1, S32 *y1) {
     *x1 = ModeDesiredX - 8;
     *x0 = *x1 - TERRAIN_REGION_PALETTE_SWATCH * 2 - TERRAIN_REGION_PALETTE_GAP - 8;
     *y0 = 8;
-    *y1 = *y0 + TERRAIN_REGION_PALETTE_SWATCH * 6 + TERRAIN_REGION_PALETTE_GAP * 5 + 8;
+    *y1 = *y0 + TERRAIN_REGION_PALETTE_SWATCH * 7 + TERRAIN_REGION_PALETTE_GAP * 6 + 8;
 }
 
 static S32 TerrainRegionEditorPaletteTypeAt(S32 x, S32 y) {
@@ -5638,35 +5706,55 @@ static S32 TerrainRegionEditorPaletteTypeAt(S32 x, S32 y) {
     S32 x1;
     S32 y1;
     S32 col;
+    S32 row;
+    S32 alt_x;
 
     TerrainRegionEditorPaletteRect(&x0, &y0, &x1, &y1);
-    col = x >= x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP AND x < x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 2 + TERRAIN_REGION_PALETTE_GAP;
-    if (!col AND(x < x0 + 4 OR x >= x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH))
+    alt_x = x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
+    if (x >= x0 + 4 AND x < x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH)
+        col = 0;
+    else if (x >= alt_x AND x < alt_x + TERRAIN_REGION_PALETTE_SWATCH)
+        col = 1;
+    else
         return -1;
-    if (col) {
-        if (y >= y0 + 4 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH)
-            return TERRAIN_REGION_TYPE_PAVEMENT_ALT;
-        else if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 2 + TERRAIN_REGION_PALETTE_GAP)
-            return TERRAIN_REGION_TYPE_ROCKS;
-        else if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 2 + TERRAIN_REGION_PALETTE_GAP * 2 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 3 + TERRAIN_REGION_PALETTE_GAP * 2)
-            return TERRAIN_REGION_TYPE_CLIFFSIDE;
-        else if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 3 + TERRAIN_REGION_PALETTE_GAP * 3 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 4 + TERRAIN_REGION_PALETTE_GAP * 3)
+
+    row = (y - (y0 + 4)) / (TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP);
+    if (row < 0 OR row >= 7)
+        return -1;
+    if (y < y0 + 4 + row * (TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP)
+            OR y >= y0 + 4 + row * (TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP) + TERRAIN_REGION_PALETTE_SWATCH)
+        return -1;
+
+    if (col == 0) {
+        if (row == 0)
             return TERRAIN_REGION_TYPE_DIRT;
-        else
-            return -1;
+        if (row == 1)
+            return TERRAIN_REGION_TYPE_SAND;
+        if (row == 2)
+            return TERRAIN_REGION_TYPE_CEMENT;
+        if (row == 3)
+            return TERRAIN_REGION_TYPE_GRASS;
+        if (row == 4)
+            return TERRAIN_REGION_TYPE_PAVEMENT;
+        if (row == 5)
+            return TERRAIN_REGION_TYPE_GRASS_INSET;
+        if (row == 6)
+            return TERRAIN_REGION_TYPE_ASPHALT;
     }
-    if (y >= y0 + 4 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH)
-        return TERRAIN_REGION_TYPE_GRASS;
-    if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 2 + TERRAIN_REGION_PALETTE_GAP)
-        return TERRAIN_REGION_TYPE_PAVEMENT;
-    if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 2 + TERRAIN_REGION_PALETTE_GAP * 2 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 3 + TERRAIN_REGION_PALETTE_GAP * 2)
-        return TERRAIN_REGION_TYPE_GRASS_INSET;
-    if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 3 + TERRAIN_REGION_PALETTE_GAP * 3 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 4 + TERRAIN_REGION_PALETTE_GAP * 3)
-        return TERRAIN_REGION_TYPE_ASPHALT;
-    if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 4 + TERRAIN_REGION_PALETTE_GAP * 4 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 5 + TERRAIN_REGION_PALETTE_GAP * 4)
-        return TERRAIN_REGION_TYPE_GRASS_PAVEMENT;
-    if (y >= y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 5 + TERRAIN_REGION_PALETTE_GAP * 5 AND y < y0 + 4 + TERRAIN_REGION_PALETTE_SWATCH * 6 + TERRAIN_REGION_PALETTE_GAP * 5)
-        return TERRAIN_REGION_TYPE_RIPRAP;
+    if (col == 1) {
+        if (row == 0)
+            return TERRAIN_REGION_TYPE_PAVEMENT_ALT;
+        if (row == 1)
+            return TERRAIN_REGION_TYPE_ROCKS;
+        if (row == 2)
+            return TERRAIN_REGION_TYPE_CLIFFSIDE;
+        if (row == 3)
+            return TERRAIN_REGION_TYPE_GRASS_PAVEMENT;
+        if (row == 4)
+            return TERRAIN_REGION_TYPE_RIPRAP;
+        if (row == 5)
+            return TERRAIN_REGION_TYPE_CONCRETE;
+    }
     return -1;
 }
 
@@ -5777,6 +5865,14 @@ static void TerrainRegionEditorDrawPreview(S32 x0, S32 y0, S32 type) {
         {61, 63, 61, 63},
         {66, 65, 66, 65},
         {61, 63, 61, 63}};
+    static const S32 concrete0[2][2] = {
+        {308, 311},
+        {307, 305}
+    };
+    static const S32 concrete1[2][2] = {
+        {309, 310},
+        {304, 306}
+    };
     S32 x;
     S32 y;
 
@@ -5793,6 +5889,20 @@ static void TerrainRegionEditorDrawPreview(S32 x0, S32 y0, S32 type) {
                                              y0 + (y + 1) * TERRAIN_REGION_PREVIEW_TILE - 1,
                                              (1 << 4) + 11);
                 continue;
+            } else if (type == TERRAIN_REGION_TYPE_SAND) {
+                TerrainTextureEditorFillRect(x0 + x * TERRAIN_REGION_PREVIEW_TILE,
+                                             y0 + y * TERRAIN_REGION_PREVIEW_TILE,
+                                             x0 + (x + 1) * TERRAIN_REGION_PREVIEW_TILE - 1,
+                                             y0 + (y + 1) * TERRAIN_REGION_PREVIEW_TILE - 1,
+                                             (6 << 4) + 11);
+                continue;
+            } else if (type == TERRAIN_REGION_TYPE_CEMENT) {
+                TerrainTextureEditorFillRect(x0 + x * TERRAIN_REGION_PREVIEW_TILE,
+                                             y0 + y * TERRAIN_REGION_PREVIEW_TILE,
+                                             x0 + (x + 1) * TERRAIN_REGION_PREVIEW_TILE - 1,
+                                             y0 + (y + 1) * TERRAIN_REGION_PREVIEW_TILE - 1,
+                                             (14 << 4) + 11);
+                continue;
             } else if (type == TERRAIN_REGION_TYPE_GRASS_INSET)
                 texture0 = grass_inset[y][x];
             else if (type == TERRAIN_REGION_TYPE_ASPHALT)
@@ -5807,6 +5917,8 @@ static void TerrainRegionEditorDrawPreview(S32 x0, S32 y0, S32 type) {
                 texture0 = rocks[y][x];
             else if (type == TERRAIN_REGION_TYPE_CLIFFSIDE)
                 texture0 = cliffside0[y][x];
+            else if (type == TERRAIN_REGION_TYPE_CONCRETE)
+                texture0 = concrete0[y & 1][x & 1];
             else
                 texture0 = pavement[y][x];
 
@@ -5818,6 +5930,8 @@ static void TerrainRegionEditorDrawPreview(S32 x0, S32 y0, S32 type) {
                 texture1 = 52;
             else if (type == TERRAIN_REGION_TYPE_CLIFFSIDE)
                 texture1 = cliffside1[y][x];
+            else if (type == TERRAIN_REGION_TYPE_CONCRETE)
+                texture1 = concrete1[y & 1][x & 1];
             else if ((type == TERRAIN_REGION_TYPE_GRASS AND(texture0 == 11 OR texture0 == 9 OR texture0 == 7 OR texture0 == 5))
                     OR(type == TERRAIN_REGION_TYPE_GRASS_INSET
                         AND(texture0 == 589 OR texture0 == 595 OR texture0 == 11 OR texture0 == 7)))
@@ -5834,7 +5948,8 @@ static void TerrainRegionEditorDrawPreview(S32 x0, S32 y0, S32 type) {
             }
             TerrainRegionEditorDrawPreviewQuad(x0 + x * TERRAIN_REGION_PREVIEW_TILE,
                                                y0 + y * TERRAIN_REGION_PREVIEW_TILE,
-                                               texture0, texture1, 0);
+                                               texture0, texture1,
+                                               type == TERRAIN_REGION_TYPE_CONCRETE ? 1 : 0);
         }
     }
 }
@@ -5851,33 +5966,56 @@ static void TerrainRegionEditorDrawPalette(void) {
     S32 grass_pavement_y;
     S32 riprap_y;
     S32 alt_x;
+    S32 pavement_alt_y;
     S32 rocks_y;
     S32 cliffside_y;
     S32 dirt_y;
+    S32 sand_y;
+    S32 cement_y;
+    S32 concrete_y;
 
     TerrainRegionEditorPaletteRect(&x0, &y0, &x1, &y1);
     TerrainTextureEditorFillRect(x0, y0, x1, y1, TERRAIN_TEXTURE_PALETTE_BACK);
     Rect(x0, y0, x1, y1, TERRAIN_TEXTURE_PALETTE_BORDER);
-    grass_y = y0 + 4;
+    dirt_y = y0 + 4;
+    sand_y = dirt_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
+    cement_y = sand_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
+    grass_y = cement_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
     pavement_y = grass_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
     grass_inset_y = pavement_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
     asphalt_y = grass_inset_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
-    grass_pavement_y = asphalt_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
-    riprap_y = grass_pavement_y + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
     alt_x = x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH + TERRAIN_REGION_PALETTE_GAP;
-    rocks_y = pavement_y;
-    cliffside_y = grass_inset_y;
-    dirt_y = asphalt_y;
+    pavement_alt_y = dirt_y;
+    rocks_y = sand_y;
+    cliffside_y = cement_y;
+    grass_pavement_y = grass_y;
+    riprap_y = pavement_y;
+    concrete_y = grass_inset_y;
+    TerrainRegionEditorDrawPreview(x0 + 4, dirt_y, TERRAIN_REGION_TYPE_DIRT);
+    TerrainRegionEditorDrawPreview(x0 + 4, sand_y, TERRAIN_REGION_TYPE_SAND);
+    TerrainRegionEditorDrawPreview(x0 + 4, cement_y, TERRAIN_REGION_TYPE_CEMENT);
     TerrainRegionEditorDrawPreview(x0 + 4, grass_y, TERRAIN_REGION_TYPE_GRASS);
     TerrainRegionEditorDrawPreview(x0 + 4, pavement_y, TERRAIN_REGION_TYPE_PAVEMENT);
     TerrainRegionEditorDrawPreview(x0 + 4, grass_inset_y, TERRAIN_REGION_TYPE_GRASS_INSET);
     TerrainRegionEditorDrawPreview(x0 + 4, asphalt_y, TERRAIN_REGION_TYPE_ASPHALT);
-    TerrainRegionEditorDrawPreview(x0 + 4, grass_pavement_y, TERRAIN_REGION_TYPE_GRASS_PAVEMENT);
-    TerrainRegionEditorDrawPreview(x0 + 4, riprap_y, TERRAIN_REGION_TYPE_RIPRAP);
-    TerrainRegionEditorDrawPreview(alt_x, grass_y, TERRAIN_REGION_TYPE_PAVEMENT_ALT);
+    TerrainRegionEditorDrawPreview(alt_x, pavement_alt_y, TERRAIN_REGION_TYPE_PAVEMENT_ALT);
     TerrainRegionEditorDrawPreview(alt_x, rocks_y, TERRAIN_REGION_TYPE_ROCKS);
     TerrainRegionEditorDrawPreview(alt_x, cliffside_y, TERRAIN_REGION_TYPE_CLIFFSIDE);
-    TerrainRegionEditorDrawPreview(alt_x, dirt_y, TERRAIN_REGION_TYPE_DIRT);
+    TerrainRegionEditorDrawPreview(alt_x, grass_pavement_y, TERRAIN_REGION_TYPE_GRASS_PAVEMENT);
+    TerrainRegionEditorDrawPreview(alt_x, riprap_y, TERRAIN_REGION_TYPE_RIPRAP);
+    TerrainRegionEditorDrawPreview(alt_x, concrete_y, TERRAIN_REGION_TYPE_CONCRETE);
+    Rect(x0 + 3, dirt_y - 1,
+         x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
+         dirt_y + TERRAIN_REGION_PALETTE_SWATCH,
+         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_DIRT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
+    Rect(x0 + 3, sand_y - 1,
+         x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
+         sand_y + TERRAIN_REGION_PALETTE_SWATCH,
+         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_SAND ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
+    Rect(x0 + 3, cement_y - 1,
+         x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
+         cement_y + TERRAIN_REGION_PALETTE_SWATCH,
+         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_CEMENT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
     Rect(x0 + 3, grass_y - 1,
          x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
          grass_y + TERRAIN_REGION_PALETTE_SWATCH,
@@ -5894,17 +6032,9 @@ static void TerrainRegionEditorDrawPalette(void) {
          x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
          asphalt_y + TERRAIN_REGION_PALETTE_SWATCH,
          TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_ASPHALT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
-    Rect(x0 + 3, grass_pavement_y - 1,
-         x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
-         grass_pavement_y + TERRAIN_REGION_PALETTE_SWATCH,
-         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_GRASS_PAVEMENT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
-    Rect(x0 + 3, riprap_y - 1,
-         x0 + 4 + TERRAIN_REGION_PALETTE_SWATCH,
-         riprap_y + TERRAIN_REGION_PALETTE_SWATCH,
-         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_RIPRAP ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
-    Rect(alt_x - 1, grass_y - 1,
+    Rect(alt_x - 1, pavement_alt_y - 1,
          alt_x + TERRAIN_REGION_PALETTE_SWATCH,
-         grass_y + TERRAIN_REGION_PALETTE_SWATCH,
+         pavement_alt_y + TERRAIN_REGION_PALETTE_SWATCH,
          TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_PAVEMENT_ALT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
     Rect(alt_x - 1, rocks_y - 1,
          alt_x + TERRAIN_REGION_PALETTE_SWATCH,
@@ -5914,10 +6044,18 @@ static void TerrainRegionEditorDrawPalette(void) {
          alt_x + TERRAIN_REGION_PALETTE_SWATCH,
          cliffside_y + TERRAIN_REGION_PALETTE_SWATCH,
          TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_CLIFFSIDE ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
-    Rect(alt_x - 1, dirt_y - 1,
+    Rect(alt_x - 1, grass_pavement_y - 1,
          alt_x + TERRAIN_REGION_PALETTE_SWATCH,
-         dirt_y + TERRAIN_REGION_PALETTE_SWATCH,
-         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_DIRT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
+         grass_pavement_y + TERRAIN_REGION_PALETTE_SWATCH,
+         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_GRASS_PAVEMENT ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
+    Rect(alt_x - 1, riprap_y - 1,
+         alt_x + TERRAIN_REGION_PALETTE_SWATCH,
+         riprap_y + TERRAIN_REGION_PALETTE_SWATCH,
+         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_RIPRAP ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
+    Rect(alt_x - 1, concrete_y - 1,
+         alt_x + TERRAIN_REGION_PALETTE_SWATCH,
+         concrete_y + TERRAIN_REGION_PALETTE_SWATCH,
+         TerrainRegionEditorPaletteType == TERRAIN_REGION_TYPE_CONCRETE ? TERRAIN_TEXTURE_PALETTE_SELECT : TERRAIN_TEXTURE_PALETTE_BORDER);
 }
 
 static S32 TerrainRegionEditorPointInCell(S32 xi, S32 zi, S32 x, S32 y) {
@@ -6161,7 +6299,7 @@ void TerrainRegionEditorEndFrame(void) {
 }
 
 static S32 TerrainRegionEditorTypeColor(S32 type) {
-    static const S32 colors[TERRAIN_REGION_TYPE_COUNT] = {10, 14, 11, 8, 9, 6, 13, 12, 15, 5};
+    static const S32 colors[TERRAIN_REGION_TYPE_COUNT] = {10, 14, 11, 8, 9, 6, 13, 12, 15, 5, 4, 7, 3};
     return type >= 0 AND type < TERRAIN_REGION_TYPE_COUNT ? colors[type] : TERRAIN_REGION_MARK;
 }
 
