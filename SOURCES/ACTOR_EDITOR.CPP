@@ -24,6 +24,7 @@ typedef struct {
     S32 X;
     S32 Y;
     S32 Z;
+    S32 Sprite;
     S32 Beta;
     S32 Life;
     S32 Armour;
@@ -49,12 +50,13 @@ typedef struct {
 #define ACTOR_EDITOR_CHANGED_X (1U << 3)
 #define ACTOR_EDITOR_CHANGED_Y (1U << 4)
 #define ACTOR_EDITOR_CHANGED_Z (1U << 5)
-#define ACTOR_EDITOR_CHANGED_BETA (1U << 6)
-#define ACTOR_EDITOR_CHANGED_LIFE (1U << 7)
-#define ACTOR_EDITOR_CHANGED_ARMOUR (1U << 8)
-#define ACTOR_EDITOR_CHANGED_MOVE (1U << 9)
-#define ACTOR_EDITOR_CHANGED_FLAGS (1U << 10)
-#define ACTOR_EDITOR_CHANGED_ALL ((1U << 11) - 1)
+#define ACTOR_EDITOR_CHANGED_SPRITE (1U << 6)
+#define ACTOR_EDITOR_CHANGED_BETA (1U << 7)
+#define ACTOR_EDITOR_CHANGED_LIFE (1U << 8)
+#define ACTOR_EDITOR_CHANGED_ARMOUR (1U << 9)
+#define ACTOR_EDITOR_CHANGED_MOVE (1U << 10)
+#define ACTOR_EDITOR_CHANGED_FLAGS (1U << 11)
+#define ACTOR_EDITOR_CHANGED_ALL ((1U << 12) - 1)
 
 static T_ACTOR_EDITOR_EDIT ActorEditorEdits[ACTOR_EDITOR_MAX_EDITS];
 static T_ACTOR_EDITOR_STATE ActorEditorInitial[MAX_OBJETS];
@@ -88,6 +90,7 @@ static void ActorEditorStateFromActor(T_ACTOR_EDITOR_STATE *state, T_OBJET *acto
     state->X = actor->Obj.X;
     state->Y = actor->Obj.Y;
     state->Z = actor->Obj.Z;
+    state->Sprite = actor->Sprite;
     state->Beta = actor->Obj.Beta;
     state->Life = actor->LifePoint;
     state->Armour = actor->Armure;
@@ -102,13 +105,16 @@ static void ActorEditorApplyState(T_OBJET *actor, S32 index, T_ACTOR_EDITOR_STAT
     actor->OldPosX = actor->Obj.X = state->X;
     actor->OldPosY = actor->Obj.Y = state->Y;
     actor->OldPosZ = actor->Obj.Z = state->Z;
+    actor->Sprite = (S16)state->Sprite;
     actor->OldBeta = actor->Obj.Beta = state->Beta & 4095;
     actor->LifePoint = (S16)state->Life;
     actor->Armure = (U8)state->Armour;
     actor->Move = (U8)state->Move;
     actor->Flags = state->Flags;
 
-    if (!(actor->Flags & SPRITE_3D)) {
+    if (actor->Flags & SPRITE_3D) {
+        InitSprite(actor->Sprite, actor);
+    } else {
         actor->PtrFile3D = LoadFile3D(actor->IndexFile3D);
         if (initialize) {
             actor->Obj.Body.Num = -1;
@@ -179,6 +185,7 @@ static U32 ActorEditorFieldMask(S32 field) {
     case ACTOR_EDITOR_FIELD_X: return ACTOR_EDITOR_CHANGED_X;
     case ACTOR_EDITOR_FIELD_Y: return ACTOR_EDITOR_CHANGED_Y;
     case ACTOR_EDITOR_FIELD_Z: return ACTOR_EDITOR_CHANGED_Z;
+    case ACTOR_EDITOR_FIELD_SPRITE: return ACTOR_EDITOR_CHANGED_SPRITE;
     case ACTOR_EDITOR_FIELD_BETA: return ACTOR_EDITOR_CHANGED_BETA;
     case ACTOR_EDITOR_FIELD_LIFE: return ACTOR_EDITOR_CHANGED_LIFE;
     case ACTOR_EDITOR_FIELD_ARMOUR: return ACTOR_EDITOR_CHANGED_ARMOUR;
@@ -194,6 +201,8 @@ static S32 ActorEditorFieldValueValid(S32 field, S32 value) {
             OR field == ACTOR_EDITOR_FIELD_Y
             OR field == ACTOR_EDITOR_FIELD_Z)
         return value >= -32768 AND value <= 32767;
+    if (field == ACTOR_EDITOR_FIELD_SPRITE)
+        return value >= 0 AND value < PtrZvExtraCount;
     if (field == ACTOR_EDITOR_FIELD_ANIMATION)
         return value >= 0 AND value <= 65535;
     if (field == ACTOR_EDITOR_FIELD_BODY
@@ -222,6 +231,7 @@ static void ActorEditorSetStateField(T_ACTOR_EDITOR_STATE *state, S32 field, S32
     case ACTOR_EDITOR_FIELD_X: state->X = value; break;
     case ACTOR_EDITOR_FIELD_Y: state->Y = value; break;
     case ACTOR_EDITOR_FIELD_Z: state->Z = value; break;
+    case ACTOR_EDITOR_FIELD_SPRITE: state->Sprite = value; break;
     case ACTOR_EDITOR_FIELD_BETA: state->Beta = value & 4095; break;
     case ACTOR_EDITOR_FIELD_LIFE: state->Life = value; break;
     case ACTOR_EDITOR_FIELD_ARMOUR: state->Armour = value; break;
@@ -241,6 +251,7 @@ static S32 ActorEditorStateField(T_ACTOR_EDITOR_STATE *state, S32 field) {
     case ACTOR_EDITOR_FIELD_X: return state->X;
     case ACTOR_EDITOR_FIELD_Y: return state->Y;
     case ACTOR_EDITOR_FIELD_Z: return state->Z;
+    case ACTOR_EDITOR_FIELD_SPRITE: return state->Sprite;
     case ACTOR_EDITOR_FIELD_BETA: return state->Beta;
     case ACTOR_EDITOR_FIELD_LIFE: return state->Life;
     case ACTOR_EDITOR_FIELD_ARMOUR: return state->Armour;
@@ -269,7 +280,7 @@ static S32 ActorEditorParseState(const char *json,
                                  U32 *changed,
                                  const char *prefix) {
     static const char *names[] = {
-        "model", "body", "animation", "x", "y", "z", "beta", "life", "armour", "move", "flags"
+        "model", "body", "animation", "x", "y", "z", "sprite", "beta", "life", "armour", "move", "flags"
     };
     S32 fields[] = {
         ACTOR_EDITOR_FIELD_MODEL,
@@ -278,6 +289,7 @@ static S32 ActorEditorParseState(const char *json,
         ACTOR_EDITOR_FIELD_X,
         ACTOR_EDITOR_FIELD_Y,
         ACTOR_EDITOR_FIELD_Z,
+        ACTOR_EDITOR_FIELD_SPRITE,
         ACTOR_EDITOR_FIELD_BETA,
         ACTOR_EDITOR_FIELD_LIFE,
         ACTOR_EDITOR_FIELD_ARMOUR,
@@ -287,7 +299,7 @@ static S32 ActorEditorParseState(const char *json,
     S32 i;
     S32 parsed = 0;
 
-    for (i = 0; i < 11; i++) {
+    for (i = 0; i < 12; i++) {
         char key[40];
         S32 value;
         snprintf(key, sizeof(key), "%s%s", prefix, names[i]);
@@ -554,6 +566,25 @@ S32 ActorEditorIsDeleted(S32 index) {
     return edit AND edit->Deleted;
 }
 
+S32 ActorEditorCanEditField(S32 field) {
+    T_ACTOR_EDITOR_EDIT *edit;
+    T_ACTOR_EDITOR_STATE *state;
+
+    if (field == ACTOR_EDITOR_FIELD_INDEX)
+        return FALSE;
+    state = ActorEditorGetAuthoredState(ActorEditorSelectedIndex);
+    if (!state)
+        return FALSE;
+    if (field == ACTOR_EDITOR_FIELD_SPRITE)
+        return (state->Flags & SPRITE_3D) ? TRUE : FALSE;
+    edit = ActorEditorFindEdit(ActorEditorScene, ActorEditorSelectedIndex);
+    if (field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 18)
+        return FALSE;
+    if (field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 10 AND(!edit OR !edit->Added))
+        return FALSE;
+    return TRUE;
+}
+
 void ActorEditorDeleteSelected(void) {
     T_ACTOR_EDITOR_EDIT *edit;
     S32 index = ActorEditorSelectedIndex;
@@ -591,27 +622,49 @@ S32 ActorEditorSetFieldValue(S32 field, S32 value) {
     mask = ActorEditorFieldMask(field);
     if (!mask)
         return FALSE;
+    if (!ActorEditorCanEditField(field)) {
+        Editor_SetStatus("Actor field is read-only for this actor");
+        return FALSE;
+    }
     if (!ActorEditorFieldValueValid(field, value)) {
-        Editor_SetStatus("Actor value refused: outside scene-file range");
+        if (field == ACTOR_EDITOR_FIELD_SPRITE)
+            Editor_SetStatus("Sprite ID refused: missing SPRITES metadata");
+        else
+            Editor_SetStatus("Actor value refused: outside scene-file range");
         return FALSE;
     }
     edit = ActorEditorCreateEdit(ActorEditorSelectedIndex);
     if (!edit)
         return FALSE;
     if (field == ACTOR_EDITOR_FIELD_FLAGS
-            AND(((U32)value ^ edit->Target.Flags) & (SPRITE_3D | ANIM_3DS))) {
+            AND(((U32)value ^ edit->Target.Flags) & ANIM_3DS)) {
         Editor_SetStatus("Actor flags refused: sprite/3DS layout cannot change");
+        return FALSE;
+    }
+    if (field == ACTOR_EDITOR_FIELD_FLAGS
+            AND(((U32)value ^ edit->Target.Flags) & SPRITE_3D)
+            AND !edit->Added) {
+        Editor_SetStatus("Actor flags refused: sprite layout cannot change for existing actors");
         return FALSE;
     }
     if (field >= ACTOR_EDITOR_FIELD_FLAG_FIRST
             AND field <= ACTOR_EDITOR_FIELD_FLAG_LAST) {
         U32 bit = 1U << (field - ACTOR_EDITOR_FIELD_FLAG_FIRST);
-        if (bit & (SPRITE_3D | ANIM_3DS)) {
-            Editor_SetStatus("Actor flag is read-only: scene record layout would change");
+        if (bit & ANIM_3DS) {
+            Editor_SetStatus("Actor flag is read-only: 3DS layout would change");
+            return FALSE;
+        }
+        if ((bit & SPRITE_3D) AND !edit->Added) {
+            Editor_SetStatus("Actor flag is read-only: sprite layout would change");
             return FALSE;
         }
     }
     ActorEditorSetStateField(&edit->Target, field, value);
+    if (field == ACTOR_EDITOR_FIELD_FLAG_FIRST + 10
+            AND value
+            AND edit->Target.Sprite < 0
+            AND PtrZvExtraCount > 425)
+        edit->Target.Sprite = 425;
     edit->Changed |= mask;
     ActorEditorApplyState(&ListObjet[ActorEditorSelectedIndex], ActorEditorSelectedIndex, &edit->Target, TRUE);
     FirstTime = AFF_ALL_FLIP;
@@ -771,7 +824,7 @@ static void ActorEditorWriteBoolField(FILE *f,
 
 static void ActorEditorWriteChangedFields(FILE *f, T_ACTOR_EDITOR_EDIT *edit, S32 *first) {
     static const char *names[] = {
-        "model", "body", "animation", "x", "y", "z", "beta", "life", "armour", "move", "flags"
+        "model", "body", "animation", "x", "y", "z", "sprite", "beta", "life", "armour", "move", "flags"
     };
     S32 fields[] = {
         ACTOR_EDITOR_FIELD_MODEL,
@@ -780,6 +833,7 @@ static void ActorEditorWriteChangedFields(FILE *f, T_ACTOR_EDITOR_EDIT *edit, S3
         ACTOR_EDITOR_FIELD_X,
         ACTOR_EDITOR_FIELD_Y,
         ACTOR_EDITOR_FIELD_Z,
+        ACTOR_EDITOR_FIELD_SPRITE,
         ACTOR_EDITOR_FIELD_BETA,
         ACTOR_EDITOR_FIELD_LIFE,
         ACTOR_EDITOR_FIELD_ARMOUR,
@@ -788,7 +842,7 @@ static void ActorEditorWriteChangedFields(FILE *f, T_ACTOR_EDITOR_EDIT *edit, S3
     };
     S32 i;
 
-    for (i = 0; i < 11; i++) {
+    for (i = 0; i < 12; i++) {
         U32 mask = ActorEditorFieldMask(fields[i]);
         char expect_name[48];
         if (!(edit->Changed & mask))

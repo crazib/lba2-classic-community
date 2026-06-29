@@ -12,14 +12,15 @@
 #define ACTOR_EDITOR_FIELD_X 4
 #define ACTOR_EDITOR_FIELD_Y 5
 #define ACTOR_EDITOR_FIELD_Z 6
-#define ACTOR_EDITOR_FIELD_BETA 7
-#define ACTOR_EDITOR_FIELD_LIFE 8
-#define ACTOR_EDITOR_FIELD_ARMOUR 9
-#define ACTOR_EDITOR_FIELD_MOVE 10
-#define ACTOR_EDITOR_FIELD_FLAGS 11
-#define ACTOR_EDITOR_FIELD_FLAG_FIRST 12
-#define ACTOR_EDITOR_FIELD_FLAG_LAST 33
-#define ACTOR_EDITOR_FIELD_COUNT 34
+#define ACTOR_EDITOR_FIELD_SPRITE 7
+#define ACTOR_EDITOR_FIELD_BETA 8
+#define ACTOR_EDITOR_FIELD_LIFE 9
+#define ACTOR_EDITOR_FIELD_ARMOUR 10
+#define ACTOR_EDITOR_FIELD_MOVE 11
+#define ACTOR_EDITOR_FIELD_FLAGS 12
+#define ACTOR_EDITOR_FIELD_FLAG_FIRST 13
+#define ACTOR_EDITOR_FIELD_FLAG_LAST 34
+#define ACTOR_EDITOR_FIELD_COUNT 35
 
 extern void ActorEditorOnSceneLoaded(S32 scene);
 extern void ActorEditorRestoreAddedActorsAfterSaveLoad(void);
@@ -27,6 +28,7 @@ extern void ActorEditorClearSelection(void);
 extern S32 ActorEditorGetSelectedIndex(void);
 extern void ActorEditorResolvePick(S32 index, S32 toggle);
 extern S32 ActorEditorIsDeleted(S32 index);
+extern S32 ActorEditorCanEditField(S32 field);
 extern void ActorEditorDeleteSelected(void);
 extern S32 ActorEditorGetFieldValue(S32 field);
 extern S32 ActorEditorSetFieldValue(S32 field, S32 value);
@@ -45,6 +47,7 @@ extern S32 ActorEditorSaveRuntimeEdits(const char *island_dir, S32 island);
 #define ActorEditorGetSelectedIndex() (-1)
 #define ActorEditorResolvePick(index, toggle) ((void)0)
 #define ActorEditorIsDeleted(index) (0)
+#define ActorEditorCanEditField(field) (0)
 #define ActorEditorDeleteSelected() ((void)0)
 #define ActorEditorGetFieldValue(field) (0)
 #define ActorEditorSetFieldValue(field, value) (0)
