@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "description": "New text and voice bank for Proxima Island.",
+  "operations": [
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 1,
+      "flag": 1,
+      "text": "Welcome to Proxim-City, Proxima Island."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 1,
+      "source": "proxima/twinsen_welcome_to_proxim_city.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 2,
+      "flag": 1,
+      "text": "To the eclipse stone."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 2,
+      "source": "proxima/twinsen_to_the_eclipse_stone.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 3,
+      "flag": 1,
+      "text": "To the marked stone."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 3,
+      "source": "proxima/twinsen_to_the_marked_stone.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 4,
+      "flag": 1,
+      "text": "Maritime Musem. Free admission."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 4,
+      "source": "proxima/twinsen_maritime_museum.wav",
+      "next": false
+    },
+    {
+      "type": "add_text",
+      "file": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 5,
+      "flag": 1,
+      "text": "Ferry Street."
+    },
+    {
+      "type": "add_voice",
+      "text_hqr": "TEXT.HQR",
+      "language": "en",
+      "text_file": "012",
+      "id": 5,
+      "source": "proxima/twinsen_ferry_street.wav",
+      "next": false
+    }
+  ]
+}

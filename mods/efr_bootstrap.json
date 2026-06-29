@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Extra Ferry Routes Proxima authoring bootstrap. Builds a blank-water island and one starting exterior scene.",
+  "description": "Extra Ferry Routes Proxima authoring bootstrap. Builds a blank-water island and exterior scenes.",
   "operations": [
     {
       "type": "create_blank_island",
@@ -69,6 +69,102 @@
       "to": 229,
       "patch": { "island": 12, "cube_x": 9, "cube_y": 9 },
       "description": "Southern Runic Stone"
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 230,
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 9 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 231,
+      "patch": { "island": 12, "cube_x": 10, "cube_y": 6 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 232,
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 6 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 233,
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 10 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 234,
+      "patch": { "island": 12, "cube_x": 9, "cube_y": 10 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 235,
+      "patch": { "island": 12, "cube_x": 9, "cube_y": 11 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 236,
+      "patch": { "island": 12, "cube_x": 10, "cube_y": 11 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 237,
+      "patch": { "island": 12, "cube_x": 8, "cube_y": 11 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 238,
+      "patch": { "island": 12, "cube_x": 7, "cube_y": 11 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 239,
+      "patch": { "island": 12, "cube_x": 7, "cube_y": 10 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 240,
+      "patch": { "island": 12, "cube_x": 6, "cube_y": 11 },
+      "description": ""
+    },
+    {
+      "type": "clone_scene",
+      "file": "SCENE.HQR",
+      "from": 94,
+      "to": 241,
+      "patch": { "island": 12, "cube_x": 10, "cube_y": 12 },
+      "description": ""
     },
     {
       "type": "include_manifest",

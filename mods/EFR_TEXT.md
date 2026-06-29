@@ -18,7 +18,11 @@
 | gam | 155 | Hyper Zip-Pack | |
 | gam | 255 | It was cobbled together by Leo Pronto. It allows now you to blast across the islands in a way that was impracticable with the super-jetpack. | |
 | sys | 94 | HyperZipPack | |
-
+| 012 | 1 | Welcome to Proxim-City, Proxima Island. | `proxima/twinsen_welcome_to_proxim_city.wav` |
+| 012 | 2 | To the eclipse stone. | `proxima/twinsen_to_the_eclipse_stone.wav` |
+| 012 | 3 | To the marked stone. | `proxima/twinsen_to_the_marked_stone.wav` |
+| 012 | 4 | Maritime Musem. Free admission. | `proxima/twinsen_maritime_museum.wav` |
+| 012 | 5 | Ferry Street. | `proxima/twinsen_ferry_street.wav` |
 
 ## Replaced
 

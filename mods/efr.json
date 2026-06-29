@@ -8,6 +8,18 @@
     },
     {
       "type": "include_manifest",
+      "source": "ferry_routes.json"
+    },
+    {
+      "type": "include_manifest",
+      "source": "hyper_zippack.json"
+    },
+    {
+      "type": "include_manifest",
+      "source": "gawleys_horn.json"
+    },
+    {
+      "type": "include_manifest",
       "source": "efr_bootstrap.json"
     }
   ]

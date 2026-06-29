@@ -1,7 +1,30 @@
 {
   "version": 1,
   "description": "Proxima Island authoring edits for Extra Ferry Routes. Citadel-derived prototype edits remain disabled while blank-island authoring starts.",
-  "operations": [],
+  "operations": [
+    {
+      "type": "create_text_bank",
+      "file": "TEXT.HQR",
+      "text_file": "012"
+    },
+    {
+      "type": "create_vox_file",
+      "language": "en",
+      "text_file": "012"
+    },
+    {
+      "type": "include_manifest",
+      "source": "proxima_text.json"
+    },
+    {
+      "type": "include_manifest",
+      "source": "proxima_decor.json"
+    },
+    {
+      "type": "include_manifest",
+      "source": "proxima_holomap.json"
+    }
+  ],
   "_operations": [
     {
       "type": "apply_terrain_edits",
