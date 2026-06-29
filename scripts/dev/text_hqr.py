@@ -18,7 +18,7 @@ import sys
 import hqr_inspect
 
 
-MAX_TEXT_LANG = 15
+MAX_TEXT_LANG = 16
 
 LANGUAGES = {
     "en": 0,
@@ -36,7 +36,7 @@ LANGUAGES = {
 }
 
 LANGUAGE_NAMES = ["EN", "FR", "DE", "SP", "IT", "PO"]
-FILE_NAMES = ["sys", "cre", "gam", "000", "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011"]
+FILE_NAMES = ["sys", "cre", "gam", "000", "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012"]
 
 DIAL_FLAGS = [
     (1 << 0, "DEF"),
@@ -64,7 +64,7 @@ def parse_file(text):
     try:
         value = int(text, 0)
     except ValueError:
-        raise ValueError("--file must be sys, cre, gam, 000..011, or an index")
+        raise ValueError("--file must be sys, cre, gam, 000..012, or an index")
     if value < 0 or value >= MAX_TEXT_LANG:
         raise ValueError("--file index must be in [0,%d)" % MAX_TEXT_LANG)
     return value

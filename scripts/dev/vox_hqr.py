@@ -28,13 +28,13 @@ def load_bank(path):
         raise ValueError("%s is too small to be a VOX file" % path)
 
     (first,) = struct.unpack_from("<I", data, 0)
-    if first < 8 or first % 4 != 0 or first > len(data):
+    if first < 4 or first % 4 != 0 or first > len(data):
         raise ValueError("%s has invalid VOX offset table size %d" % (path, first))
 
     table_count = first // 4
     offsets = list(struct.unpack_from("<%dI" % table_count, data, 0))
-    if table_count < 2:
-        raise ValueError("%s has no VOX slots" % path)
+    if table_count < 1:
+        raise ValueError("%s has no VOX sentinel" % path)
 
     slots = []
     for index, offset in enumerate(offsets[:-1]):
