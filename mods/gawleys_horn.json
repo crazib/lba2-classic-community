@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "description": "gawleys_horn!!!!!!!!!!",
+  "operations": [
+    { "type": "replace_hqr_entry", "file": "OBJFIX.HQR", "entry": 56, "source": "gawleys_horn.o3d" },
+
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 500, "source": "twinsen_sweater_tritons_horn.o3d" },
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 501, "source": "twinsen_sweater_gawleys_horn.o3d" },
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 502, "source": "twinsen_tunic_gawleys_horn.o3d" },
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 503, "source": "twinsen_mage_gawleys_horn.o3d" },
+
+    {
+      "type": "clone_file3d_entry",
+      "file": "RESS.HQR",
+      "ress_entry": 44,
+      "source_entry": 6,
+      "entry": 6,
+      "body_map": {
+        "0": 500
+      }
+    },
+
+    {
+      "type": "clone_file3d_entry",
+      "file": "RESS.HQR",
+      "ress_entry": 44,
+      "source_entry": 6,
+      "entry": 347,
+      "body_map": {
+        "0": 501,
+        "1": 502,
+        "7": 503
+      }
+    },
+
+    {
+      "type": "add_text", "file": "TEXT.HQR", "language": "en", "text_file": "gam", "id": 56, "flag": 1,
+      "text": "You just found Gawley's horn!"
+    },
+    {
+      "type": "add_text", "file": "TEXT.HQR", "language": "en", "text_file": "gam", "id": 156, "flag": 1,
+      "text": "Gawley's Horn"
+    },
+    {
+      "type": "add_text", "file": "TEXT.HQR", "language": "en", "text_file": "gam", "id": 256, "flag": 65,
+      "text": "For use on the Seals of Sendell. It will allow you to break them open, which will subsequently allow you to access new places."
+    },
+    {
+      "type": "add_text", "file": "TEXT.HQR", "language": "en", "text_file": "sys", "id": 95, "flag": 1,
+      "text": "Gawley's Horn"
+    }
+  ]
+}
