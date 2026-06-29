@@ -13,7 +13,10 @@
 #define TERRAIN_REGION_TYPE_ROCKS 7
 #define TERRAIN_REGION_TYPE_CLIFFSIDE 8
 #define TERRAIN_REGION_TYPE_DIRT 9
-#define TERRAIN_REGION_TYPE_COUNT 10
+#define TERRAIN_REGION_TYPE_SAND 10
+#define TERRAIN_REGION_TYPE_CEMENT 11
+#define TERRAIN_REGION_TYPE_CONCRETE 12
+#define TERRAIN_REGION_TYPE_COUNT 13
 
 typedef struct {
     S32 X0;
@@ -39,6 +42,8 @@ typedef struct {
     S32 Sens1;
     S32 Footstep0;
     S32 Footstep1;
+    S32 ColorBank0;
+    S32 ColorBank1;
 } T_EDITOR_TERRAIN_PATTERN_CELL;
 
 extern void EditorTerrainPatternPavement(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
@@ -57,5 +62,11 @@ extern void EditorTerrainPatternCliffside(const T_EDITOR_TERRAIN_PATTERN_REGION 
                                           S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
 extern void EditorTerrainPatternDirt(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
                                      S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
+extern void EditorTerrainPatternSand(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                     S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
+extern void EditorTerrainPatternCement(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                       S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
+extern void EditorTerrainPatternConcrete(const T_EDITOR_TERRAIN_PATTERN_REGION *region,
+                                         S32 x, S32 z, T_EDITOR_TERRAIN_PATTERN_CELL *cell);
 
 #endif
