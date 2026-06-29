@@ -16,6 +16,7 @@
 #include "../EDITOR.H"
 /* HOLO.H lacks include guards and is pulled in transitively by DEFINES.H. */
 #include "../INVENT.H"
+#include "../IMPACT.H"
 #include "../RES_SWITCH.H"
 #include "../PERFTRACE.H"
 #include <SYSTEM/LOG.H>
@@ -696,6 +697,65 @@ static void cmd_flow(int argc, const char *argv[]) {
     }
 
     Console_Print("Spawned flow %ld", index);
+}
+
+static void cmd_impact(int argc, const char *argv[]) {
+    char pathname[ADELINE_MAX_PATH];
+    char *end = NULL;
+    long index;
+    S32 size;
+    U32 first_offset;
+    S32 count;
+
+    if (argc < 2) {
+        Console_Print("Usage: impact <index>");
+        return;
+    }
+
+    index = strtol(argv[1], &end, 0);
+    if (!end || *end != '\0' || argv[1][0] == '\0') {
+        Console_Print("impact: bad index '%s'", argv[1]);
+        return;
+    }
+
+    {
+        const char *why = console_avail_in_game_scene();
+        if (why) {
+            Console_Print("%s", why);
+            return;
+        }
+    }
+
+    if (!BufferImpact) {
+        Console_Print("impact: impact data is not loaded");
+        return;
+    }
+
+    GetResPath(pathname, ADELINE_MAX_PATH, RESS_HQR_NAME);
+    size = HQF_ResSize(pathname, RESS_IMPACT);
+    if (size < (S32)sizeof(U32)) {
+        Console_Print("impact: bad impact resource");
+        return;
+    }
+
+    first_offset = *((U32 *)BufferImpact);
+    if (first_offset < sizeof(U32) || first_offset > (U32)size || (first_offset & 3)) {
+        Console_Print("impact: bad impact table");
+        return;
+    }
+
+    count = (S32)(first_offset / sizeof(U32));
+    if (index < 0 || index >= count) {
+        Console_Print("impact: index out of range %ld (valid 0-%d)", index, count - 1);
+        return;
+    }
+
+    T_OBJET *hero = &ListObjet[NUM_PERSO];
+    DoImpact((S32)index,
+             hero->Obj.X, hero->Obj.Y + hero->YMax, hero->Obj.Z,
+             NUM_PERSO);
+
+    Console_Print("Spawned impact %ld", index);
 }
 
 static void cmd_playvideo(int argc, const char *argv[]) {
@@ -1860,6 +1920,8 @@ void Console_RegisterAll(void) {
                               "stateinv <index> <value>",
                               "Debug inventory state mutation. Index range is 0-45; value range is 0-3.");
     Console_RegisterCommandEx("flow", cmd_flow, "Spawn a particle flow above the hero", "flow <index>",
+                              "Requires an in-game loaded cube. Index is checked against RESS.HQR.");
+    Console_RegisterCommandEx("impact", cmd_impact, "Spawn an impact effect above the hero", "impact <index>",
                               "Requires an in-game loaded cube. Index is checked against RESS.HQR.");
     Console_RegisterCommandEx("playvideo", cmd_playvideo, "Play ACF video by name", "playvideo <name>",
                               "Closes console; plays video if found.");
