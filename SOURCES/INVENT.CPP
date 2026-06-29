@@ -433,13 +433,13 @@ T_INV_OBJ InitTabInv[MAX_INVENTORY] =
             {54, 0, 0, 0}   //	U8 TabObj3D[4]
         },
         {
-            //	42: SLOT LIBRE
-            36,          //	S32 Box
-            0,           //	S32 BetaObj
-            0,           //	S32 PtMagie
-            0,           //	S32 FlagInv
-            0,           //	S32 IdObj3D
-            {8, 0, 0, 0} //	U8 TabObj3D[4]
+            //	42: FLAG_GAWLEY
+            36,             //	S32 Box
+            0,              //	S32 BetaObj
+            25,             //	S32 PtMagie
+            FLAG_INV_VALUE, //	S32 FlagInv
+            0,              //	S32 IdObj3D
+            {56, 0, 0, 0}   //	U8 TabObj3D[4]
         },
         {
             //	43: SLOT LIBRE

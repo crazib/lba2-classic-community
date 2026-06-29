@@ -45,8 +45,8 @@ T_MENU_COMP ListMenuComp[MAX_MENUS_COMP] = {
      FLAG_CONQUE,
      1, // Previous = PROTOPACK
      0, // Next     = NORMAL,SPORTIF,AGRESSIF,DISCRET
-     1,
-     {C_CONQUE, -1, -1, -1}},
+     2,
+     {C_CONQUE, C_GAWLEY, -1, -1}},
 
     {//*********** 4--> Scaphandre Interieur
      ALWAYS,

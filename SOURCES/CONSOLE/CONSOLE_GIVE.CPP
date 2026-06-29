@@ -59,7 +59,7 @@ static const GiveItem s_items[] = {
     {"bourgmestrenote", 38, 0},
     {"protection", 39, 0},
     {"tomatoes", 41, 1},
-    {"slot42", 42, 0},
+    {"gawley", 42, 0},
     {"slot43", 43, 0},
     {"slot44", 44, 0},
     {"slot45", 45, 0},

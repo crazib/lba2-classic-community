@@ -249,6 +249,15 @@
 
 #define BODY_3D_PROTECT 62
 
+#define BODY_TRITON_HORN_SWEATER 500
+#define BODY_GAWLEY_HORN_SWEATER 501
+#define BODY_GAWLEY_HORN_TUNIC 502
+#define BODY_GAWLEY_HORN_MAGE 503
+
+#define FICHE_MOD_BASE 346
+#define FICHE_ZIPPACK (FICHE_MOD_BASE + 0)
+#define FICHE_GAWLEY_HORN (FICHE_MOD_BASE + 1)
+
 /*──────────────────────────────────────────────────────────────────────────*/ /*──────────────────────────────────────────────────────────────────────────*/
 #define NO_BODY 255
 

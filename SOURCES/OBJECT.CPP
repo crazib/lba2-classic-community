@@ -90,6 +90,7 @@ T_COMPORTEMENT ListComportement[MAX_COMPORTEMENTS] = {
                       | CF_HOLOMAP | CF_WEAPON},
     {7, -1, NULL, CF_HOLOMAP}, // Squelette
     {1, -1, NULL, CF_COMPORTEMENT | CF_INVENTORY | CF_WALK_ON_CODES_JEU | CF_WEAPON | CF_HOLOMAP | CF_SHIELD}, // Zippack
+    {3, -1, NULL, CF_COMPORTEMENT | CF_INVENTORY | CF_WEAPON | CF_HOLOMAP | CF_SHIELD}, // Gawley's Horn
 };
 
 char DefSysText[4][20] = {
@@ -1670,7 +1671,7 @@ void LoadFicPerso() {
     // initialisé en mode Normal
 
     for (n = MAX_COMPORTEMENTS - 1; n >= 0; n--, ptrcomp--) {
-        if (n == C_ZIPPACK)
+        if (n == C_ZIPPACK || n == C_GAWLEY)
             continue;
 
         ptrobj->PtrFile3D = LoadFile3D(n);
@@ -1679,8 +1680,19 @@ void LoadFicPerso() {
         ptrcomp->AnimRien = SearchAnim(GEN_ANIM_RIEN, NUM_PERSO);
     }
 
-    ListComportement[C_ZIPPACK].PtrFile3d = ListComportement[C_JETPACK].PtrFile3d;
-    ListComportement[C_ZIPPACK].AnimRien = ListComportement[C_JETPACK].AnimRien;
+    if (File3DEntryExists(FICHE_ZIPPACK)) {
+        InitComportementFiche(C_ZIPPACK, FICHE_ZIPPACK);
+    } else {
+        ListComportement[C_ZIPPACK].PtrFile3d = ListComportement[C_JETPACK].PtrFile3d;
+        ListComportement[C_ZIPPACK].AnimRien = ListComportement[C_JETPACK].AnimRien;
+    }
+
+    if (File3DEntryExists(FICHE_GAWLEY_HORN)) {
+        InitComportementFiche(C_GAWLEY, FICHE_GAWLEY_HORN);
+    } else {
+        ListComportement[C_GAWLEY].PtrFile3d = ListComportement[C_CONQUE].PtrFile3d;
+        ListComportement[C_GAWLEY].AnimRien = ListComportement[C_CONQUE].AnimRien;
+    }
 
     ptrobj->PtrAnimAction = SearchPtrAnimAction;
 }
@@ -1934,6 +1946,7 @@ void SetComportement(U8 comportement) {
         switch (Weapon) {
         case FLAG_SCAPHANDRE:
         case FLAG_CONQUE:
+        case FLAG_GAWLEY:
             Weapon = FLAG_BALLE_MAGIQUE;
             break;
         }
@@ -1958,6 +1971,11 @@ void SetComportement(U8 comportement) {
     case C_CONQUE:
         ptrobj->GenBody = GEN_BODY_TUNIQUE;
         Weapon = FLAG_CONQUE;
+        break;
+
+    case C_GAWLEY:
+        ptrobj->GenBody = GEN_BODY_TUNIQUE;
+        Weapon = FLAG_GAWLEY;
         break;
 
     case C_BUGGY:

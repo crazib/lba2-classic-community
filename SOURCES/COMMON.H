@@ -270,7 +270,11 @@ typedef	struct	{
 // ATTENTION: Magouille car le scaphandre ne fait pas parti de l'inventaire
 // donc on utilise un VAR_GAME scénarique
 #define	FLAG_SCAPHANDRE		40
+
+// ATTENTION(EFR): Magouille here! We need to offset these so they don't
+// interfere with retail data game vars
 #define	FLAG_TOMATOES		41
+#define	FLAG_GAWLEY			42
 
 //	Autres
 
@@ -829,8 +833,9 @@ typedef struct  {       S16    Num ;
 #define	C_BUGGY		       12	// Conduite du buggy
 #define	C_SKELETON	       13	// Squelette Electrique
 #define	C_ZIPPACK	       14	// HyperZipPack
+#define C_GAWLEY           15    // La corne de Gawley
 
-#define	MAX_COMPORTEMENTS      15
+#define	MAX_COMPORTEMENTS      16
 
 #define	START_TEXT_COMPORTEMENT	80
 
