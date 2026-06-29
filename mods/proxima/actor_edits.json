@@ -34,6 +34,21 @@
           "armour": 0,
           "move": 0,
           "flags": 2051
+        },
+        {
+          "actor": 4,
+          "added": true,
+          "model": 44,
+          "body": 0,
+          "animation": 0,
+          "x": 7168,
+          "y": 750,
+          "z": 5632,
+          "beta": 0,
+          "life": 255,
+          "armour": 0,
+          "move": 0,
+          "flags": 0
         }
       ]
     }
