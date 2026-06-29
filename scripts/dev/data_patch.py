@@ -18,6 +18,7 @@ import hqr_inspect
 import ile_objects
 import ile_terrain
 import scene_zones
+import script_compile
 import text_hqr
 import vox_hqr
 
@@ -75,6 +76,124 @@ def stored_hqr_blob(payload):
     return struct.pack("<IIh", len(payload), len(payload), 0) + payload
 
 
+def file3d_entry_count(raw):
+    if len(raw) < 4:
+        raise ValueError("FILE3D table is truncated")
+    first_offset = struct.unpack_from("<I", raw, 0)[0]
+    if first_offset == 0 or first_offset % 4 != 0 or first_offset > len(raw):
+        raise ValueError("FILE3D table has invalid first offset %d" % first_offset)
+    return first_offset // 4
+
+
+def fiche_size(raw):
+    pos = 0
+    while pos < len(raw):
+        command = raw[pos]
+        pos += 1
+        if command == 255:
+            return pos
+        if command == 3:
+            pos += 2
+        else:
+            pos += 1
+        if pos >= len(raw):
+            raise ValueError("fiche command %d is truncated before size byte" % command)
+        size = raw[pos]
+        if size <= 0:
+            raise ValueError("fiche command %d has invalid size %d" % (command, size))
+        pos += size
+    raise ValueError("fiche is missing terminator")
+
+
+def file3d_entries(raw):
+    count = file3d_entry_count(raw)
+    offsets = []
+    for index in range(count):
+        offsets.append(struct.unpack_from("<I", raw, index * 4)[0])
+
+    entries = []
+    for index, offset in enumerate(offsets):
+        if offset == 0:
+            entries.append(None)
+            continue
+        if offset == len(raw):
+            entries.append(None)
+            continue
+        if offset < count * 4 or offset >= len(raw):
+            raise ValueError("FILE3D entry %d has invalid offset %d" % (index, offset))
+        size = fiche_size(raw[offset:])
+        entries.append(raw[offset : offset + size])
+    return entries
+
+
+def encode_file3d_entries(entries):
+    table_size = len(entries) * 4
+    offsets = []
+    pos = table_size
+    for entry in entries:
+        if entry is None:
+            offsets.append(0)
+        else:
+            offsets.append(pos)
+            pos += len(entry)
+
+    out = bytearray()
+    for offset in offsets:
+        out.extend(struct.pack("<I", offset))
+    for entry in entries:
+        if entry is not None:
+            out.extend(entry)
+    return bytes(out)
+
+
+def clone_fiche_with_body_map(raw, body_map):
+    out = bytearray(raw)
+    pos = 0
+    changes = []
+
+    while pos < len(out):
+        command = out[pos]
+        pos += 1
+        if command == 255:
+            break
+
+        if command == 1:
+            gen_body = out[pos]
+            pos += 1
+            size_pos = pos
+            size = out[pos]
+            body_pos = size_pos + 1
+            if size < 3 or body_pos + 2 > len(out):
+                raise ValueError("F_BODY gen %d is truncated" % gen_body)
+            old_body = struct.unpack_from("<h", out, body_pos)[0]
+            if gen_body in body_map:
+                new_body = int(body_map[gen_body])
+                if new_body < -32768 or new_body > 32767:
+                    raise ValueError("body id %d is outside int16 range" % new_body)
+                struct.pack_into("<h", out, body_pos, new_body)
+                if old_body != new_body:
+                    changes.append((gen_body, old_body, new_body))
+            pos = size_pos + size
+        elif command == 3:
+            pos += 2
+            if pos >= len(out):
+                raise ValueError("F_ANIM is truncated before size byte")
+            size = out[pos]
+            pos += size
+        else:
+            pos += 1
+            if pos >= len(out):
+                raise ValueError("fiche command %d is truncated before size byte" % command)
+            size = out[pos]
+            pos += size
+
+    return bytes(out), changes
+
+
+def empty_text_bank_blobs():
+    return stored_hqr_blob(b""), stored_hqr_blob(struct.pack("<H", 2))
+
+
 def encode_hqr_blobs(blobs):
     table_size = len(blobs) * 4
     offsets = []
@@ -100,6 +219,10 @@ def encode_hqr_blobs(blobs):
 def write_hqr_blobs(path, blobs):
     with open(path, "wb") as f:
         f.write(encode_hqr_blobs(blobs))
+
+
+def empty_vox_file_bytes():
+    return struct.pack("<I", 4)
 
 
 def data_path(data_dir, relpath):
@@ -513,6 +636,10 @@ def op_apply_zone_edits(op, data_dir, write):
                 if index < len(zones):
                     current = zones[index]
                     if any(current[key] != target[key] for key in target if key != "index"):
+                        if bool(spec.get("replace", False)):
+                            zones[index] = target
+                            dirty = True
+                            continue
                         raise ValueError("scene %d zone %d already exists and differs" % (scene_num, index))
                     continue
                 if index != len(zones):
@@ -1000,6 +1127,72 @@ def op_replace_text(op, data_dir, write):
     return True
 
 
+def op_create_text_bank(op, data_dir, write):
+    path = data_path(data_dir, op.get("file", "TEXT.HQR"))
+    file_index = text_hqr.parse_file(op["text_file"])
+    language_count = len(text_hqr.LANGUAGE_NAMES)
+    new_count = text_hqr.MAX_TEXT_LANG
+
+    if file_index != new_count - 1:
+        raise ValueError("create_text_bank currently supports adding the final bank only")
+
+    old_count = new_count - 1
+    old_slots = language_count * old_count * 2
+    new_slots = language_count * new_count * 2
+    empty_order_blob, empty_text_blob = empty_text_bank_blobs()
+    ents, data = hqr_inspect.entries(path)
+
+    print(
+        "create_text_bank %s %s:"
+        % (op.get("file", "TEXT.HQR"), text_hqr.FILE_NAMES[file_index])
+    )
+
+    if len(ents) >= old_slots and len(ents) < new_slots:
+        blobs = []
+        for language in range(language_count):
+            old_base = language * old_count * 2
+            for index in range(old_base, old_base + old_count * 2):
+                blobs.append(hqr_entry_blob(ents, data, index))
+            blobs.append(empty_order_blob)
+            blobs.append(empty_text_blob)
+        for index in range(old_slots, len(ents)):
+            blobs.append(hqr_entry_blob(ents, data, index))
+
+        print("  inserting empty bank after each %d-file language group" % old_count)
+        if write:
+            write_hqr_blobs(path, blobs)
+            print("  wrote TEXT.HQR table %d -> %d slots" % (old_slots, len(blobs)))
+        else:
+            print("  dry run only")
+        return True
+
+    if len(ents) < new_slots:
+        raise ValueError(
+            "%s has %d slots; expected old %d or new %d"
+            % (op.get("file", "TEXT.HQR"), len(ents), old_slots, new_slots)
+        )
+
+    replacements = {}
+    for language in range(language_count):
+        order_entry, text_entry = text_hqr.entry_indexes(language, file_index)
+        if ents[order_entry][2] is None:
+            replacements[order_entry] = empty_order_blob
+        if ents[text_entry][2] is None:
+            replacements[text_entry] = empty_text_blob
+
+    if not replacements:
+        print("  already applied")
+        return False
+
+    print("  filling %d missing bank entr%s" % (len(replacements), "y" if len(replacements) == 1 else "ies"))
+    if write:
+        rewrite_hqr_blobs(path, ents, data, replacements)
+        print("  wrote missing text bank entries")
+    else:
+        print("  dry run only")
+    return True
+
+
 def planned_text_index(op, bank):
     op_index = op.get("_manifest_index")
     if op_index is None:
@@ -1085,6 +1278,41 @@ def op_add_voice(op, data_dir, write):
     if write:
         old_size, new_size = vox_hqr.rewrite_slot_stored(vox_path, voice_bank, voice_index, payload)
         print("  wrote VOX slot %d (%d -> %d bytes)" % (voice_index, old_size, new_size))
+    else:
+        print("  dry run only")
+    return True
+
+
+def op_create_vox_file(op, data_dir, write):
+    language = text_hqr.parse_language(op.get("language", "en"))
+    file_index = text_hqr.parse_file(op["text_file"])
+    vox_file = op.get("file", op.get("vox_file"))
+    if vox_file is None:
+        vox_file = vox_hqr.default_vox_file(language, file_index, text_hqr)
+    path = data_path(data_dir, vox_file)
+    target = empty_vox_file_bytes()
+
+    print("create_vox_file %s:" % vox_file)
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            current = f.read()
+        if current == target:
+            print("  already applied")
+            return False
+        voice_bank = vox_hqr.load_bank(path)
+        if voice_bank["slots"]:
+            print("  existing VOX file has %d slot(s)" % len(voice_bank["slots"]))
+            return False
+        raise ValueError("existing VOX file %s is not an empty zero-slot file" % vox_file)
+
+    print("  target is missing")
+    if write:
+        target_dir = os.path.dirname(path)
+        if target_dir and not os.path.isdir(target_dir):
+            os.makedirs(target_dir)
+        with open(path, "wb") as f:
+            f.write(target)
+        print("  wrote empty VOX file")
     else:
         print("  dry run only")
     return True
@@ -1205,6 +1433,146 @@ def op_copy_hqr_entry(op, data_dir, write):
     else:
         print("  dry run only")
 
+    return True
+
+
+def nearest_palette_map(source_pal, target_pal):
+    if len(source_pal) != 768 or len(target_pal) != 768:
+        raise ValueError("palette remap requires 768-byte VGA palettes")
+    remap = [0] * 256
+    remap[0] = 0
+    for src in range(1, 256):
+        sr = source_pal[src * 3 + 0]
+        sg = source_pal[src * 3 + 1]
+        sb = source_pal[src * 3 + 2]
+        best = 1
+        best_dist = None
+        for dst in range(1, 256):
+            dr = target_pal[dst * 3 + 0]
+            dg = target_pal[dst * 3 + 1]
+            db = target_pal[dst * 3 + 2]
+            dist = (sr - dr) * (sr - dr) + (sg - dg) * (sg - dg) + (sb - db) * (sb - db)
+            if best_dist is None or dist < best_dist:
+                best = dst
+                best_dist = dist
+        remap[src] = best
+    return remap
+
+
+def remap_graph_bank_palette(payload, remap):
+    out = bytearray(payload)
+    if len(out) < 4:
+        raise ValueError("graph bank is truncated")
+    first_offset = struct.unpack_from("<I", out, 0)[0]
+    if first_offset == 0 or first_offset % 4 != 0 or first_offset > len(out):
+        raise ValueError("graph bank has invalid first offset %d" % first_offset)
+    count = first_offset // 4
+    offsets = [struct.unpack_from("<I", out, i * 4)[0] for i in range(count)]
+    graph_offsets = offsets
+    if count > 1 and offsets[-1] <= len(out) and offsets[-1] >= offsets[-2]:
+        graph_offsets = offsets[:-1]
+
+    for graph, offset in enumerate(graph_offsets):
+        if offset == 0:
+            continue;
+        if offset + 4 > len(out):
+            raise ValueError("graph %d offset %d is outside bank" % (graph, offset))
+        pos = offset + 4
+        height = out[offset + 1]
+        for _line in range(height):
+            if pos >= len(out):
+                raise ValueError("graph %d is truncated before line block count" % graph)
+            block_count = out[pos]
+            pos += 1
+            for _block in range(block_count):
+                if pos >= len(out):
+                    raise ValueError("graph %d is truncated before block control" % graph)
+                control = out[pos]
+                pos += 1
+                opcode = (control & 0xC0) >> 6
+                count_pixels = (control & 0x3F) + 1
+                if opcode == 0:
+                    continue
+                if opcode == 1:
+                    if pos + count_pixels > len(out):
+                        raise ValueError("graph %d diff-pixel block is truncated" % graph)
+                    for i in range(count_pixels):
+                        out[pos + i] = remap[out[pos + i]]
+                    pos += count_pixels
+                else:
+                    if pos >= len(out):
+                        raise ValueError("graph %d repeat-color block is truncated" % graph)
+                    out[pos] = remap[out[pos]]
+                    pos += 1
+    return bytes(out)
+
+
+def read_hqr_payload(path, entry_index):
+    ents, data = hqr_inspect.entries(path)
+    if entry_index < 0 or entry_index >= len(ents) or ents[entry_index][2] is None:
+        raise ValueError("%s entry %d is missing" % (path, entry_index))
+    ent = ents[entry_index]
+    return hqr_inspect.decompress_entry(data, ent[1], ent[2], ent[3], ent[4])
+
+
+def op_copy_hqr_entry_from_file(op, data_dir, write):
+    target_path = data_path(data_dir, op["file"])
+    target_index = int(op["entry"])
+    source_path = data_path(data_dir, op["source_file"])
+    source_index = int(op["source_entry"])
+
+    source_ents, source_data = hqr_inspect.entries(source_path)
+    target_ents, target_data = hqr_inspect.entries(target_path)
+
+    if source_index < 0 or source_index >= len(source_ents):
+        raise ValueError("source entry %d is out of range [0,%d)" % (source_index, len(source_ents)))
+    if target_index < 0:
+        raise ValueError("target entry %d is out of range" % target_index)
+
+    source = source_ents[source_index]
+    target = target_ents[target_index] if target_index < len(target_ents) else (target_index, 0, None, None, None)
+
+    print("copy_hqr_entry_from_file %s:%d -> %s:%d:" % (op["source_file"], source_index, op["file"], target_index))
+
+    if source[2] is None:
+        raise ValueError("source entry %d is empty" % source_index)
+
+    source_payload = hqr_inspect.decompress_entry(source_data, source[1], source[2], source[3], source[4])
+    source_blob = source_data[source[1] : source[1] + 10 + source[3]]
+
+    print("  source size=%d compressed=%d method=%d" % (source[2], source[3], source[4]))
+
+    if "palette_remap" in op:
+        remap_spec = op["palette_remap"]
+        source_pal = read_hqr_payload(data_path(data_dir, remap_spec.get("source_file", "RESS.HQR")),
+                                      int(remap_spec.get("source_entry", 0)))
+        target_pal = read_hqr_payload(data_path(data_dir, remap_spec.get("target_file", "RESS.HQR")),
+                                      int(remap_spec.get("target_entry", 0)))
+        remap = nearest_palette_map(source_pal, target_pal)
+        source_payload = remap_graph_bank_palette(source_payload, remap)
+        source_blob = stored_hqr_blob(source_payload)
+        print("  remapped graph-bank palette %s:%d -> %s:%d" %
+              (remap_spec.get("source_file", "RESS.HQR"),
+               int(remap_spec.get("source_entry", 0)),
+               remap_spec.get("target_file", "RESS.HQR"),
+               int(remap_spec.get("target_entry", 0))))
+
+    if target[2] is not None:
+        target_payload = hqr_inspect.decompress_entry(target_data, target[1], target[2], target[3], target[4])
+        if target_payload == source_payload:
+            print("  already applied")
+            return False
+        if not bool(op.get("overwrite", False)):
+            raise ValueError("target entry %d is not empty and differs; set overwrite=true to replace it" % target_index)
+        print("  replacing existing size=%d compressed=%d method=%d" % (target[2], target[3], target[4]))
+    else:
+        print("  replacing empty entry")
+
+    if write:
+        rewrite_hqr_blobs(target_path, target_ents, target_data, {target_index: source_blob}, target_index + 1)
+        print("  wrote copied entry")
+    else:
+        print("  dry run only")
     return True
 
 
@@ -1387,6 +1755,70 @@ def op_add_image(op, data_dir, write):
     else:
         print("  dry run only")
     return True
+
+
+def read_sprite_metadata_table(path, entry):
+    ents, data = hqr_inspect.entries(path)
+    if entry < 0 or entry >= len(ents) or ents[entry][2] is None:
+        raise ValueError("%s entry %d is missing" % (path, entry))
+    ent = ents[entry]
+    raw = hqr_inspect.decompress_entry(data, ent[1], ent[2], ent[3], ent[4])
+    if len(raw) % 16 != 0:
+        raise ValueError("%s entry %d has invalid sprite metadata size %d" % (path, entry, len(raw)))
+    return ents, data, raw
+
+
+def sprite_metadata_values(raw, sprite_id, label):
+    offset = sprite_id * 16
+    if sprite_id < 0 or offset + 16 > len(raw):
+        raise ValueError("%s sprite metadata id %d is out of range [0,%d)" % (label, sprite_id, len(raw) // 16))
+    return list(struct.unpack_from("<hhhhhhhh", raw, offset))
+
+
+def rewrite_sprite_metadata(path, entry, sprite_id, values, write):
+    ents, data, raw = read_sprite_metadata_table(path, entry)
+    target_size = (sprite_id + 1) * 16
+    target = bytearray(raw)
+    if len(target) < target_size:
+        target.extend(b"\0" * (target_size - len(target)))
+    old = sprite_metadata_values(target, sprite_id, "%s entry %d" % (path, entry))
+    struct.pack_into("<hhhhhhhh", target, sprite_id * 16, *values)
+
+    print("set_sprite_metadata %s entry %d sprite %d:" % (os.path.basename(path), entry, sprite_id))
+    print("  current=%s" % old)
+    print("  target =%s" % values)
+
+    if bytes(target) == raw:
+        print("  already applied")
+        return False
+    if write:
+        rewrite_hqr_blobs(path, ents, data, {entry: stored_hqr_blob(bytes(target))})
+        print("  wrote metadata table (%d -> %d bytes)" % (len(raw), len(target)))
+    else:
+        print("  dry run only")
+    return True
+
+
+def op_set_sprite_metadata(op, data_dir, write):
+    path = data_path(data_dir, op.get("file", "RESS.HQR"))
+    entry = int(op.get("entry", 5))
+    sprite_id = int(op["id"])
+    values = [int(v) for v in op["values"]]
+    if len(values) != 8:
+        raise ValueError("sprite metadata values must be eight signed integers")
+    return rewrite_sprite_metadata(path, entry, sprite_id, values, write)
+
+
+def op_copy_sprite_metadata(op, data_dir, write):
+    path = data_path(data_dir, op.get("file", "RESS.HQR"))
+    entry = int(op.get("entry", 5))
+    sprite_id = int(op["id"])
+    source_path = data_path(data_dir, op["source_file"])
+    source_entry = int(op.get("source_entry", entry))
+    source_id = int(op["source_id"])
+    _ents, _data, source_raw = read_sprite_metadata_table(source_path, source_entry)
+    values = sprite_metadata_values(source_raw, source_id, "%s entry %d" % (source_path, source_entry))
+    return rewrite_sprite_metadata(path, entry, sprite_id, values, write)
 
 
 def op_copy_file(op, data_dir, write):
@@ -1723,6 +2155,372 @@ def op_add_hqr_entry(op, data_dir, write):
     return True
 
 
+BKG_HEADER_FORMAT = "<6H4I"
+BKG_HEADER_SIZE = struct.calcsize(BKG_HEADER_FORMAT)
+BKG_HEADER_FIELDS = (
+    "Gri_Start",
+    "Grm_Start",
+    "Bll_Start",
+    "Brk_Start",
+    "Max_Brk",
+    "ForbidenBrick",
+    "Max_Size_Gri",
+    "Max_Size_Bll",
+    "Max_Size_Brick_Cube",
+    "Max_Size_Mask_Brick_Cube",
+)
+
+
+def decode_bkg_header(raw):
+    if len(raw) != BKG_HEADER_SIZE:
+        raise ValueError("BKG header has size %d, expected %d" % (len(raw), BKG_HEADER_SIZE))
+    values = struct.unpack(BKG_HEADER_FORMAT, raw)
+    return dict((name, value) for name, value in zip(BKG_HEADER_FIELDS, values))
+
+
+def encode_bkg_header(header):
+    return struct.pack(BKG_HEADER_FORMAT, *[header[name] for name in BKG_HEADER_FIELDS])
+
+
+def insert_hqr_blob(path, ents, data, index, blob, replacements=None):
+    if replacements is None:
+        replacements = {}
+    new_entries = []
+    for entry_index, ent in enumerate(ents):
+        if entry_index == index:
+            new_entries.append(blob)
+        if entry_index in replacements:
+            new_entries.append(replacements[entry_index])
+        elif ent[2] is None:
+            new_entries.append(None)
+        else:
+            new_entries.append(data[ent[1] : ent[1] + 10 + ent[3]])
+    if index == len(ents):
+        new_entries.append(blob)
+    write_hqr_blobs(path, new_entries)
+
+
+def op_add_grf_entry(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    manifest_dir = op.get("_manifest_dir", ".")
+    source_path = manifest_path(manifest_dir, op["source"])
+
+    with open(source_path, "rb") as f:
+        payload = f.read()
+    if len(payload) == 0:
+        raise ValueError("source file %s is empty" % source_path)
+    source_blob = stored_hqr_blob(payload)
+
+    ents, data = hqr_inspect.entries(path)
+    if len(ents) == 0 or ents[0][2] is None:
+        raise ValueError("%s is missing BKG header entry 0" % op["file"])
+
+    header_raw = hqr_inspect.decompress_entry(
+        data, ents[0][1], ents[0][2], ents[0][3], ents[0][4]
+    )
+    header = decode_bkg_header(header_raw)
+    grf_start = header["Grm_Start"]
+    grf_end = header["Bll_Start"]
+
+    if "fragment" in op:
+        fragment_id = int(op["fragment"])
+        if fragment_id < 0:
+            raise ValueError("GRF fragment %d is outside valid range" % fragment_id)
+        entry_index = grf_start + fragment_id
+    else:
+        entry_index = int(op.get("entry", grf_end))
+        fragment_id = entry_index - grf_start
+    if entry_index < grf_start or entry_index > grf_end:
+        raise ValueError(
+            "GRF insertion entry %d is outside header-derived GRF span [%d,%d]"
+            % (entry_index, grf_start, grf_end)
+        )
+
+    print(
+        "add_grf_entry %s fragment %d entry %d <- %s:"
+        % (op["file"], fragment_id, entry_index, op["source"])
+    )
+    print("  current GRF span entries %d..%d" % (grf_start, grf_end - 1))
+    print("  source size=%d stored=%d" % (len(payload), len(source_blob)))
+
+    for scan_index in range(grf_start, grf_end):
+        ent = ents[scan_index] if scan_index < len(ents) else None
+        if ent is None or ent[2] is None:
+            continue
+        current = hqr_inspect.decompress_entry(data, ent[1], ent[2], ent[3], ent[4])
+        if current == payload:
+            print("  already applied as fragment %d entry %d" % (scan_index - grf_start, scan_index))
+            return False
+
+    if bool(op.get("replace", False)) and entry_index < grf_end:
+        if write:
+            rewrite_hqr_blobs(path, ents, data, {entry_index: source_blob})
+            print("  replaced GRF fragment %d at entry %d" % (fragment_id, entry_index))
+        else:
+            print("  would replace GRF fragment %d at entry %d" % (fragment_id, entry_index))
+        return True
+
+    old_bll_start = header["Bll_Start"]
+    old_brk_start = header["Brk_Start"]
+    for field in ("Gri_Start", "Grm_Start", "Bll_Start", "Brk_Start"):
+        if header[field] >= entry_index:
+            header[field] += 1
+
+    header_blob = stored_hqr_blob(encode_bkg_header(header))
+    print("  inserting fragment %d before entry %d" % (fragment_id, entry_index))
+    print(
+        "  Bll_Start %d -> %d, Brk_Start %d -> %d"
+        % (
+            old_bll_start,
+            header["Bll_Start"],
+            old_brk_start,
+            header["Brk_Start"],
+        )
+    )
+
+    if write:
+        insert_hqr_blob(path, ents, data, entry_index, source_blob, {0: header_blob})
+        print("  wrote GRF fragment %d" % fragment_id)
+    else:
+        print("  dry run only")
+
+    return True
+
+
+def op_clone_file3d_entry(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    ress_entry = int(op.get("ress_entry", 44))
+    source_entry = int(op["source_entry"])
+    target_entry = int(op["entry"])
+    body_map_raw = op.get("body_map", {})
+
+    if not isinstance(body_map_raw, dict):
+        raise ValueError("body_map must be an object")
+
+    body_map = {}
+    for key, value in body_map_raw.items():
+        body_map[int(key)] = int(value)
+
+    ents, data = hqr_inspect.entries(path)
+    if ress_entry < 0 or ress_entry >= len(ents) or ents[ress_entry][2] is None:
+        raise ValueError("%s entry %d is missing" % (op["file"], ress_entry))
+
+    ress_raw = hqr_inspect.decompress_entry(
+        data, ents[ress_entry][1], ents[ress_entry][2], ents[ress_entry][3], ents[ress_entry][4]
+    )
+    entries = file3d_entries(ress_raw)
+
+    if source_entry < 0 or source_entry >= len(entries) or entries[source_entry] is None:
+        raise ValueError("FILE3D source entry %d is missing" % source_entry)
+    if target_entry < 0:
+        raise ValueError("FILE3D target entry %d is invalid" % target_entry)
+
+    source_raw = entries[source_entry]
+    target_raw, changes = clone_fiche_with_body_map(source_raw, body_map)
+
+    print(
+        "clone_file3d_entry %s entry %d FILE3D %d -> %d:"
+        % (op["file"], ress_entry, source_entry, target_entry)
+    )
+    for gen_body, old_body, new_body in changes:
+        print("  body gen %d: %d -> %d" % (gen_body, old_body, new_body))
+    if not changes:
+        print("  no body changes")
+
+    while len(entries) <= target_entry:
+        entries.append(None)
+
+    if entries[target_entry] == target_raw:
+        print("  already applied")
+        return False
+    if entries[target_entry] is not None:
+        print("  replacing existing FILE3D entry %d size=%d" % (target_entry, len(entries[target_entry])))
+    else:
+        print("  adding FILE3D entry %d" % target_entry)
+
+    entries[target_entry] = target_raw
+
+    if write:
+        replacements = {ress_entry: stored_hqr_blob(encode_file3d_entries(entries))}
+        rewrite_hqr_blobs(path, ents, data, replacements)
+        print("  wrote FILE3D entry %d" % target_entry)
+    else:
+        print("  dry run only")
+
+    return True
+
+
+def scene_script_bytes(raw, layout):
+    tracks = []
+    lifes = []
+    for item in layout:
+        _track_size_pos, track_start, track_size, _life_size_pos, life_start, life_size = item
+        tracks.append(bytes(raw[track_start : track_start + track_size]))
+        lifes.append(bytes(raw[life_start : life_start + life_size]))
+    return tracks, lifes
+
+
+def track_label_offsets(track):
+    _commands, labels_by_offset = script_compile.defs.parse_track(track)
+    labels = {}
+    for offset, label in labels_by_offset.items():
+        labels[label] = offset
+    return labels
+
+
+def life_comportment_offsets(life):
+    _commands, comp_offsets = script_compile.defs.parse_life(life)
+    by_name = {}
+    for offset, name in comp_offsets.items():
+        by_name[name] = offset
+    return by_name
+
+
+def compile_single_life_source(path, actor, track_labels, comp_offsets):
+    instructions = script_compile.parse_life_source(path, actor)
+    switch_sizes = script_compile.assign_switches(instructions)
+    comp_offsets[actor] = script_compile.assign_offsets(instructions, switch_sizes)
+    try:
+        branches = script_compile.branch_targets(instructions)
+        switches = script_compile.switch_targets(instructions)
+    except script_compile.CompileError as exc:
+        raise script_compile.CompileError("actor %d: %s" % (actor, exc))
+
+    out = bytearray()
+    for index, instruction in enumerate(instructions):
+        kind = instruction["kind"]
+        if kind == "virtual":
+            continue
+        opcode = instruction["opcode"]
+        out.append(opcode)
+        if kind == "condition":
+            var_opcode = instruction["var_opcode"]
+            out.append(var_opcode)
+            if instruction["var_param"] is not None:
+                out.append(instruction["var_param"] & 0xFF)
+            out.append(instruction["operator"])
+            out.extend(script_compile.pack_value(
+                instruction["value"], script_compile.defs.VAR_RETURN_SIZE[var_opcode]
+            ))
+            target = instruction["target_override"]
+            out.extend(script_compile.pack_value(
+                branches[index] if target is None else target, 2
+            ))
+        elif kind == "switch":
+            out.append(instruction["var_opcode"])
+            if instruction["var_param"] is not None:
+                out.append(instruction["var_param"] & 0xFF)
+        elif kind == "case":
+            target = instruction["target_override"]
+            out.extend(script_compile.pack_value(
+                switches[index] if target is None else target, 2
+            ))
+            out.append(instruction["operator"])
+            out.extend(script_compile.pack_value(
+                instruction["value"], instruction["case_size"]
+            ))
+        else:
+            values = script_compile.numeric_args(instruction, actor)
+            sizes = script_compile.defs.LIFE_SIZES[opcode]
+            if sizes is None:
+                out.extend(values[0].encode("latin-1"))
+                out.append(0)
+            elif opcode == 15:
+                target = instruction["target_override"]
+                out.extend(script_compile.pack_value(
+                    (
+                        branches.get(index, instruction["end_offset"])
+                        if target is None
+                        else target
+                    ),
+                    2,
+                ))
+            elif opcode == 117:
+                target = instruction["target_override"]
+                out.extend(script_compile.pack_value(
+                    switches[index] if target is None else target, 2
+                ))
+            elif opcode == 23:
+                label = script_compile.parse_int(values[0])
+                target = -1 if label == -1 else track_labels[actor][label]
+                out.extend(script_compile.pack_value(target, 2))
+            elif opcode == 24:
+                target_actor = script_compile.parse_int(values[0], actor)
+                label = script_compile.parse_int(values[1])
+                target = -1 if label == -1 else track_labels[target_actor][label]
+                out.append(target_actor & 0xFF)
+                out.extend(script_compile.pack_value(target, 2))
+            elif opcode == 33:
+                target = values[0]
+                target = 65535 if target == "break" else comp_offsets[actor][target]
+                out.extend(script_compile.pack_value(target, 2))
+            elif opcode == 34:
+                target_actor = script_compile.parse_int(values[0], actor)
+                target = values[1]
+                target = 65535 if target == "break" else comp_offsets[target_actor][target]
+                out.append(target_actor & 0xFF)
+                out.extend(script_compile.pack_value(target, 2))
+            elif opcode in {27, 28}:
+                base_count = len(sizes)
+                for value, size in zip(values[:base_count], sizes):
+                    out.extend(script_compile.pack_value(value, size))
+                if len(values) > base_count:
+                    out.append(values[-1] & 0xFF)
+            else:
+                for value, size in zip(values, sizes):
+                    out.extend(script_compile.pack_value(value, size))
+    return bytes(out)
+
+
+def op_inject_life_script(op, data_dir, write):
+    path = data_path(data_dir, op["file"])
+    entry_index = int(op["entry"])
+    actor = int(op["actor"])
+    source_path = manifest_path(op.get("_manifest_dir", "."), op["source"])
+
+    ents, data = hqr_inspect.entries(path)
+    if entry_index < 0 or entry_index >= len(ents) or ents[entry_index][2] is None:
+        raise ValueError("%s entry %d is missing" % (op["file"], entry_index))
+    ent = ents[entry_index]
+    raw = hqr_inspect.decompress_entry(data, ent[1], ent[2], ent[3], ent[4])
+    layout = script_compile.scene_script_layout(raw, entry_index - 1)
+    if actor < 0 or actor >= len(layout):
+        raise ValueError("actor %d is out of range [0,%d) for %s entry %d" % (
+            actor,
+            len(layout),
+            op["file"],
+            entry_index,
+        ))
+
+    tracks, lifes = scene_script_bytes(raw, layout)
+    track_labels = [track_label_offsets(track) for track in tracks]
+    comp_offsets = [life_comportment_offsets(life) for life in lifes]
+    try:
+        compiled = compile_single_life_source(source_path, actor, track_labels, comp_offsets)
+    except (script_compile.CompileError, KeyError) as exc:
+        raise ValueError("compile %s actor %d: %s" % (op["source"], actor, exc))
+
+    print("inject_life_script %s entry %d actor %d <- %s:" % (
+        op["file"],
+        entry_index,
+        actor,
+        op["source"],
+    ))
+    print("  current size=%d compiled size=%d" % (len(lifes[actor]), len(compiled)))
+    if lifes[actor] == compiled:
+        print("  already applied")
+        return False
+
+    lifes[actor] = compiled
+    rebuilt = script_compile.replace_scene_scripts(raw, layout, tracks, lifes)
+    if write:
+        scene_zones.rewrite_entry_stored(path, ents, data, entry_index, rebuilt)
+        print("  wrote scene entry %d" % entry_index)
+    else:
+        print("  dry run only")
+    return True
+
+
 def op_set_terrain_heights(op, data_dir, write):
     path = data_path(data_dir, op["file"])
     cube_x, cube_y = parse_cube(op["cube"])
@@ -1977,20 +2775,28 @@ OPERATIONS = {
     "copy_file": op_copy_file,
     "create_blank_island": op_create_blank_island,
     "include_manifest": op_include_manifest,
+    "inject_life_script": op_inject_life_script,
     "set_ile_object": op_set_ile_object,
     "set_scene_zones": op_set_scene_zones,
     "set_scene_header": op_set_scene_header,
     "remap_scene_zone_nums": op_remap_scene_zone_nums,
+    "create_text_bank": op_create_text_bank,
     "add_text": op_add_text,
     "replace_text": op_replace_text,
+    "create_vox_file": op_create_vox_file,
     "add_voice": op_add_voice,
     "replace_voice": op_replace_voice,
     "copy_hqr_entry": op_copy_hqr_entry,
+    "copy_hqr_entry_from_file": op_copy_hqr_entry_from_file,
     "add_image": op_add_image,
+    "copy_sprite_metadata": op_copy_sprite_metadata,
+    "set_sprite_metadata": op_set_sprite_metadata,
     "add_holomap_island_view": op_add_holomap_island_view,
     "replace_holomap_arrow": op_replace_holomap_arrow,
     "replace_hqr_entry": op_replace_hqr_entry,
     "add_hqr_entry": op_add_hqr_entry,
+    "add_grf_entry": op_add_grf_entry,
+    "clone_file3d_entry": op_clone_file3d_entry,
     "set_terrain_heights": op_set_terrain_heights,
     "set_terrain_intensities": op_set_terrain_intensities,
     "set_terrain_triangles": op_set_terrain_triangles,
