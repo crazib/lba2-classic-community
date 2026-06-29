@@ -1,0 +1,233 @@
+// Scene 17: Citadel Island, Sewer (below Downtown), Actor 0
+
+COMPORTMENT main 
+  AND_IF VAR_GAME 40 > 2 // Zoe's position (2 = Zoe waiting outside the door)
+  IF VAR_GAME 40 < 14 // Zoe's position (14 = Zoe walking to dinofly waypoint)
+    SET_VAR_GAME 40 14 // Zoe's position (14 = Zoe walking to dinofly waypoint)
+  ELSE 
+    AND_IF VAR_GAME 40 > 14 // Zoe's position (14 = Zoe walking to dinofly waypoint)
+    IF VAR_GAME 40 < 20 // Zoe's position (20 = Working on car)
+      SET_VAR_GAME 40 20 // Zoe's position (20 = Working on car)
+    ENDIF 
+  ENDIF 
+
+  SWITCH ZONE 
+    CASE == 0 
+      ANIM 0 
+      BETA 0 
+      POS_POINT 2 
+      SET_DIRMODE NO_MOVE 
+      SET_COMPORTMENT 1 
+      BREAK 
+
+    CASE == 4 
+      ANIM 0 
+      BETA 0 
+      POS_POINT 11 
+      SET_DIRMODE NO_MOVE 
+      SET_COMPORTMENT 2 
+      BREAK 
+
+    // Crawling in from wizard's tent
+    CASE == 2 
+      SET_DIRMODE NO_MOVE 
+      ANIM_SET 51 
+      SET_FRAME 1 
+      BETA 1024 
+      BRICK_COL 2 
+      SET_TRACK 20 
+      SET_COMPORTMENT 5 
+      BREAK 
+
+    CASE == 7 
+      SET_DIRMODE NO_MOVE 
+      SET_TRACK 30 
+      SET_COMPORTMENT 8 
+      BREAK 
+
+    DEFAULT 
+      SET_COMPORTMENT 3 
+      BREAK 
+
+  END_SWITCH 
+END_COMPORTMENT 
+
+COMPORTMENT 1 
+  IF CURRENT_TRACK_OBJ 2 == 1 
+    SET_DIRMODE MANUAL 
+    SET_COMPORTMENT 3 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 2 
+  IF CURRENT_TRACK_OBJ 11 == 1 
+    SET_DIRMODE MANUAL 
+    SET_COMPORTMENT 3 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 3 
+  AND_IF VAR_GAME 83 == 12 // Wizard to Baldino cell (12 = Used lightning spell to get Sendells Ball)
+  IF BEHAVIOUR != JETPACK 
+    SET_TRACK 40 
+    SET_COMPORTMENT 9 
+    RETURN 
+  ENDIF 
+
+  AND_IF ZONE == 8 
+  IF USE_INVENTORY 6 == 1 
+    SAMPLE 366 
+    SET_VAR_GAME 6 0 // Pyramid Key
+    SET_VAR_GAME 54 4 // Pyramid Key (4 = Used pyramid key to open door in cellar)
+  ENDIF 
+
+  SWIF ACTION == 1 
+    // EFR: check Sendell seal zone
+    IF ZONE == 9
+      //IMPACT_OBJ 29 0 0
+      KILL_OBJ 29
+      IMPACT_POINT 27 0
+      SET_GRM 10 1
+    ENDIF
+
+    AND_IF VAR_GAME 54 != 4 // Pyramid Key (4 = Used pyramid key to open door in cellar)
+    IF ZONE == 8 
+      MESSAGE 180 // Strange, this looks like a keyhole.
+    ENDIF 
+
+    AND_IF VAR_CUBE 1 == 0 
+    IF DISTANCE_MESSAGE 12 < 1250 
+      IF VAR_GAME 51 != 1 // Stopping the rain (1 = spoke to weather wizard)
+        SET_VAR_CUBE 3 0 
+      ENDIF 
+
+      IF VAR_CUBE 3 == 0 
+        IF RND 2 == 0 
+          ADD_MESSAGE 100 // Hello.
+        ELSE 
+          ADD_MESSAGE 101 // Hi.
+        ENDIF 
+        SET_VAR_CUBE 3 1 
+      ENDIF 
+
+      IF VAR_GAME 51 == 1 // Stopping the rain (1 = spoke to weather wizard)
+        MESSAGE 107 // I am looking for the lighthouse keeper.
+      ENDIF 
+
+      END_MESSAGE 
+      SET_VAR_CUBE 1 1 
+      SET_COMPORTMENT_OBJ 12 3 
+    ENDIF 
+
+    OR_IF ZONE == 1 
+    IF ZONE == 5 
+      SET_DIRMODE NO_MOVE 
+      SET_TRACK 0 
+      SET_COMPORTMENT 4 
+    ENDIF 
+
+    IF ZONE == 6 
+      SET_DIRMODE FOLLOW 20 
+      SET_TRACK 10 
+      SET_COMPORTMENT 7 
+    ENDIF 
+  ENDIF 
+
+  // Crawl into the wizard's tent through the little passageway
+  AND_IF VAR_CUBE 2 == 1 
+  AND_IF BETA < 3584 
+  AND_IF BETA > 2560 
+  IF ZONE == 3 
+    SET_DIRMODE NO_MOVE 
+    SET_TRACK 11 
+    SET_COMPORTMENT 6 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 4 
+  IF CURRENT_TRACK == 1 
+    IF ZONE == 1 
+      SET_CHANGE_CUBE 304 
+      SET_TRACK_OBJ 2 2 
+    ENDIF 
+    IF ZONE == 5 
+      SET_CHANGE_CUBE 298 
+      SET_TRACK_OBJ 11 2 
+    ENDIF 
+    END_LIFE 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 5 
+  SWIF CURRENT_TRACK == 21 
+    HIT_OBJ 20 0 
+  ENDIF 
+  IF CURRENT_TRACK == 22 
+    BRICK_COL 1 
+    SET_DIRMODE MANUAL 
+    SET_COMPORTMENT 3 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 6 
+  OR_IF ANIM == 1 
+  IF ANIM == 0 
+    SET_TRACK 4 
+    BRICK_COL 2 
+    END_LIFE 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 7 
+  IF CURRENT_TRACK == 11 
+    SET_DIRMODE MANUAL 
+    SET_COMPORTMENT 3 
+    HIT_OBJ 20 0 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 8 
+  IF CURRENT_TRACK == 31 
+    SET_DIRMODE MANUAL 
+    SET_COMPORTMENT 3 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 9 
+  AND_IF BEHAVIOUR != JETPACK 
+  AND_IF ANIM != 7 
+  AND_IF ANIM != 8 
+  AND_IF ANIM != 14 
+  AND_IF ANIM != 25 
+  AND_IF ANIM != 26 
+  IF CURRENT_TRACK == 41 
+    SET_DIRMODE NO_MOVE 
+    SAVE_HERO 
+    SET_BEHAVIOUR NORMAL 
+    SET_USED_INVENTORY 26 
+    IF USE_INVENTORY 26 == 1 
+    ENDIF 
+    SET_TRACK 42 
+    SET_COMPORTMENT 10 
+  ENDIF 
+END_COMPORTMENT 
+
+COMPORTMENT 10 
+  IF CURRENT_TRACK == 43 
+    BALLOON 0 
+    MESSAGE_OBJ 19 515 // Twinsen, I am on Emerald Moon. I have uncovered a diabolical plot organized by the Esmers!! The kidnapping of the wizards and the children was only a small part of their plan. They are about to destroy our planet!!! Listen Twinsen, you must meet me!!
+    BALLOON 1 
+    SET_ANIM_DIAL 66 
+    MESSAGE 543 // But how can I do that, you left on your spaceship and I don't have one.
+    BALLOON 0 
+    MESSAGE_OBJ 19 516 // The Esmers have set up a base somewhere on Desert Island. Find it and steal a shuttle!! You are the only one who can save Twinsun!!!
+    SET_HOLO_POS 114 
+    BALLOON 1 
+    SET_VAR_GAME 83 13 // Wizard to Baldino cell (13 = Baldino called form Emerald moon)
+    RESTORE_HERO 
+    SET_DIRMODE MANUAL 
+    SET_COMPORTMENT 3 
+  ENDIF 
+END_COMPORTMENT 
+
+END

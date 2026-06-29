@@ -2,6 +2,31 @@
   "island": 0,
   "description": "Authoring edits exported by the zone editor.",
   "scenes": [
-
+    {
+      "scene": 17,
+      "zones": [
+        {
+          "zone": 25,
+          "add": true,
+          "type": 2,
+          "num": 9,
+          "bounds": [19200, 1280, 8448, 20736, 1536, 9984],
+          "info": [0, 0, 1, 0, 0, 0, 0, 0]
+        }
+      ]
+    },
+    {
+      "scene": 17,
+      "zones": [
+        {
+          "zone": 26,
+          "add": true,
+          "type": 3,
+          "num": 10,
+          "bounds": [18944, 1280, 7424, 20224, 2560, 8192],
+          "info": [28, 0, 0, 0, 0, 0, 0, 0]
+        }
+      ]
+    }
   ]
 }

@@ -1,0 +1,34 @@
+{
+  "island": 0,
+  "description": "Initial actor edits exported by the actor editor.",
+  "scenes": [
+    {
+      "scene": 17,
+      "actors": [
+        {
+          "actor": 29,
+          "added": true,
+          "model": 0,
+          "body": 0,
+          "animation": 0,
+          "x": 20288,
+          "y": 1728,
+          "z": 8910,
+          "sprite": 425,
+          "beta": 0,
+          "life": 255,
+          "armour": 51,
+          "move": 0,
+          "flags": 5120
+        },
+        {
+          "actor": 28,
+          "expect_x": 21248,
+          "x": 21248,
+          "expect_z": 8960,
+          "z": 8960
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "description": "Seals of Sendell",
+  "operations": [
+    {
+      "type": "copy_hqr_entry_from_file",
+      "file": "SPRITES.HQR",
+      "entry": 425,
+      "source_file": "LBA1/SPRITES.HQR",
+      "source_entry": 63,
+      "palette_remap": {
+        "source_file": "LBA1/RESS.HQR",
+        "source_entry": 0,
+        "target_file": "RESS.HQR",
+        "target_entry": 0
+      },
+      "overwrite": true
+    },
+    {
+      "type": "copy_sprite_metadata",
+      "file": "RESS.HQR",
+      "entry": 5,
+      "id": 425,
+      "source_file": "LBA1/RESS.HQR",
+      "source_entry": 3,
+      "source_id": 63
+    },
+    {
+      "type": "add_grf_entry",
+      "file": "LBA_BKG.HQR",
+      "fragment": 30,
+      "replace": true,
+      "source": "citadel_island_sewers_sendell_seal_passage.grf"
+    },
+    {
+      "type": "inject_life_script",
+      "file": "SCENE.HQR",
+      "entry": 18,
+      "actor": 0,
+      "source": "citadel_island_sewers_twinsen_life.ls2s"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "island": 0,
+  "description": "Authoring edits exported by the waypoint editor.",
+  "scenes": [
+    {
+      "scene": 17,
+      "waypoints": [
+        {"waypoint": 27, "added": true, "position": [20800, 2560, 9728]}
+      ]
+    }
+  ]
+}

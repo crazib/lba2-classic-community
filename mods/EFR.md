@@ -4,6 +4,8 @@ Extra Ferry Routes is a mod for LBA2 Classic Community. It aims to add islands f
 
 It also adds tomatoes as a new weapon for some reason. The current tomato work adds a new inventory item, text entries, and a replacement `OBJFIX.HQR` model entry through the mod data patch manifest.
 
+In order to patch the game for EFR, you need both data files from LBA1 and LBA2. (`data/LBA1` and `data/`, respectively.)
+
 ## Data patch workflow
 
 EFR keeps three data layers separate:
