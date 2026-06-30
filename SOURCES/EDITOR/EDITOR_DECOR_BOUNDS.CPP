@@ -1,4 +1,4 @@
-#include "DEFINES.H"
+#include "../3DEXT/DEFINES.H"
 
 #ifdef LBA2CC_EDITOR
 

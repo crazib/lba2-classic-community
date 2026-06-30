@@ -8,7 +8,7 @@
 
 #define JSMN_STATIC
 #define JSMN_PARENT_LINKS
-#include "../LIB386/jsmn.h"
+#include "../../LIB386/jsmn.h"
 
 #define EDITOR_JSON_MAX_TOKENS 16384 * 256
 

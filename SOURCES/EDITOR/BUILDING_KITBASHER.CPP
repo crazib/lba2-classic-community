@@ -1,16 +1,16 @@
 #include "BUILDING_KITBASHER.H"
 
 #include "BUILDING_KITBASHER_DATA.H"
-#include "C_EXTERN.H"
-#include "FLOW.H"
-#include "GAMEMENU.H"
-#include "INPUT.H"
-#include "INVENT.H"
-#include "INTEXT.H"
+#include "../C_EXTERN.H"
+#include "../FLOW.H"
+#include "../GAMEMENU.H"
+#include "../INPUT.H"
+#include "../INVENT.H"
+#include "../INTEXT.H"
 
 #include <SYSTEM/HQRRESS.H>
 
-#include "3DEXT/LOADISLE.H"
+#include "../3DEXT/LOADISLE.H"
 
 #include <3D/CAMERA.H>
 #include <3D/DATAMAT.H>

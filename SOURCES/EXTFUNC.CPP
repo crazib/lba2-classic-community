@@ -8,7 +8,7 @@
  *══════════════════════════════════════════════════════════════════════════*/
 
 #include "C_EXTERN.H"
-#include "FREECAM.H"
+#include "EDITOR/FREECAM.H"
 #include "DIRECTORIES.H"
 #include "INPUT.H"
 

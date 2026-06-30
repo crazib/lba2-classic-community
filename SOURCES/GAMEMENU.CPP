@@ -1,7 +1,7 @@
 #include "C_EXTERN.H"
 #include "CONFIG.H"
 #ifdef LBA2CC_EDITOR
-#include "BUILDING_KITBASHER.H"
+#include "EDITOR/BUILDING_KITBASHER.H"
 #include "EDITOR/MODEL_EDITOR/MODEL_EDITOR.H"
 #endif
 #include "DIRECTORIES.H"
