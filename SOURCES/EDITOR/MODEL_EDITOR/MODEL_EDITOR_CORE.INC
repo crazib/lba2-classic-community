@@ -927,14 +927,19 @@ static void ModelChangeArchive(S32 delta) {
     ModelResetAnimPreview();
 }
 
+static float ModelOrthoScaleFromZoom(void) {
+    return MODEL_ORTHO_BASE_SCALE * (MODEL_ORTHO_BASE_ZOOM / (float)ModelZoom);
+}
+
 static void ModelApplyCamera(void) {
     if (ModelCameraMode != MODEL_CAMERA_ORBIT) {
         SetProjection((S32)ModeDesiredX / 2, (S32)ModeDesiredY / 2, 128, 1024, 1024);
         SetPosCamera((S32)ModelFreeX, (S32)ModelFreeY, (S32)ModelFreeZ);
         SetAngleCamera(FreeCam_NormalizeAngle(ModelFreeAlpha), ModelFreeBeta, ModelFreeGamma);
-    } else if (ModelOrtho)
+    } else if (ModelOrtho) {
+        OrthoScale = ModelOrthoScaleFromZoom();
         SetOrthoProjection((S32)ModeDesiredX / 2 + ModelPanX, (S32)ModeDesiredY / 2 + ModelPanY, 128);
-    else
+    } else
         SetProjection((S32)ModeDesiredX / 2 + ModelPanX, (S32)ModeDesiredY / 2 + ModelPanY, 128, 1024, 1024);
     if (ModelCameraMode == MODEL_CAMERA_ORBIT)
         SetFollowCamera(ModelTargetX, ModelTargetY, ModelTargetZ, ModelAlpha, ModelBeta, 0, ModelZoom);

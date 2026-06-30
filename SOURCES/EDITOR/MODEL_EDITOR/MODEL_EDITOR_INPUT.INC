@@ -629,6 +629,10 @@ static void ModelHandleInput(S32 *done) {
         ModelStartGrab(ModelGetBody());
         goto update_last;
     }
+    if (key_edge AND !alt AND !ctrl AND key == K_L) {
+        ModelDumpSelectedFaces(ModelGetBody());
+        goto update_last;
+    }
     if (ModelMode == MODEL_MODE_EDIT AND key_edge AND !alt AND !ctrl AND key == K_A) {
         ModelSelectAllCurrent(ModelGetBody());
         goto update_last;
@@ -881,7 +885,7 @@ static void ModelHandleInput(S32 *done) {
             S32 face;
 
             if (body AND ModelColorPanelHit(body, (S32)MouseX, (S32)MouseY, &color)) {
-                ModelSelectFacesByColor(body, color);
+                ModelSelectFacesByColor(body, color, shift);
                 goto update_last;
             }
             face = body ? ModelFindFaceAt(body, (S32)MouseX, (S32)MouseY, &info) : -1;
