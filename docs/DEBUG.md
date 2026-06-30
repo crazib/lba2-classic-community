@@ -40,23 +40,6 @@ This bypasses the main menu and loads directly into the specified scene. Useful 
 | `B` | Toggle sounds | Toggles sample/sound playback on/off |
 | `G` | Save bug state | Saves current game state for reproducing issues |
 | `L` | Load bug state | Loads a previously saved bug state (from main menu) |
-| `.` / `,` | Cycle editor tool | Includes Editor Off; requires LBA2CC_EDITOR |
-| `A` | Toggle actor overlay | Decor / Zone / Actor editor; `Ctrl+A` remains select all |
-| `W` | Toggle waypoint overlay | Shows scene track points in the Decor / Zone / Actor editor |
-| `Esc` | Editor Off | Requires an active LBA2CC_EDITOR tool |
-| `Enter` / numpad `Enter` | Deselect all | Clears decor, zone, actor, waypoint, terrain, and texture selections |
-| `Shift+Backtick` | Toggle free camera | Select / Move only; WASD moves, Q/E moves vertically, the mouse controls the view, and F toggles fog |
-| `Shift+F` | Toggle editor fog | Select / Move only; outside free camera |
-| `D` | Toggle decor overlay | Requires an active LBA2CC_EDITOR tool |
-| `Z` | Toggle zone overlay | Requires an active LBA2CC_EDITOR tool |
-| `I` | Toggle overlay detail | Switches boxes only vs boxes plus ids |
-| Arrow keys / Page Up / Page Down | Nudge selection | Moves selected decor, zones, actors, or waypoints; `Shift` uses 256-unit steps and `Alt` uses 1-unit steps |
-| `N` | Open New menu | Select / Move only; choose Actor, Waypoint, or Zone with arrows plus Enter, or the `A`, `W`, and `Z` shortcuts |
-| `Ctrl+S` | Save editor authoring JSON | Requires LBA2CC_EDITOR and an active editor UI/tool |
-| `Delete` / `Backspace` | Delete selected actor or exterior decor | Actors use an index-preserving tombstone so scene script references do not shift |
-| `P` / `Insert` | Place selected decor body | Requires LBA2CC_EDITOR Select/Move or Decor Place tool |
-| `[` / `]` | Change selected decor body | Requires LBA2CC_EDITOR Decor Place tool |
-| `Ctrl+D` | Duplicate selected exterior decor | Requires LBA2CC_EDITOR Select/Move tool and a deleted decor slot |
 | `F9` | Screenshot | Captures screenshot as PCX (original format) |
 | `F10` | Terrain benchmark | Runs 20-loop terrain rendering benchmark (exterior only) |
 | `F11` | Scene benchmark | Runs 20-loop full scene rendering benchmark (exterior only) |
