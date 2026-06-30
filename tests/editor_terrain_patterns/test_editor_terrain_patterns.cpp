@@ -1,4 +1,4 @@
-#include "EDITOR_TERRAIN_PATTERNS.H"
+#include "EDITOR/EDITOR_TERRAIN_PATTERNS.H"
 
 #include <assert.h>
 

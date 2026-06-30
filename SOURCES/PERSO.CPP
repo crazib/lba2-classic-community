@@ -25,7 +25,7 @@
 #include <SVGA/SCREEN.H>
 #include <SYSTEM/KEYBOARD_KEYS.H>
 #include "FOLLOWCAM_CFG.H"
-#include "FREECAM.H"
+#include "EDITOR/FREECAM.H"
 #include <SYSTEM/STRING.H>
 #include <SYSTEM/WINDOW.H>
 

@@ -1,10 +1,10 @@
 #include "FREECAM.H"
 
-#include "C_EXTERN.H"
-#include "DIRECTORIES.H"
+#include "../C_EXTERN.H"
+#include "../DIRECTORIES.H"
 #include "FREECAM_MATH.H"
-#include "3DEXT/LOADISLE.H"
-#include "3DEXT/VAR_EXT.H"
+#include "../3DEXT/LOADISLE.H"
+#include "../3DEXT/VAR_EXT.H"
 
 #include <3D/CAMERA.H>
 #include <POLYGON/POLY.H>

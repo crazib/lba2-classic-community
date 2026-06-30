@@ -2,9 +2,9 @@
 
 #ifdef LBA2CC_EDITOR
 
-#include "C_EXTERN.H"
-#include "DIRECTORIES.H"
-#include "EDITOR.H"
+#include "../C_EXTERN.H"
+#include "../DIRECTORIES.H"
+#include "../EDITOR.H"
 #include "EDITOR_JSON.H"
 
 #include <SYSTEM/FILES.H>

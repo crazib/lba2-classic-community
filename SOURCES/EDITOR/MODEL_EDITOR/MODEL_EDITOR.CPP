@@ -2,7 +2,7 @@
 
 #include "../../C_EXTERN.H"
 #include "../../DIRECTORIES.H"
-#include "../../FREECAM_MATH.H"
+#include "../FREECAM_MATH.H"
 #include "../../INPUT.H"
 #include "../../INTEXT.H"
 

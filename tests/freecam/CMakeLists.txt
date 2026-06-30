@@ -1,6 +1,6 @@
 add_executable(test_freecam_math
     test_freecam_math.cpp
-    ${CMAKE_SOURCE_DIR}/SOURCES/FREECAM_MATH.CPP
+    ${CMAKE_SOURCE_DIR}/SOURCES/EDITOR/FREECAM_MATH.CPP
 )
 
 target_include_directories(test_freecam_math PRIVATE

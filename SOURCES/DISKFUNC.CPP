@@ -1,7 +1,7 @@
 #include "C_EXTERN.H"
-#include "ACTOR_EDITOR.H"
 #include "DIRECTORIES.H"
-#include "WAYPOINT_EDITOR.H"
+#include "EDITOR/ACTOR_EDITOR.H"
+#include "EDITOR/WAYPOINT_EDITOR.H"
 
 #include <SYSTEM/ADELINE.H>
 
