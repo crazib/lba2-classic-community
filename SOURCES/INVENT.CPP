@@ -437,7 +437,7 @@ T_INV_OBJ InitTabInv[MAX_INVENTORY] =
             36,             //	S32 Box
             0,              //	S32 BetaObj
             25,             //	S32 PtMagie
-            FLAG_INV_VALUE, //	S32 FlagInv
+            0,              //	S32 FlagInv
             0,              //	S32 IdObj3D
             {56, 0, 0, 0}   //	U8 TabObj3D[4]
         },

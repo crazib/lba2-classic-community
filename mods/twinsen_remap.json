@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "description": "Remapping Twinsen's outfits.",
+  "operations": [
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 504, "source": "twinsen_sweater_protopack.o3d" },
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 505, "source": "twinsen_mage_protopack.o3d" },
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 506, "source": "twinsen_sweater_jetpack.o3d" },
+    { "type": "add_hqr_entry", "file": "BODY.HQR", "entry": 507, "source": "twinsen_mage_jetpack.o3d" },
+
+    {
+      "type": "clone_file3d_entry",
+      "file": "RESS.HQR",
+      "ress_entry": 44,
+      "source_entry": 4,
+      "entry": 4,
+      "add_missing_body_entries": true,
+      "body_map": {
+        "0": 504,
+        "1": 504,
+        "7": 505,
+        "8": 505
+      }
+    },
+
+    {
+      "type": "clone_file3d_entry",
+      "file": "RESS.HQR",
+      "ress_entry": 44,
+      "source_entry": 8,
+      "entry": 8,
+      "add_missing_body_entries": true,
+      "body_map": {
+        "0": 506,
+        "1": 506,
+        "7": 507,
+        "8": 507
+      }
+    },
+
+    {
+      "type": "clone_file3d_entry",
+      "file": "RESS.HQR",
+      "ress_entry": 44,
+      "source_entry": 8,
+      "entry": 346,
+      "add_missing_body_entries": true,
+      "body_map": {
+        "0": 506,
+        "1": 506,
+        "7": 507,
+        "8": 507
+      }
+    }
+  ]
+}

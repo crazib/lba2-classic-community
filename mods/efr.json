@@ -16,6 +16,10 @@
     },
     {
       "type": "include_manifest",
+      "source": "twinsen_remap.json"
+    },
+    {
+      "type": "include_manifest",
       "source": "gawleys_horn.json"
     },
     {

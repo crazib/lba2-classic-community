@@ -1,10 +1,14 @@
 # Extra Ferry Routes
 
+**Note:** This document is slightly out of date.
+
 Extra Ferry Routes is a mod for LBA2 Classic Community. It aims to add islands from LBA1 into LBA2 as an optional small side quest.
 
 It also adds tomatoes as a new weapon for some reason. The current tomato work adds a new inventory item, text entries, and a replacement `OBJFIX.HQR` model entry through the mod data patch manifest.
 
 In order to patch the game for EFR, you need both data files from LBA1 and LBA2. (`data/LBA1` and `data/`, respectively.)
+
+While “EFR” is the in-development codename for the mod, the actual name might become something else, like “Island Detours”, but that abbreviates weirdly, hence “EFR” is used as the name in the code.
 
 ## Data patch workflow
 
