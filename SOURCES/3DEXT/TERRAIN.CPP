@@ -705,8 +705,10 @@ void DrawHorizon2ZBuf() {
     S32 cy = CameraY;
     S32 cz = CameraZ;
     S32 terrain_count = 9;
+    S32 wide_view_active = FALSE;
 #ifdef LBA2CC_EDITOR
     struct S_Terrain editor_terrain[81];
+    wide_view_active = ExteriorWideViewActive();
 #endif
 
     if (BetaCam >= 0 AND BetaCam < 1024) {
@@ -738,7 +740,7 @@ void DrawHorizon2ZBuf() {
 */
 #ifdef LBA2CC_EDITOR
     // TODO: Other islands show black void artifacts with the wider editor view, so keep it gated to Proxima.
-    if (ExteriorWideViewActive() OR(Editor_IsActive() AND Island == 12)) {
+    if (wide_view_active OR(Editor_IsActive() AND Island == 12)) {
         S32 x_start;
         S32 x_step;
         S32 y_start;
@@ -747,7 +749,7 @@ void DrawHorizon2ZBuf() {
         S32 y;
         S32 n = 0;
 
-        S32 radius = ExteriorWideViewActive() ? 4 : 2;
+        S32 radius = wide_view_active ? 4 : 2;
         x_start = (BetaCam >= 2048) ? radius : -radius;
         x_step = (BetaCam >= 2048) ? -1 : 1;
         y_start = (BetaCam < 1024 OR BetaCam >= 3072) ? radius : -radius;
@@ -770,7 +772,7 @@ void DrawHorizon2ZBuf() {
         y = CurrentCubeY + TerrainTri->y;
 
         if (TerrainTri->x OR TerrainTri->y) {
-            if ((x >= 0 AND x <= 15 AND y >= 0 AND y <= 15) OR ExteriorWideViewActive()) {
+            if ((x >= 0 AND x <= 15 AND y >= 0 AND y <= 15) OR wide_view_active) {
                 // PreClipping du Cube
                 /*				if( PtrProjectPoint( 0, 0, 0 )
 				OR  PtrProjectPoint( 32767, 0, 0 )
@@ -779,7 +781,7 @@ void DrawHorizon2ZBuf() {
 */
                 {
 #ifdef LBA2CC_EDITOR
-                    if (Editor_IsActive() AND Island == 12) {
+                    if (Editor_IsActive() AND(wide_view_active OR Island == 12)) {
 #ifdef LBA_GAME
                         SetPosCamera(cx - TerrainTri->x * WORLD_SIZE + TerrainTri->x, cy, cz - TerrainTri->y * WORLD_SIZE + TerrainTri->y);
 #else
