@@ -146,18 +146,24 @@ def encode_file3d_entries(entries):
     return bytes(out)
 
 
-def clone_fiche_with_body_map(raw, body_map):
+def clone_fiche_with_body_map(raw, body_map, add_missing_body_entries=False):
     out = bytearray(raw)
     pos = 0
     changes = []
+    found_body_gen = set()
+    body_templates = {}
+    end_marker_pos = None
 
     while pos < len(out):
+        record_start = pos
         command = out[pos]
         pos += 1
         if command == 255:
+            end_marker_pos = record_start
             break
 
         if command == 1:
+            gen_pos = pos
             gen_body = out[pos]
             pos += 1
             size_pos = pos
@@ -166,13 +172,15 @@ def clone_fiche_with_body_map(raw, body_map):
             if size < 3 or body_pos + 2 > len(out):
                 raise ValueError("F_BODY gen %d is truncated" % gen_body)
             old_body = struct.unpack_from("<h", out, body_pos)[0]
+            found_body_gen.add(gen_body)
+            body_templates[gen_body] = bytes(out[record_start:size_pos + size])
             if gen_body in body_map:
                 new_body = int(body_map[gen_body])
                 if new_body < -32768 or new_body > 32767:
                     raise ValueError("body id %d is outside int16 range" % new_body)
                 struct.pack_into("<h", out, body_pos, new_body)
                 if old_body != new_body:
-                    changes.append((gen_body, old_body, new_body))
+                    changes.append((gen_body, old_body, new_body, False))
             pos = size_pos + size
         elif command == 3:
             pos += 2
@@ -186,6 +194,26 @@ def clone_fiche_with_body_map(raw, body_map):
                 raise ValueError("fiche command %d is truncated before size byte" % command)
             size = out[pos]
             pos += size
+
+    if add_missing_body_entries:
+        if end_marker_pos is None:
+            raise ValueError("fiche has no terminator")
+        if body_templates:
+            template = body_templates.get(1, body_templates.get(0, next(iter(body_templates.values()))))
+            inserted = bytearray()
+            for gen_body in sorted(body_map):
+                if gen_body in found_body_gen:
+                    continue
+                new_body = int(body_map[gen_body])
+                if new_body < -32768 or new_body > 32767:
+                    raise ValueError("body id %d is outside int16 range" % new_body)
+                record = bytearray(template)
+                record[1] = gen_body & 0xff
+                struct.pack_into("<h", record, 3, new_body)
+                inserted.extend(record)
+                changes.append((gen_body, None, new_body, True))
+            if inserted:
+                out[end_marker_pos:end_marker_pos] = inserted
 
     return bytes(out), changes
 
@@ -2293,6 +2321,7 @@ def op_clone_file3d_entry(op, data_dir, write):
     source_entry = int(op["source_entry"])
     target_entry = int(op["entry"])
     body_map_raw = op.get("body_map", {})
+    add_missing_body_entries = bool(op.get("add_missing_body_entries", False))
 
     if not isinstance(body_map_raw, dict):
         raise ValueError("body_map must be an object")
@@ -2316,14 +2345,17 @@ def op_clone_file3d_entry(op, data_dir, write):
         raise ValueError("FILE3D target entry %d is invalid" % target_entry)
 
     source_raw = entries[source_entry]
-    target_raw, changes = clone_fiche_with_body_map(source_raw, body_map)
+    target_raw, changes = clone_fiche_with_body_map(source_raw, body_map, add_missing_body_entries)
 
     print(
         "clone_file3d_entry %s entry %d FILE3D %d -> %d:"
         % (op["file"], ress_entry, source_entry, target_entry)
     )
-    for gen_body, old_body, new_body in changes:
-        print("  body gen %d: %d -> %d" % (gen_body, old_body, new_body))
+    for gen_body, old_body, new_body, added in changes:
+        if added:
+            print("  body gen %d: added %d" % (gen_body, new_body))
+        else:
+            print("  body gen %d: %d -> %d" % (gen_body, old_body, new_body))
     if not changes:
         print("  no body changes")
 

@@ -2,7 +2,12 @@
 """Targeted Twinsen body remap helpers.
 
 This is intentionally narrow: copy Twinsen horn geometry between tunic,
-sweater, and mage bodies and write loose O3D files for mod manifests.
+sweater, and mage bodies, copy protopack geometry to other outfits, and write
+loose O3D files for mod manifests.
+
+The protopack/jetpack copy mode is a work in progress. The sweater version is
+missing faces or should be welded to Twinsen's back. The mage version clips
+into Twinsen during animation.
 """
 
 import argparse
@@ -23,13 +28,35 @@ HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 GROUP_FORMAT = "<HHHH"
 POINT_FORMAT = "<hhhh"
 LINE_FORMAT = "<HHHH"
+SPHERE_FORMAT = "<HHHH"
 
-TRITON_TUNIC_BODY = 18
 SWEATER_BODY = 0
-MAGE_BODY = 19
+MAGE_BODY = 7
+TUNIC_PROTOPACK_BODY = 16
+TUNIC_TRITON_BODY = 18
+MAGE_TRITON_BODY = 19
+TUNIC_JETPACK_BODY = 21
+
 HORN_GROUPS = range(19, 24)
 HORN_POINT_GROUP = 23
 STRING_LINE_COLOR = 18
+
+PROTOPACK_ATTACH_GROUP = 3
+PROTOPACK_FACE_INDICES = (
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+    25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+    35, 50, 51, 52, 55, 56, 57, 58, 59, 60,
+    61, 62, 63, 64, 65, 66, 67, 70, 71, 188,
+)
+JETPACK_ATTACH_GROUP = 3
+JETPACK_FACE_INDICES = (
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+    25, 26, 27, 28, 29, 30, 31, 46, 47, 52,
+    53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+    63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
+    73, 76, 77, 78, 195, 304, 305, 306, 307, 308,
+    309,
+)
 
 
 class Body(object):
@@ -76,13 +103,19 @@ class Body(object):
             struct.unpack_from(POINT_FORMAT, data, self.off_normals + i * 8)
             for i in range(self.nb_normals)
         ]
-        self.norm_faces = data[self.off_norm_faces:self.off_polys]
+        self.norm_faces = [
+            struct.unpack_from(POINT_FORMAT, data, self.off_norm_faces + i * 8)
+            for i in range(self.nb_norm_faces)
+        ]
         self.polys = data[self.off_polys:self.off_lines]
         self.lines = [
             struct.unpack_from(LINE_FORMAT, data, self.off_lines + i * 8)
             for i in range(self.nb_lines)
         ]
-        self.spheres = data[self.off_spheres:self.off_textures]
+        self.spheres = [
+            struct.unpack_from(SPHERE_FORMAT, data, self.off_spheres + i * 8)
+            for i in range(self.nb_spheres)
+        ]
         self.textures = data[self.off_textures:]
 
 
@@ -152,6 +185,32 @@ def patch_poly_record(type_poly, record, point_map, normal_map):
     return bytes(out)
 
 
+def shift_poly_record(type_poly, record, point_insert, point_count,
+                      old_vertex_normal_count, face_normal_insert, face_normal_count):
+    out = bytearray(record)
+    is_quad = (type_poly & 0x8000) != 0
+    point_offsets = [0, 2, 4, 6] if is_quad else [0, 2, 4]
+    for off in point_offsets:
+        point = struct.unpack_from("<H", out, off)[0]
+        if point >= point_insert:
+            struct.pack_into("<H", out, off, point + point_count)
+    normal = struct.unpack_from("<H", out, 10)[0]
+    if normal < old_vertex_normal_count:
+        if normal >= point_insert:
+            struct.pack_into("<H", out, 10, normal + point_count)
+    else:
+        face_normal = normal - old_vertex_normal_count
+        normal = old_vertex_normal_count + point_count + face_normal
+        if face_normal >= face_normal_insert:
+            normal += face_normal_count
+        struct.pack_into("<H", out, 10, normal)
+    return bytes(out)
+
+
+def patch_point_group(point, group_index):
+    return (point[0], point[1], point[2], group_index)
+
+
 def parse_poly_blocks(blob):
     blocks = []
     pos = 0
@@ -168,6 +227,14 @@ def parse_poly_blocks(blob):
         blocks.append([type_poly, records, rec_size])
         pos += block_size
     return blocks
+
+
+def iter_poly_records(blocks):
+    index = 0
+    for type_poly, records, rec_size in blocks:
+        for record in records:
+            yield index, type_poly, record
+            index += 1
 
 
 def build_poly_blocks(blocks):
@@ -193,7 +260,7 @@ def add_poly_record(blocks, order, type_poly, record):
     order.append(type_poly)
 
 
-def rebuild_body(template, bounds_source, groups, points, normals, poly_blob, poly_count, lines):
+def rebuild_body(template, bounds_source, groups, points, normals, norm_faces, poly_blob, poly_count, lines):
     header = bytearray(HEADER_SIZE)
     chunks = []
     offset = HEADER_SIZE
@@ -214,8 +281,9 @@ def rebuild_body(template, bounds_source, groups, points, normals, poly_blob, po
     offset += len(normal_blob)
 
     off_norm_faces = offset
-    chunks.append(template.norm_faces)
-    offset += len(template.norm_faces)
+    norm_face_blob = b"".join(struct.pack(POINT_FORMAT, *normal) for normal in norm_faces)
+    chunks.append(norm_face_blob)
+    offset += len(norm_face_blob)
 
     off_polys = offset
     chunks.append(poly_blob)
@@ -227,8 +295,9 @@ def rebuild_body(template, bounds_source, groups, points, normals, poly_blob, po
     offset += len(line_blob)
 
     off_spheres = offset
-    chunks.append(template.spheres)
-    offset += len(template.spheres)
+    sphere_blob = b"".join(struct.pack(SPHERE_FORMAT, *sphere) for sphere in template.spheres)
+    chunks.append(sphere_blob)
+    offset += len(sphere_blob)
 
     off_textures = offset
     chunks.append(template.textures)
@@ -250,7 +319,7 @@ def rebuild_body(template, bounds_source, groups, points, normals, poly_blob, po
         off_points,
         len(normals),
         off_normals,
-        template.nb_norm_faces,
+        len(norm_faces),
         off_norm_faces,
         poly_count,
         off_polys,
@@ -399,7 +468,7 @@ def copy_horn(source_raw, target_raw, output):
             copied_lines += 1
 
     poly_blob, poly_count = build_poly_blocks(target_blocks)
-    result = rebuild_body(target, source, target_groups, target_points, target_normals,
+    result = rebuild_body(target, source, target_groups, target_points, target_normals, target.norm_faces,
                           poly_blob, poly_count, target_lines)
 
     out_dir = os.path.dirname(output)
@@ -418,8 +487,164 @@ def copy_horn(source_raw, target_raw, output):
     print("  color-%d lines copied: %d" % (STRING_LINE_COLOR, copied_lines))
 
 
+def group_norm_face_ranges(groups):
+    ranges = []
+    start = 0
+    for group in groups:
+        count = group[3]
+        ranges.append((start, start + count))
+        start += count
+    return ranges
+
+
+def copy_selected_faces_to_group(source_raw, target_raw, face_indices, attach_group, output, label):
+    source = Body(source_raw)
+    target = Body(target_raw)
+    source_blocks = parse_poly_blocks(source.polys)
+    selected = set(face_indices)
+    selected_records = []
+    source_points = set()
+    source_vertex_normals = set()
+    source_face_normals = set()
+
+    for face_index, type_poly, record in iter_poly_records(source_blocks):
+        if face_index not in selected:
+            continue
+        points = poly_points(type_poly, record)
+        normal = struct.unpack_from("<H", record, 10)[0]
+        selected_records.append((type_poly, record))
+        source_points.update(points)
+        if normal < source.nb_normals:
+            source_vertex_normals.add(normal)
+        else:
+            source_face_normals.add(normal - source.nb_normals)
+
+    missing = selected.difference(
+        face_index for face_index, _, _ in iter_poly_records(source_blocks)
+    )
+    if missing:
+        raise ValueError("missing %s face indices: %s" % (label, sorted(missing)))
+    if len(selected_records) != len(face_indices):
+        raise ValueError("expected %d %s faces, found %d" %
+                         (len(face_indices), label, len(selected_records)))
+    if attach_group >= target.nb_groups:
+        raise ValueError("target has no attach group %d" % attach_group)
+
+    target_point_ranges = group_ranges(target.groups)
+    target_norm_face_ranges = group_norm_face_ranges(target.groups)
+    point_insert = target_point_ranges[attach_group][1]
+    face_normal_insert = target_norm_face_ranges[attach_group][1]
+    point_map = {}
+    normal_map = {}
+    append_source_points = sorted(source_points.union(source_vertex_normals))
+    append_source_face_normals = sorted(source_face_normals)
+    point_count = len(append_source_points)
+    face_normal_count = len(append_source_face_normals)
+    final_vertex_normal_count = target.nb_normals + point_count
+
+    target_points = (
+        list(target.points[:point_insert]) +
+        [patch_point_group(source.points[source_index], attach_group)
+         for source_index in append_source_points] +
+        list(target.points[point_insert:])
+    )
+    target_normals = (
+        list(target.normals[:point_insert]) +
+        [patch_point_group(source.normals[source_index], attach_group)
+         for source_index in append_source_points] +
+        list(target.normals[point_insert:])
+    )
+    target_norm_faces = (
+        list(target.norm_faces[:face_normal_insert]) +
+        [patch_point_group(source.norm_faces[source_index], attach_group)
+         for source_index in append_source_face_normals] +
+        list(target.norm_faces[face_normal_insert:])
+    )
+
+    for offset, source_index in enumerate(append_source_points):
+        point_map[source_index] = point_insert + offset
+        normal_map[source_index] = point_insert + offset
+
+    for offset, source_face_normal in enumerate(append_source_face_normals):
+        normal_map[source.nb_normals + source_face_normal] = (
+            final_vertex_normal_count + face_normal_insert + offset
+        )
+
+    target_groups = []
+    for index, group in enumerate(target.groups):
+        parent, org_point, nb_pts, nb_norm = group
+        if org_point >= point_insert:
+            org_point += point_count
+        if index == attach_group:
+            nb_pts += point_count
+            nb_norm += face_normal_count
+        target_groups.append((parent, org_point, nb_pts, nb_norm))
+
+    target_blocks = []
+    order = []
+    for type_poly, records, rec_size in parse_poly_blocks(target.polys):
+        for record in records:
+            add_poly_record(target_blocks, order, type_poly,
+                            shift_poly_record(type_poly, record,
+                                              point_insert, point_count,
+                                              target.nb_normals,
+                                              face_normal_insert,
+                                              face_normal_count))
+
+    target_lines = []
+    for line in target.lines:
+        type_line, color, p1, p2 = line
+        if p1 >= point_insert:
+            p1 += point_count
+        if p2 >= point_insert:
+            p2 += point_count
+        target_lines.append((type_line, color, p1, p2))
+
+    target_spheres = []
+    for sphere in target.spheres:
+        sphere_type, color, point, radius = sphere
+        if point >= point_insert:
+            point += point_count
+        target_spheres.append((sphere_type, color, point, radius))
+    target.spheres = target_spheres
+
+    copied_faces = 0
+    for type_poly, record in selected_records:
+        add_poly_record(target_blocks, order, type_poly,
+                        patch_poly_record(type_poly, record, point_map, normal_map))
+        copied_faces += 1
+
+    poly_blob, poly_count = build_poly_blocks(target_blocks)
+    result = rebuild_body(target, source, target_groups, target_points, target_normals,
+                          target_norm_faces, poly_blob, poly_count, target_lines)
+
+    out_dir = os.path.dirname(output)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    with open(output, "wb") as f:
+        f.write(result)
+
+    print("wrote %s" % output)
+    print("  %s faces copied: %d" % (label, copied_faces))
+    print("  attach group: %d" % attach_group)
+    print("  groups: %d -> %d" % (target.nb_groups, len(target_groups)))
+    print("  points: %d -> %d" % (target.nb_points, len(target_points)))
+    print("  normals: %d -> %d" % (target.nb_normals, len(target_normals)))
+    print("  face normals: %d -> %d" % (target.nb_norm_faces, len(target_norm_faces)))
+
+
+def copy_protopack(source_raw, target_raw, output):
+    copy_selected_faces_to_group(source_raw, target_raw, PROTOPACK_FACE_INDICES,
+                                 PROTOPACK_ATTACH_GROUP, output, "protopack")
+
+
+def copy_jetpack(source_raw, target_raw, output):
+    copy_selected_faces_to_group(source_raw, target_raw, JETPACK_FACE_INDICES,
+                                 JETPACK_ATTACH_GROUP, output, "jetpack")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Build loose Twinsen horn remap O3D files.")
+    parser = argparse.ArgumentParser(description="Build loose Twinsen body remap O3D files.")
     parser.add_argument("--body-hqr", default="data/BODY.HQR")
     parser.add_argument("--mod-dir", default="mods")
     parser.add_argument("--gawley-tunic", default=None)
@@ -433,14 +658,21 @@ def main():
         else:
             gawley_tunic = os.path.join(args.mod_dir, "MOD_BODY_18.O3D")
 
-    triton_tunic = load_body_source(args.body_hqr, TRITON_TUNIC_BODY)
+    triton_tunic = load_body_source(args.body_hqr, TUNIC_TRITON_BODY)
+    protopack = load_body_source(args.body_hqr, TUNIC_PROTOPACK_BODY)
+    jetpack = load_body_source(args.body_hqr, TUNIC_JETPACK_BODY)
     gawley_tunic_raw = load_body_source(gawley_tunic)
     sweater = load_body_source(args.body_hqr, SWEATER_BODY)
     mage = load_body_source(args.body_hqr, MAGE_BODY)
+    triton_mage = load_body_source(args.body_hqr, MAGE_TRITON_BODY)
 
     copy_horn(triton_tunic, sweater, os.path.join(args.mod_dir, "twinsen_sweater_tritons_horn.o3d"))
     copy_horn(gawley_tunic_raw, sweater, os.path.join(args.mod_dir, "twinsen_sweater_gawleys_horn.o3d"))
-    copy_horn(gawley_tunic_raw, mage, os.path.join(args.mod_dir, "twinsen_mage_gawleys_horn.o3d"))
+    copy_horn(gawley_tunic_raw, triton_mage, os.path.join(args.mod_dir, "twinsen_mage_gawleys_horn.o3d"))
+    copy_protopack(protopack, sweater, os.path.join(args.mod_dir, "twinsen_sweater_protopack.o3d"))
+    copy_protopack(protopack, mage, os.path.join(args.mod_dir, "twinsen_mage_protopack.o3d"))
+    copy_jetpack(jetpack, sweater, os.path.join(args.mod_dir, "twinsen_sweater_jetpack.o3d"))
+    copy_jetpack(jetpack, mage, os.path.join(args.mod_dir, "twinsen_mage_jetpack.o3d"))
 
     tunic_out = os.path.join(args.mod_dir, "twinsen_tunic_gawleys_horn.o3d")
     if os.path.abspath(gawley_tunic) != os.path.abspath(tunic_out):

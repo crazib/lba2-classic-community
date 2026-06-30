@@ -19,24 +19,112 @@ static void ModelToggleFaceSelection(T_BODY_HEADER *body, S32 index, const Model
     }
 }
 
-static void ModelSelectFacesByColor(T_BODY_HEADER *body, S32 color) {
+static void ModelSelectFacesByColor(T_BODY_HEADER *body, S32 color, S32 add_to_selection) {
     S32 i;
 
     if (!body OR !ModelFaceSelection)
         return;
-    ModelClearFaceSelection();
+    if (!add_to_selection)
+        ModelClearFaceSelection();
     for (i = 0; i < body->NbPolys AND i < ModelFaceSelectionCapacity; i++) {
         ModelFaceInfo info;
 
         if (!ModelFindFaceByIndex(body, i, &info))
             continue;
         if ((info.color & 0xff) == (color & 0xff)) {
-            ModelFaceSelection[i] = 1;
-            ModelSelectedFaceCount++;
+            if (!ModelFaceSelection[i]) {
+                ModelFaceSelection[i] = 1;
+                ModelSelectedFaceCount++;
+            }
             ModelSelectedFace = i;
             ModelSelectedFaceInfo = info;
         }
     }
+}
+
+static const char *ModelFaceTypeName(S32 face_type) {
+    if (face_type == MODEL_FACE_TEXTURE)
+        return "texture";
+    if (face_type == MODEL_FACE_ENV)
+        return "env";
+    return "light";
+}
+
+static void ModelDumpSelectedFace(const ModelFaceInfo *info, T_BODY_HEADER *body) {
+    T_OBJ_POINT *points = (T_OBJ_POINT *)((U8 *)body + body->OffPoints);
+    S32 i;
+
+    Log_Info("[model] face #%d header=%d offset=%d raw_type=%u type_poly=%d shape=%s kind=%s color=%u raw_color=%u normal=%u texture=%u scale=%u points=%d",
+             (int)info->index,
+             (int)info->header_offset,
+             (int)info->offset,
+             (unsigned)info->raw_type_poly,
+             (int)info->type_poly,
+             info->is_quad ? "quad" : "tri",
+             ModelFaceTypeName(info->face_type),
+             (unsigned)(info->color & 0xff),
+             (unsigned)info->color,
+             (unsigned)info->normal,
+             (unsigned)info->texture,
+             (unsigned)info->scale,
+             (int)info->point_count);
+
+    for (i = 0; i < info->point_count; i++) {
+        U16 point = info->points[i];
+
+        if (point >= body->NbPoints OR point >= MODEL_MAX_POINTS) {
+            Log_Info("[model]   p%d=%u invalid uv=(%u,%u)",
+                     (int)i,
+                     (unsigned)point,
+                     (unsigned)info->u[i],
+                     (unsigned)info->v[i]);
+            continue;
+        }
+        Log_Info("[model]   p%d=%u obj=(%d,%d,%d g%d) screen=(%d,%d) rotated=(%d,%d,%d) uv=(%u,%u)",
+                 (int)i,
+                 (unsigned)point,
+                 (int)points[point].X,
+                 (int)points[point].Y,
+                 (int)points[point].Z,
+                 (int)points[point].Group,
+                 (int)Obj_ListProjectedPoints[point].X,
+                 (int)Obj_ListProjectedPoints[point].Y,
+                 (int)Obj_ListRotatedPoints[point].X,
+                 (int)Obj_ListRotatedPoints[point].Y,
+                 (int)Obj_ListRotatedPoints[point].Z,
+                 (unsigned)info->u[i],
+                 (unsigned)info->v[i]);
+    }
+}
+
+static void ModelDumpSelectedFaces(T_BODY_HEADER *body) {
+    S32 i;
+    S32 dumped = 0;
+
+    if (!body OR !ModelFaceSelection OR ModelSelectedFaceCount <= 0) {
+        Log_Info("[model] no selected faces to dump");
+        ModelSetStatus("No selected faces to dump");
+        return;
+    }
+
+    Log_Info("[model] selected faces dump body=%d archive=%d selected=%d total=%d",
+             (int)ModelBodyId,
+             (int)ModelArchive,
+             (int)ModelSelectedFaceCount,
+             (int)body->NbPolys);
+    for (i = 0; i < body->NbPolys AND i < ModelFaceSelectionCapacity; i++) {
+        ModelFaceInfo info;
+
+        if (!ModelFaceSelection[i])
+            continue;
+        if (!ModelFindFaceByIndex(body, i, &info)) {
+            Log_Info("[model] face #%d selected but unreadable", (int)i);
+            continue;
+        }
+        ModelDumpSelectedFace(&info, body);
+        dumped++;
+    }
+    ModelSetStatus("Dumped %d selected faces to console", (int)dumped);
 }
 
 static void ModelSetSingleSphereSelection(T_BODY_HEADER *body, S32 index, const ModelSphereInfo *info) {
@@ -453,4 +541,3 @@ static void ModelApplyBoxSelection(T_BODY_HEADER *body, S32 add_to_selection) {
         }
     }
 }
-
